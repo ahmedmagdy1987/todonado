@@ -1,0 +1,9 @@
+# Normalize line endings to LF in the repo (checkout native on Windows).
+* text=auto eol=lf
+
+# Treat these as binary (no EOL conversion / no diff noise)
+*.png binary
+*.ico binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
