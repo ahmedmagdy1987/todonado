@@ -1,19 +1,37 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { WorkspaceProvider } from '@/features/workspace/WorkspaceProvider'
+import { useWorkspace } from '@/features/workspace/workspace-context'
+import { useRealtimeSync } from '@/features/tasks/api/useRealtimeSync'
+import { TaskDialog } from '@/features/tasks/components/TaskDialog'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 
-export function AppShell() {
+function ShellBody() {
+  const { workspaceId } = useWorkspace()
+  useRealtimeSync(workspaceId)
+  const [createOpen, setCreateOpen] = useState(false)
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar />
+        <TopBar onAddTask={() => setCreateOpen(true)} />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
             <Outlet />
           </div>
         </main>
       </div>
+      <TaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
+  )
+}
+
+export function AppShell() {
+  return (
+    <WorkspaceProvider>
+      <ShellBody />
+    </WorkspaceProvider>
   )
 }

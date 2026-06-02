@@ -13,7 +13,7 @@ function usePageTitle(): string {
   return match?.label ?? 'Todonado'
 }
 
-export function TopBar() {
+export function TopBar({ onAddTask }: { onAddTask?: () => void }) {
   const title = usePageTitle()
   const today = format(new Date(), 'EEEE, MMM d')
 
@@ -38,7 +38,7 @@ export function TopBar() {
             className="focus-ring h-9 w-64 rounded-xl border border-white/10 bg-surface-2/40 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted/70 disabled:cursor-not-allowed"
           />
         </div>
-        <Button size="sm" disabled title="Task capture arrives in the MVP">
+        <Button size="sm" onClick={onAddTask} disabled={!onAddTask} title="New task">
           <Plus className="h-4 w-4" aria-hidden />
           Add task
         </Button>

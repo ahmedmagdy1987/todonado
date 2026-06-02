@@ -5,6 +5,7 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { TodayPage } from '@/features/today/TodayPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
 import { ProjectsPage } from '@/features/projects/ProjectsPage'
+import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage'
 import { FocusPage } from '@/features/focus/FocusPage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
 
@@ -21,6 +22,7 @@ export function AppRoutes() {
           <Route path="today" element={<Navigate to="/" replace />} />
           <Route path="inbox" element={<InboxPage />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="focus" element={<FocusPage />} />
           <Route path="insights" element={<InsightsPage />} />
         </Route>
