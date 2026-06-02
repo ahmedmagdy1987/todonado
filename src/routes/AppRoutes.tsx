@@ -1,0 +1,33 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppShell } from '@/components/layout/AppShell'
+import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
+import { LoginPage } from '@/features/auth/LoginPage'
+import { TodayPage } from '@/features/today/TodayPage'
+import { InboxPage } from '@/features/inbox/InboxPage'
+import { ProjectsPage } from '@/features/projects/ProjectsPage'
+import { FocusPage } from '@/features/focus/FocusPage'
+import { InsightsPage } from '@/features/insights/InsightsPage'
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Authenticated app shell */}
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppShell />}>
+          <Route index element={<TodayPage />} />
+          <Route path="today" element={<Navigate to="/" replace />} />
+          <Route path="inbox" element={<InboxPage />} />
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="focus" element={<FocusPage />} />
+          <Route path="insights" element={<InsightsPage />} />
+        </Route>
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
