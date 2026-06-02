@@ -15,7 +15,7 @@ export function InboxPage() {
   const inbox = selectInbox(tasks)
 
   return (
-    <div className="animate-fade-in space-y-5">
+    <div className="animate-fade-in space-y-8">
       <header className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
           <InboxIcon className="h-5 w-5" aria-hidden />
@@ -56,7 +56,7 @@ export function InboxPage() {
 function InboxEmpty() {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center justify-center gap-2 py-14 text-center">
+      <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
         <InboxIcon className="h-8 w-8 text-text-muted/40" aria-hidden />
         <p className="font-medium text-text-primary">Inbox zero.</p>
         <p className="max-w-sm text-sm text-text-muted">

@@ -20,7 +20,7 @@ export function PagePlaceholder({
 }: PagePlaceholderProps) {
   return (
     <div className="animate-fade-in">
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-8 flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
           <Icon className="h-5 w-5" aria-hidden />
         </span>
@@ -34,7 +34,7 @@ export function PagePlaceholder({
       </div>
 
       <Card>
-        <CardContent className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+        <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
           <Icon className="h-8 w-8 text-text-muted/40" aria-hidden />
           <p className="font-medium text-text-primary">Scaffolded &amp; ready</p>
           <p className="max-w-sm text-sm text-text-muted">

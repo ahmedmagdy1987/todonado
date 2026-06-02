@@ -35,8 +35,8 @@ export function CapacityMeter({ summary, onCapacityChange }: CapacityMeterProps)
 
   return (
     <Card>
-      <CardContent className="p-5">
-        <div className="mb-4 flex items-center gap-2">
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-2">
           <Gauge className="h-4 w-4 text-brand" aria-hidden />
           <h3 className="font-display text-base font-semibold">Day Capacity</h3>
           <Badge variant="brand" className="ml-1">
@@ -66,7 +66,7 @@ export function CapacityMeter({ summary, onCapacityChange }: CapacityMeterProps)
           />
         </div>
 
-        <div className="mt-3 flex items-center justify-between font-mono text-sm">
+        <div className="flex items-center justify-between font-mono text-sm">
           <span className="text-text-primary">
             {formatMinutes(summary.plannedMinutes)}{' '}
             <span className="text-text-muted">planned</span>
@@ -94,7 +94,7 @@ export function CapacityMeter({ summary, onCapacityChange }: CapacityMeterProps)
         </div>
 
         {editing && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
+          <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
             {PRESETS.map((p) => (
               <Button key={p.minutes} type="button" variant="secondary" size="sm" onClick={() => save(p.minutes)}>
                 {p.label}
@@ -119,7 +119,7 @@ export function CapacityMeter({ summary, onCapacityChange }: CapacityMeterProps)
         )}
 
         {!editing && (
-          <p className="mt-3 text-xs text-text-muted">
+          <p className="text-xs text-text-muted">
             {summary.status === 'over'
               ? 'Overbooked — Todonado suggests moving the lowest-priority work to tomorrow.'
               : summary.status === 'near'

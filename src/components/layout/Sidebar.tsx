@@ -11,7 +11,7 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-white/5 bg-surface/50 md:flex">
-      <div className="flex h-16 items-center px-5">
+      <div className="flex h-[4.5rem] items-center px-5">
         <Logo />
       </div>
 

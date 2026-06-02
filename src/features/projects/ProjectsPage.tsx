@@ -30,7 +30,7 @@ export function ProjectsPage() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-8">
       <header className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
           <FolderKanban className="h-5 w-5" aria-hidden />
@@ -43,7 +43,7 @@ export function ProjectsPage() {
 
       <form
         onSubmit={handleCreate}
-        className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3"
+        className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-surface p-4"
       >
         <div className="flex items-center gap-1.5">
           {SWATCHES.map((c) => (
@@ -74,7 +74,7 @@ export function ProjectsPage() {
 
       {active.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center gap-2 py-14 text-center">
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <FolderKanban className="h-8 w-8 text-text-muted/40" aria-hidden />
             <p className="font-medium text-text-primary">No projects yet.</p>
             <p className="max-w-sm text-sm text-text-muted">
@@ -83,7 +83,7 @@ export function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {active.map((p) => {
             const count = selectByProject(tasks, p.id).filter((t) => t.status !== 'done').length
             return (

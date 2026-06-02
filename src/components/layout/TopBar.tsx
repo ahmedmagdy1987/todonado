@@ -18,7 +18,7 @@ export function TopBar({ onAddTask }: { onAddTask?: () => void }) {
   const today = format(new Date(), 'EEEE, MMM d')
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/5 bg-background/80 px-4 backdrop-blur md:px-6">
+    <header className="flex h-[4.5rem] shrink-0 items-center gap-3 border-b border-white/5 bg-background/80 px-6 backdrop-blur md:px-8">
       <div className="md:hidden">
         <Logo showWordmark={false} />
       </div>

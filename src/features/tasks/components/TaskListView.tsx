@@ -48,7 +48,7 @@ export function TaskListView({
           const positionById = new Map(tasks.map((t) => [t.id, t.position]))
           reorderTask.mutate({ id: activeId, position: newPositionForMove(ordered, activeId, positionById) })
         }}
-        className="space-y-0.5"
+        className="space-y-1"
       >
         {(id) => {
           const task = tasks.find((t) => t.id === id)

@@ -30,7 +30,7 @@ export function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="animate-fade-in space-y-4">
+      <div className="animate-fade-in space-y-6">
         <Link
           to="/projects"
           className="focus-ring inline-flex items-center gap-1 rounded text-sm text-text-muted hover:text-text-primary"
@@ -65,7 +65,7 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="animate-fade-in space-y-5">
+    <div className="animate-fade-in space-y-6">
       <Link
         to="/projects"
         className="focus-ring inline-flex items-center gap-1 rounded text-sm text-text-muted hover:text-text-primary"

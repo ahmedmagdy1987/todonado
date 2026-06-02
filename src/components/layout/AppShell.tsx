@@ -18,7 +18,7 @@ function ShellBody() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onAddTask={() => setCreateOpen(true)} />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
+          <div className="mx-auto w-full max-w-3xl px-6 pb-16 pt-10 md:px-8 md:pt-12">
             <Outlet />
           </div>
         </main>

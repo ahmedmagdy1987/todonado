@@ -65,7 +65,7 @@ export function TodayPage() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-8">
       <header>
         <p className="text-sm text-text-muted">{format(new Date(), 'EEEE, MMMM d')}</p>
         <h2 className="mt-1 font-display text-3xl font-bold tracking-tight">Your Command Center</h2>
@@ -137,7 +137,7 @@ export function TodayPage() {
 function TodayEmpty() {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center justify-center gap-4 py-14 text-center">
+      <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
         <img src="/icons/icon-192.png" alt="" aria-hidden className="h-14 w-14 rounded-2xl opacity-90" />
         <div>
           <h3 className="font-display text-xl font-semibold">Your day is clear.</h3>

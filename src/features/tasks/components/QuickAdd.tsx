@@ -36,7 +36,7 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus }: Qu
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-surface p-2 shadow-elevation"
+      className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-surface px-3 py-2 shadow-elevation"
     >
       <Plus className="ml-1 h-4 w-4 shrink-0 text-text-muted" aria-hidden />
       <input
@@ -45,7 +45,7 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus }: Qu
         onChange={(e) => setTitle(e.target.value)}
         placeholder={placeholder}
         aria-label="Task title"
-        className="min-w-[10rem] flex-1 bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none"
+        className="h-12 min-w-[10rem] flex-1 bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none"
       />
       <input
         value={effort}
@@ -55,14 +55,14 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus }: Qu
         step={5}
         placeholder="min"
         aria-label="Effort in minutes"
-        className="focus-ring w-16 rounded-lg border border-white/10 bg-surface-2/60 px-2 py-1 text-sm text-text-primary placeholder:text-text-muted/60"
+        className="focus-ring h-9 w-16 rounded-lg border border-white/10 bg-surface-2/60 px-2 text-sm text-text-primary placeholder:text-text-muted/60"
       />
       <input
         value={due}
         onChange={(e) => setDue(e.target.value)}
         type="date"
         aria-label="Due date"
-        className="focus-ring rounded-lg border border-white/10 bg-surface-2/60 px-2 py-1 text-sm text-text-muted"
+        className="focus-ring h-9 rounded-lg border border-white/10 bg-surface-2/60 px-2 text-sm text-text-muted"
       />
       <Button type="submit" size="sm" disabled={!title.trim()}>
         Add

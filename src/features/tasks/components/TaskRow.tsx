@@ -72,7 +72,7 @@ export function TaskRow({
 
   return (
     <div className="group/row">
-      <div className="flex items-start gap-3 rounded-xl border border-transparent px-2 py-2 transition-colors hover:border-white/5 hover:bg-surface-2/40">
+      <div className="flex items-start gap-3 rounded-xl border border-transparent px-4 py-3 transition-colors hover:border-white/5 hover:bg-surface-2/50">
         <Checkbox
           checked={done}
           onChange={() => onToggleComplete(task)}
