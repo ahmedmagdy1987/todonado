@@ -23,19 +23,19 @@ explicitly re-prioritizing. See `CLAUDE.md` for the "DO NOT BUILD YET" guardrail
 
 ---
 
-## MVP — Effort-aware day planning 🎯
+## MVP — Effort-aware day planning ✅ (Phase 1)
 **Goal:** ship the differentiator end-to-end.
 
-- [ ] Task CRUD with TanStack Query + Supabase (create/edit/complete/delete).
-- [ ] Inbox capture (title, notes, `effort_minutes`, priority).
-- [ ] **Today capacity meter** wired to real data (Σ `effort_minutes` of `scheduled_for`
-      today vs daily capacity; over-commit warning).
-- [ ] Schedule tasks to a day; **roll-over / recovery** of unfinished tasks.
-- [ ] Projects + sections + subtasks.
-- [ ] Supabase realtime sync across views.
-- [ ] User setting: daily capacity (minutes).
+- [x] Task CRUD with TanStack Query + Supabase (create/edit/complete/delete), optimistic.
+- [x] Inbox capture (title, notes, `effort_minutes`, priority).
+- [x] **Today capacity meter** wired to real data (Σ `effort_minutes` of `scheduled_for`
+      today vs daily capacity; over-commit warning + move-to-tomorrow suggestions).
+- [x] Schedule tasks to a day; **roll-over / recovery** of unfinished tasks (with undo).
+- [x] Projects + sections + subtasks (with drag-reorder).
+- [x] Supabase realtime sync across views (flagged in `src/lib/config.ts`).
+- [x] User setting: daily capacity (minutes), editable in the meter.
 
-**Exit criteria:** capture → estimate → schedule → meter responds → roll over tomorrow.
+**Exit criteria (met):** capture → estimate → schedule → meter responds → roll over tomorrow.
 
 ---
 

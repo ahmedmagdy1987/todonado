@@ -114,8 +114,17 @@ Group by **feature**, not by file-type. A feature owns its components, hooks, an
 > theming, and TanStack Query — **don't invent novel approaches for solved problems.**
 
 ### Verify before you commit
-`npm run typecheck` · `npm run lint` · `npm run build` must all pass. Commit in small,
-logical commits.
+`npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` must all pass. Pure
+logic (capacity, roll-over selection, selectors, reorder) is unit-tested with Vitest — keep
+it that way. Commit in small, logical commits.
+
+### What's built (state)
+Phase 0 (foundation) and the **MVP task engine** are done: workspace context, full task CRUD
+with optimistic TanStack Query hooks, **Inbox** capture, **Projects** (sections, tasks,
+expandable subtasks, drag-reorder), the **Today** command center with a live **effort-aware
+capacity meter** + overbooking guard, lightweight **roll-over** (with undo), Supabase realtime
+sync (flagged in `src/lib/config.ts`), and `npm run seed`. Focus & Insights remain
+placeholders (V1).
 
 ---
 
@@ -125,11 +134,12 @@ logical commits.
 Repo, tooling, design system, architecture, schema + RLS, auth, running app shell, PWA
 manifest, docs. No full features.
 
-### MVP — Effort-aware day planning
-- Task CRUD (capture, edit, complete) in Inbox + Today.
-- `effort_minutes` on tasks; **Today capacity meter** (planned effort vs daily capacity).
-- Schedule tasks to a day (`scheduled_for`); **roll-over / recovery** of unfinished tasks.
-- Projects & sections for organization. Subtasks. Realtime sync via Supabase.
+### MVP — Effort-aware day planning *(done — Phase 1)*
+- [x] Task CRUD (capture, edit, complete) in Inbox + Today.
+- [x] `effort_minutes` on tasks; **Today capacity meter** (planned effort vs daily capacity).
+- [x] Schedule tasks to a day (`scheduled_for`); **roll-over / recovery** of unfinished tasks.
+- [x] Projects & sections for organization. Subtasks. Realtime sync via Supabase.
+- [x] Per-user daily capacity (`profiles.daily_capacity_minutes`), editable in the meter.
 
 ### V1 — Focus & insight
 - Focus sessions / timer drawing from the planned day.

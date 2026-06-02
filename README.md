@@ -11,9 +11,10 @@ Todonado is a dark, **mission-control daily command center** for tasks, projects
 tasks with an effort estimate and the **Today capacity meter** keeps your day honest, with
 lightweight roll-over for whatever didn't get done.
 
-> **Status:** Phase 0 — Foundation. The app boots, the brand-styled login renders, and the
-> mission-control shell is in place with clearly-labeled placeholders. Full task features
-> arrive in the MVP. See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> **Status:** MVP task engine working (Phase 1). Capture in the Inbox, organize in Projects
+> (sections + subtasks), plan **Today** with a live effort-aware capacity meter + overbooking
+> guard, and roll over yesterday's leftovers — all wired to Supabase with optimistic updates
+> and realtime sync. Focus & Insights are placeholders (V1). See [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Tech stack
 - **Vite + React 18 + TypeScript (strict)**
@@ -68,6 +69,8 @@ in order:
 1. `20260602120000_initial_schema.sql`
 2. `20260602120100_rls_policies.sql`
 3. `20260602120200_auth_bootstrap.sql`
+4. `20260603090000_add_daily_capacity.sql` — adds `profiles.daily_capacity_minutes`
+5. `20260603090100_realtime.sql` — adds tables to the realtime publication
 
 **B) Supabase CLI:**
 ```bash
@@ -85,7 +88,17 @@ npm run build      # typecheck + production build
 npm run preview    # preview the production build
 npm run lint       # eslint
 npm run typecheck  # tsc (strict)
+npm run test       # vitest (pure logic: capacity, roll-over, selectors, reorder)
 ```
+
+### 5. (Optional) Seed sample data
+Populate Today + the capacity meter with sample projects and tasks:
+```bash
+npm run seed
+```
+Requires (in `.env`) `VITE_SUPABASE_URL` plus **either** `SUPABASE_SERVICE_ROLE_KEY`
+(server-only secret — never exposed to the browser) **or** `SEED_EMAIL` + `SEED_PASSWORD`
+for an existing account. Re-running replaces the seed rows. See `.env.example`.
 
 ## PWA
 Todonado ships an installable web app manifest (`public/manifest.webmanifest`) with brand
