@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { Button, Card, Input } from '@/components/ui'
 import { Logo } from '@/components/brand/Logo'
@@ -23,6 +23,9 @@ const CAPACITY_PRESETS = [
 ]
 const TOTAL_STEPS = 4
 
+const FOCUSABLE =
+  'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
 /**
  * First-run activation flow. A short, skippable guided wrapper around existing
  * features (capacity setting, quick-add capture, scheduling) that lands a new
@@ -40,6 +43,36 @@ export function OnboardingOverlay() {
   const [step, setStep] = useState(1)
   const [createdIds, setCreatedIds] = useState<string[]>([])
   const [customHours, setCustomHours] = useState('')
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Modal semantics: lock scroll and trap focus so keyboard users can't tab
+  // into the app obscured behind the first-run overlay.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    panelRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+      previouslyFocused?.focus?.()
+    }
+  }, [])
 
   const today = todayISO()
   const captured = tasks.filter((t) => createdIds.includes(t.id))
@@ -91,7 +124,14 @@ export function OnboardingOverlay() {
             'radial-gradient(60% 50% at 50% 0%, rgba(108,92,231,0.18) 0%, rgba(78,168,255,0.07) 35%, transparent 70%)',
         }}
       />
-      <div className="relative z-10 w-full max-w-lg animate-fade-in">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Get started with Todonado"
+        tabIndex={-1}
+        className="relative z-10 w-full max-w-lg animate-fade-in outline-none"
+      >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-1.5" aria-label={`Step ${step} of ${TOTAL_STEPS}`}>
             {Array.from({ length: TOTAL_STEPS }, (_, i) => (
