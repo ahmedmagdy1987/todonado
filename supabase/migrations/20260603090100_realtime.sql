@@ -29,3 +29,9 @@ begin
   end loop;
 end
 $$;
+
+-- DELETE payloads only include columns in the table's REPLICA IDENTITY. The
+-- client filters tasks/projects subscriptions by workspace_id, so include the
+-- full OLD row on delete; otherwise filtered DELETE events would be dropped.
+alter table public.tasks replica identity full;
+alter table public.projects replica identity full;

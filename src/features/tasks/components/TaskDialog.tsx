@@ -64,7 +64,9 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       setProjectId(defaults?.project_id ?? '')
       setSectionId(defaults?.section_id ?? '')
     }
-  }, [open, task, defaults])
+    // Depend on primitive default fields (not the `defaults` object identity) so
+    // an inline-literal `defaults` prop can't reset the form on every render.
+  }, [open, task, defaults?.scheduled_for, defaults?.project_id, defaults?.section_id])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
