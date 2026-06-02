@@ -184,3 +184,35 @@ isolates every row to workspaces the user **owns or is a member of**, enforced v
 `SECURITY DEFINER` helpers (`is_workspace_member`, `is_workspace_owner`, `can_access_*`). A
 new auth user is auto-provisioned a profile + default workspace + owner membership. See
 `supabase/migrations/`.
+
+---
+
+## 7. Project state & post-wipe setup
+
+> Durable state previously kept only in local agent memory — committed here so it survives a
+> clean machine / fresh clone.
+
+### Supabase (already provisioned)
+- Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
+- **All migrations are applied** (through `20260606090000_onboarding`) and RLS is verified
+  enforcing on every table (anon reads return `[]`; anon writes are rejected with `42501`).
+  Don't re-create the schema — `supabase db push` should report the remote already up to date.
+
+### Restoring a clean machine / fresh clone
+1. `npm install`
+2. `cp .env.example .env`, then set `VITE_SUPABASE_URL` (above) and the **anon** key from
+   Supabase Dashboard → Project Settings → API. The anon key is intentionally NOT committed
+   (kept in gitignored `.env`); recover it from the dashboard.
+3. Set the per-repo git identity:
+   `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
+4. To run future migrations: `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+
+### Agent / CLI note
+In the Claude Code harness the Bash sandbox blocks both network and the Supabase CLI
+credential store, so `git push`, `supabase db push`, `supabase login/link`, and REST/curl
+verification fail when sandboxed ("Could not resolve host" / "Access token not provided"). Run
+those with the sandbox disabled. `supabase db push` prompts `[Y/n]` — pipe `printf 'y\n' |` to
+auto-confirm.
+
+### Repo
+`ahmedmagdy1987/todonado` (private), default branch `main`.
