@@ -89,6 +89,17 @@ export function useTaskMutations(workspaceId: string) {
 
   const toggleComplete = useMutation({
     mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
+      // Spawn exactly once per genuine todo->done transition. The optimistic
+      // cache already shows 'done', so read the prior status from the server.
+      let wasAlreadyDone = false
+      if (done) {
+        const { data: current } = await supabase
+          .from('tasks')
+          .select('status')
+          .eq('id', id)
+          .single()
+        wasAlreadyDone = (current as { status?: string } | null)?.status === 'done'
+      }
       const patch: TaskPatch = done
         ? { status: 'done', completed_at: new Date().toISOString() }
         : { status: 'todo', completed_at: null }
@@ -102,7 +113,7 @@ export function useTaskMutations(workspaceId: string) {
       const updated = data as Task
       // Completing a recurring task keeps it in history AND spawns the next
       // occurrence (same rule, advanced date). Past the end date -> no spawn.
-      if (done && updated.recurrence_freq) {
+      if (done && !wasAlreadyDone && updated.recurrence_freq) {
         const next = buildNextOccurrence(updated)
         if (next) {
           const { error: spawnError } = await supabase.from('tasks').insert(next)

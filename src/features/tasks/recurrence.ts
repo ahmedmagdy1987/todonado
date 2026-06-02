@@ -40,7 +40,7 @@ function nextWeekly(from: Date, interval: number, weekdays?: number[] | null): D
 }
 
 function nextDate(rule: RecurrenceRule, from: Date): Date {
-  const interval = Math.max(1, Math.floor(rule.interval))
+  const interval = Number.isFinite(rule.interval) ? Math.max(1, Math.floor(rule.interval)) : 1
   switch (rule.freq) {
     case 'daily':
       return addDays(from, interval)

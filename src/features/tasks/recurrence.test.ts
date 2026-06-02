@@ -37,6 +37,25 @@ describe('computeNextOccurrence — weekly', () => {
       '2026-06-08',
     )
   })
+
+  it('multi-weekday + interval 2 weeks (trickiest path)', () => {
+    // from Wed 2026-06-03, on Mon+Wed, every 2 weeks → next on-interval week = 06-15 (Mon)
+    expect(
+      computeNextOccurrence({ freq: 'weekly', interval: 2, weekdays: [1, 3] }, '2026-06-03'),
+    ).toBe('2026-06-15')
+  })
+
+  it('drops out-of-range weekday values', () => {
+    expect(
+      computeNextOccurrence({ freq: 'weekly', interval: 1, weekdays: [1, 7, -1] }, MON),
+    ).toBe('2026-06-08')
+  })
+
+  it('respects the until cutoff on the weekly path', () => {
+    expect(
+      computeNextOccurrence({ freq: 'weekly', interval: 1, weekdays: [1], until: '2026-06-05' }, MON),
+    ).toBeNull()
+  })
 })
 
 describe('computeNextOccurrence — monthly (month-end clamp)', () => {

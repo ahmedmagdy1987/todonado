@@ -58,7 +58,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
   const [projectId, setProjectId] = useState('')
   const [sectionId, setSectionId] = useState('')
   const [recurFreq, setRecurFreq] = useState<'' | RecurrenceFreq>('')
-  const [recurInterval, setRecurInterval] = useState(1)
+  const [recurInterval, setRecurInterval] = useState('1')
   const [recurWeekdays, setRecurWeekdays] = useState<number[]>([])
   const [recurUntil, setRecurUntil] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -78,7 +78,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       setProjectId(task.project_id ?? '')
       setSectionId(task.section_id ?? '')
       setRecurFreq(task.recurrence_freq ?? '')
-      setRecurInterval(task.recurrence_interval || 1)
+      setRecurInterval(String(task.recurrence_interval || 1))
       setRecurWeekdays(task.recurrence_weekdays ?? [])
       setRecurUntil(task.recurrence_until ?? '')
     } else {
@@ -91,7 +91,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       setProjectId(defaults?.project_id ?? '')
       setSectionId(defaults?.section_id ?? '')
       setRecurFreq('')
-      setRecurInterval(1)
+      setRecurInterval('1')
       setRecurWeekdays([])
       setRecurUntil('')
     }
@@ -101,9 +101,14 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const parsed = formSchema.safeParse({ title, recurInterval: recurFreq ? recurInterval : 1 })
+    const intervalNum = Math.max(1, Math.floor(Number(recurInterval) || 1))
+    const parsed = formSchema.safeParse({ title, recurInterval: recurFreq ? intervalNum : 1 })
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input')
+      return
+    }
+    if (recurFreq === 'weekly' && recurWeekdays.length === 0) {
+      setError('Pick at least one weekday for a weekly repeat.')
       return
     }
     const n = Number(effort)
@@ -120,7 +125,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       project_id: projectId || null,
       section_id: projectId ? sectionId || null : null,
       recurrence_freq: recurFreq || null,
-      recurrence_interval: recurFreq ? Math.max(1, recurInterval) : 1,
+      recurrence_interval: recurFreq ? intervalNum : 1,
       recurrence_weekdays:
         recurFreq === 'weekly' && recurWeekdays.length > 0
           ? [...recurWeekdays].sort((a, b) => a - b)
@@ -275,9 +280,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
                       type="number"
                       min={1}
                       value={recurInterval}
-                      onChange={(e) =>
-                        setRecurInterval(Math.max(1, Math.floor(Number(e.target.value) || 1)))
-                      }
+                      onChange={(e) => setRecurInterval(e.target.value)}
                       className="w-20"
                       aria-label="Repeat interval"
                     />

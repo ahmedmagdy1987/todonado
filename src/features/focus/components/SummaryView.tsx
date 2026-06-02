@@ -3,6 +3,9 @@ import { Button, Card, CardContent } from '@/components/ui'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
+import { nextOccurrenceDate } from '@/features/tasks/recurrence'
+import { useToast } from '@/components/common/toast-context'
+import { formatDateShort } from '@/lib/format'
 import type { FocusSession } from '@/types/database'
 import { formatClock } from '../timer'
 
@@ -14,6 +17,7 @@ export function SummaryView({
   onDone: () => void
 }) {
   const { workspaceId } = useWorkspace()
+  const toast = useToast()
   const { data: tasks = [] } = useTasks(workspaceId)
   const { toggleComplete } = useTaskMutations(workspaceId)
   const task = session.task_id ? (tasks.find((t) => t.id === session.task_id) ?? null) : null
@@ -57,7 +61,21 @@ export function SummaryView({
             {task && task.status !== 'done' && (
               <Button
                 onClick={() => {
-                  toggleComplete.mutate({ id: task.id, done: true })
+                  toggleComplete.mutate(
+                    { id: task.id, done: true },
+                    {
+                      onSuccess: () => {
+                        if (task.recurrence_freq) {
+                          const next = nextOccurrenceDate(task)
+                          toast.show(
+                            next
+                              ? `↻ Next occurrence scheduled for ${formatDateShort(next)}`
+                              : '↻ Recurrence finished — no more occurrences',
+                          )
+                        }
+                      },
+                    },
+                  )
                   onDone()
                 }}
               >
