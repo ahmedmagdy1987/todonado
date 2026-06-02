@@ -49,6 +49,14 @@ create policy focus_sessions_rw on public.focus_sessions
 -- ----------------------------------------------------------------------------
 do $$
 begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end
+$$;
+
+do $$
+begin
   if not exists (
     select 1 from pg_publication_tables
     where pubname = 'supabase_realtime'

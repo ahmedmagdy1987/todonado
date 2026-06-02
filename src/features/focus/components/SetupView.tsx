@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Target } from 'lucide-react'
 import { Button, Card, CardContent, Input, Select } from '@/components/ui'
 import { useWorkspace } from '@/features/workspace/workspace-context'
@@ -21,14 +21,19 @@ export function SetupView({
   const { startSession } = useFocusMutations(workspaceId)
   const [taskId, setTaskId] = useState(initialTaskId ?? '')
   const [minutes, setMinutes] = useState(DEFAULT_MINUTES)
+  const prefilledFor = useRef<string | null>(null)
 
   const openTasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
 
-  // Picking a task pre-fills the planned duration from its effort estimate.
+  // Pre-fill the planned duration from a task's effort — ONCE per task selection,
+  // so a background tasks refetch (realtime / window focus) can't clobber a
+  // duration the user picked after selecting the task.
   useEffect(() => {
-    if (!taskId) return
+    if (!taskId || prefilledFor.current === taskId) return
     const task = tasks.find((t) => t.id === taskId)
-    if (task?.effort_minutes && task.effort_minutes > 0) {
+    if (!task) return // tasks not loaded yet — retry when they arrive
+    prefilledFor.current = taskId
+    if (task.effort_minutes && task.effort_minutes > 0) {
       setMinutes(task.effort_minutes)
     }
   }, [taskId, tasks])
@@ -86,7 +91,12 @@ export function SetupView({
                   type="number"
                   min={1}
                   value={minutes}
-                  onChange={(e) => setMinutes(Number(e.target.value) || DEFAULT_MINUTES)}
+                  onChange={(e) => {
+                    const n = Number(e.target.value)
+                    // Allow clear-and-retype (no snap to default) and never show a
+                    // negative; start() clamps to a minimum of 1.
+                    setMinutes(e.target.value === '' || !Number.isFinite(n) ? 0 : Math.max(0, Math.floor(n)))
+                  }}
                   className="h-10 w-24"
                   aria-label="Custom duration in minutes"
                 />

@@ -21,8 +21,18 @@ function useNow(active: boolean): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!active) return
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
+    const tick = () => setNow(Date.now())
+    const id = setInterval(tick, 1000)
+    // Re-sync immediately on refocus so a session backgrounded past 0 completes
+    // promptly (the interval is throttled while the tab is hidden).
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [active])
   return now
 }
@@ -57,15 +67,19 @@ export function RunningView({
   function end(status: 'completed' | 'abandoned', actualSeconds: number) {
     if (endingRef.current) return
     endingRef.current = true
-    patchSession.mutate({
-      id: session.id,
-      patch: {
-        status,
-        ended_at: new Date().toISOString(),
-        actual_seconds: actualSeconds,
-        paused_at: null,
+    patchSession.mutate(
+      {
+        id: session.id,
+        patch: {
+          status,
+          ended_at: new Date().toISOString(),
+          actual_seconds: actualSeconds,
+          paused_at: null,
+        },
       },
-    })
+      // If the end fails (e.g. offline), un-wedge the guard so it can be retried.
+      { onError: () => void (endingRef.current = false) },
+    )
     onEnded(session.id)
   }
 
