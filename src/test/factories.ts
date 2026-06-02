@@ -1,4 +1,4 @@
-import type { Task } from '@/types/database'
+import type { FocusSession, Task } from '@/types/database'
 
 let counter = 0
 
@@ -21,6 +21,29 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
     completed_at: null,
+  }
+  return { ...base, ...overrides }
+}
+
+let focusCounter = 0
+
+/** Build a FocusSession with sensible defaults; override any field. */
+export function makeFocusSession(overrides: Partial<FocusSession> = {}): FocusSession {
+  focusCounter += 1
+  const base: FocusSession = {
+    id: `focus-${focusCounter}`,
+    workspace_id: 'ws-1',
+    task_id: null,
+    planned_minutes: 50,
+    started_at: '2026-06-02T09:00:00.000Z',
+    ended_at: null,
+    actual_seconds: 0,
+    interruptions: 0,
+    status: 'completed',
+    paused_at: null,
+    accumulated_paused_seconds: 0,
+    created_at: '2026-06-02T09:00:00.000Z',
+    updated_at: '2026-06-02T09:00:00.000Z',
   }
   return { ...base, ...overrides }
 }

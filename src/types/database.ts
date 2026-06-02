@@ -137,3 +137,45 @@ export interface NewSubtaskInput {
   title: string
   position?: number
 }
+
+// ---------------------------------------------------------------------------
+//  Focus sessions (task-bound focus mode)
+// ---------------------------------------------------------------------------
+export type FocusStatus = 'running' | 'completed' | 'abandoned'
+
+export interface FocusSession {
+  id: string
+  workspace_id: string
+  /** null = general (non-task) focus. */
+  task_id: string | null
+  planned_minutes: number
+  started_at: string
+  ended_at: string | null
+  actual_seconds: number
+  interruptions: number
+  status: FocusStatus
+  /** When currently paused, the instant it was paused (null = running). */
+  paused_at: string | null
+  /** Total paused seconds accumulated before the current pause. */
+  accumulated_paused_seconds: number
+  created_at: string
+  updated_at: string
+}
+
+export interface NewFocusSessionInput {
+  workspace_id: string
+  task_id?: string | null
+  planned_minutes: number
+}
+
+export type FocusSessionPatch = Partial<
+  Pick<
+    FocusSession,
+    | 'status'
+    | 'ended_at'
+    | 'actual_seconds'
+    | 'interruptions'
+    | 'paused_at'
+    | 'accumulated_paused_seconds'
+  >
+>
