@@ -62,11 +62,18 @@ describe('suggestTasksToMoveTomorrow', () => {
     expect(result.map((t) => t.title)).toEqual(['low'])
   })
 
-  it('ignores done/cancelled and effort-less tasks as candidates', () => {
-    const done = makeTask({ effort_minutes: 200, status: 'done', priority: 0 })
-    const noEffort = makeTask({ effort_minutes: null, priority: 0 })
-    const open = makeTask({ effort_minutes: 200, status: 'todo', priority: 0, title: 'open' })
-    const result = suggestTasksToMoveTomorrow([done, noEffort, open], 300)
-    expect(result.map((t) => t.title)).toEqual(['open'])
+  it('counts only remaining effort and never moves done tasks', () => {
+    const done = makeTask({ effort_minutes: 500, status: 'done', priority: 0, title: 'done' })
+    const open1 = makeTask({ effort_minutes: 200, status: 'todo', priority: 0, title: 'open1' })
+    const open2 = makeTask({ effort_minutes: 200, status: 'todo', priority: 1, title: 'open2' })
+    // done is excluded from planned and from candidates; remaining 400 over 300 -> move lowest
+    const result = suggestTasksToMoveTomorrow([done, open1, open2], 300)
+    expect(result.map((t) => t.title)).toEqual(['open1'])
+  })
+
+  it('suggests nothing when the day is fully completed', () => {
+    const a = makeTask({ effort_minutes: 300, status: 'done' })
+    const b = makeTask({ effort_minutes: 300, status: 'done' })
+    expect(suggestTasksToMoveTomorrow([a, b], 120)).toEqual([])
   })
 })

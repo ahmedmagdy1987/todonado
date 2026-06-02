@@ -70,7 +70,10 @@ export function suggestTasksToMoveTomorrow(
   capacityMinutes: number,
 ): Task[] {
   const capacity = capacityMinutes > 0 ? capacityMinutes : DEFAULT_DAILY_CAPACITY_MINUTES
-  const planned = sumEffort(todayTasks.filter((t) => t.status !== 'cancelled'))
+  // Base "over" on remaining (movable) effort — completed work shouldn't count.
+  const planned = sumEffort(
+    todayTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress'),
+  )
   let over = planned - capacity
   if (over <= 0) return []
 

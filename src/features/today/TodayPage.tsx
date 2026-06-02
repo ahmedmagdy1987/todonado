@@ -39,11 +39,16 @@ export function TodayPage() {
 
   const todayTasks = selectToday(tasks, today)
   const overdue = selectRolloverTasks(tasks, today)
-  const planned = sumEffort(todayTasks.filter((t) => t.status !== 'cancelled'))
+  // Capacity reflects remaining (incomplete) effort, so a finished day reads as
+  // clear rather than alarmingly "overbooked".
+  const planned = sumEffort(
+    todayTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress'),
+  )
   const summary = computeCapacity(planned, capacityMinutes)
   const suggestions = suggestTasksToMoveTomorrow(todayTasks, capacityMinutes)
 
   function rollOne(task: Task) {
+    setUndo((prev) => [...(prev ?? []), { id: task.id, scheduled_for: task.scheduled_for }])
     updateTask.mutate({ id: task.id, patch: { scheduled_for: today } })
   }
   function rollAll() {
