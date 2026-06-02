@@ -19,6 +19,8 @@ export interface Profile {
   avatar_url: string | null
   /** Planning capacity per day, in minutes (default 360 = 6h). */
   daily_capacity_minutes: number
+  /** First-run onboarding finished (or skipped); never re-shown once true. */
+  onboarding_completed: boolean
   created_at: string
   updated_at: string
 }

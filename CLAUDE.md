@@ -130,7 +130,11 @@ recorded session summary (`focus_sessions` table; accumulated focus time shows o
 **Recurring tasks** are built: daily/weekly(weekday picker)/monthly/yearly with an "every N"
 interval + optional end date (recurrence columns on `tasks`); completing a recurring task keeps
 it in history and spawns the correctly-dated next occurrence (unit-tested date math incl.
-month-end clamp). **Insights** remains a placeholder (V1).
+month-end clamp). **First-run onboarding** is built: a short, skippable 4-step activation flow
+(welcome → daily capacity → capture → plan today) that reuses existing capacity/quick-add/
+scheduling logic to land a new user on a planned Today with a live capacity meter; gated by
+`profiles.onboarding_completed`, never re-shown once finished/skipped. **Insights** remains a
+placeholder (V1).
 
 ---
 

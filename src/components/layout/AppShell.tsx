@@ -4,11 +4,13 @@ import { WorkspaceProvider } from '@/features/workspace/WorkspaceProvider'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useRealtimeSync } from '@/features/tasks/api/useRealtimeSync'
 import { TaskDialog } from '@/features/tasks/components/TaskDialog'
+import { OnboardingOverlay } from '@/features/onboarding/OnboardingOverlay'
+import { shouldShowOnboarding } from '@/features/onboarding/gating'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 
 function ShellBody() {
-  const { workspaceId } = useWorkspace()
+  const { workspaceId, profile } = useWorkspace()
   useRealtimeSync(workspaceId)
   const [createOpen, setCreateOpen] = useState(false)
 
@@ -24,6 +26,7 @@ function ShellBody() {
         </main>
       </div>
       <TaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      {shouldShowOnboarding(profile) && <OnboardingOverlay />}
     </div>
   )
 }
