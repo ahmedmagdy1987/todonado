@@ -2,12 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Checkbox } from '@/components/ui'
 import { SortableList } from '@/components/common/SortableList'
+import { newPositionForMove } from '@/lib/reorder'
 import { cn } from '@/lib/utils'
 import { useSubtasks, useSubtaskMutations } from '../api/useSubtasks'
 
 export function SubtaskList({ taskId }: { taskId: string }) {
   const { data: subtasks = [], isPending } = useSubtasks(taskId)
-  const { addSubtask, toggleSubtask, deleteSubtask, reorderSubtasks } = useSubtaskMutations(taskId)
+  const { addSubtask, toggleSubtask, deleteSubtask, reorderSubtask } = useSubtaskMutations(taskId)
   const [title, setTitle] = useState('')
 
   function handleAdd(e: FormEvent) {
@@ -23,7 +24,17 @@ export function SubtaskList({ taskId }: { taskId: string }) {
   return (
     <div className="space-y-0.5 border-l border-white/5 pl-3">
       {!isPending && (
-        <SortableList ids={ids} onReorder={(ordered) => reorderSubtasks.mutate(ordered)} className="space-y-0.5">
+        <SortableList
+          ids={ids}
+          onReorder={(ordered, activeId) => {
+            const positionById = new Map(subtasks.map((s) => [s.id, s.position]))
+            reorderSubtask.mutate({
+              id: activeId,
+              position: newPositionForMove(ordered, activeId, positionById),
+            })
+          }}
+          className="space-y-0.5"
+        >
           {(id) => {
             const s = subtasks.find((x) => x.id === id)
             if (!s) return null

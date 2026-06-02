@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Archive, ArrowLeft, Pencil, Plus } from 'lucide-react'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { SortableList } from '@/components/common/SortableList'
+import { newPositionForMove } from '@/lib/reorder'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
@@ -17,7 +18,7 @@ export function ProjectDetailPage() {
   const { data: projects = [], isPending: projectsPending } = useProjects(workspaceId)
   const { data: tasks = [] } = useTasks(workspaceId)
   const { data: sections = [] } = useSections(projectId)
-  const { createSection, renameSection, deleteSection, reorderSections } =
+  const { createSection, renameSection, deleteSection, reorderSection } =
     useSectionMutations(projectId)
   const { updateProject, archiveProject } = useProjectMutations(workspaceId)
 
@@ -131,7 +132,13 @@ export function ProjectDetailPage() {
       {sectionIds.length > 0 && (
         <SortableList
           ids={sectionIds}
-          onReorder={(ordered) => reorderSections.mutate(ordered)}
+          onReorder={(ordered, activeId) => {
+            const positionById = new Map(sections.map((s) => [s.id, s.position]))
+            reorderSection.mutate({
+              id: activeId,
+              position: newPositionForMove(ordered, activeId, positionById),
+            })
+          }}
           className="space-y-4"
         >
           {(id) => {

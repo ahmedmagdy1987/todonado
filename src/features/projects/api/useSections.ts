@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { positionUpdates } from '@/lib/reorder'
 import type { NewSectionInput, Section } from '@/types/database'
 
 export function useSections(projectId: string) {
@@ -91,29 +90,20 @@ export function useSectionMutations(projectId: string) {
     onSettled: settle,
   })
 
-  const reorderSections = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      const updates = positionUpdates(orderedIds)
-      const results = await Promise.all(
-        updates.map((u) =>
-          supabase.from('sections').update({ position: u.position }).eq('id', u.id),
-        ),
-      )
-      const failed = results.find((r) => r.error)
-      if (failed?.error) throw failed.error
+  const reorderSection = useMutation({
+    mutationFn: async ({ id, position }: { id: string; position: number }) => {
+      const { error } = await supabase.from('sections').update({ position }).eq('id', id)
+      if (error) throw error
     },
-    onMutate: async (orderedIds) => {
+    onMutate: async ({ id, position }) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Section[]>(key) ?? []
-      const posById = new Map(positionUpdates(orderedIds).map((u) => [u.id, u.position]))
-      setSections((p) =>
-        p.map((s) => (posById.has(s.id) ? { ...s, position: posById.get(s.id) ?? s.position } : s)),
-      )
+      setSections((p) => p.map((s) => (s.id === id ? { ...s, position } : s)))
       return { prev }
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
   })
 
-  return { createSection, renameSection, deleteSection, reorderSections }
+  return { createSection, renameSection, deleteSection, reorderSection }
 }

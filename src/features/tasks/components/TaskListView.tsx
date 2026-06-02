@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { Task } from '@/types/database'
 import { SortableList } from '@/components/common/SortableList'
+import { newPositionForMove } from '@/lib/reorder'
 import { TaskRow } from './TaskRow'
 import { TaskDialog } from './TaskDialog'
 import { useTaskMutations } from '../api/useTaskMutations'
@@ -30,7 +31,7 @@ export function TaskListView({
   showSchedule = true,
   emptyState,
 }: TaskListViewProps) {
-  const { toggleComplete, deleteTask, reorderTasks } = useTaskMutations(workspaceId)
+  const { toggleComplete, deleteTask, reorderTask } = useTaskMutations(workspaceId)
   const [editing, setEditing] = useState<Task | null>(null)
 
   if (tasks.length === 0) {
@@ -43,7 +44,10 @@ export function TaskListView({
     <>
       <SortableList
         ids={ids}
-        onReorder={(ordered) => reorderTasks.mutate(ordered)}
+        onReorder={(ordered, activeId) => {
+          const positionById = new Map(tasks.map((t) => [t.id, t.position]))
+          reorderTask.mutate({ id: activeId, position: newPositionForMove(ordered, activeId, positionById) })
+        }}
         className="space-y-0.5"
       >
         {(id) => {

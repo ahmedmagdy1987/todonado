@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { positionUpdates } from '@/lib/reorder'
 import type { NewSubtaskInput, Subtask } from '@/types/database'
 
 export function useSubtasks(taskId: string, enabled = true) {
@@ -107,29 +106,20 @@ export function useSubtaskMutations(taskId: string) {
     onSettled: settle,
   })
 
-  const reorderSubtasks = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      const updates = positionUpdates(orderedIds)
-      const results = await Promise.all(
-        updates.map((u) =>
-          supabase.from('subtasks').update({ position: u.position }).eq('id', u.id),
-        ),
-      )
-      const failed = results.find((r) => r.error)
-      if (failed?.error) throw failed.error
+  const reorderSubtask = useMutation({
+    mutationFn: async ({ id, position }: { id: string; position: number }) => {
+      const { error } = await supabase.from('subtasks').update({ position }).eq('id', id)
+      if (error) throw error
     },
-    onMutate: async (orderedIds) => {
+    onMutate: async ({ id, position }) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Subtask[]>(key) ?? []
-      const posById = new Map(positionUpdates(orderedIds).map((u) => [u.id, u.position]))
-      setSubtasks((p) =>
-        p.map((s) => (posById.has(s.id) ? { ...s, position: posById.get(s.id) ?? s.position } : s)),
-      )
+      setSubtasks((p) => p.map((s) => (s.id === id ? { ...s, position } : s)))
       return { prev }
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
   })
 
-  return { addSubtask, toggleSubtask, renameSubtask, deleteSubtask, reorderSubtasks }
+  return { addSubtask, toggleSubtask, renameSubtask, deleteSubtask, reorderSubtask }
 }

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { positionUpdates } from '@/lib/reorder'
 import type { NewTaskInput, Task, TaskPatch } from '@/types/database'
 
 function optimisticTask(input: NewTaskInput): Task {
@@ -132,30 +131,25 @@ export function useTaskMutations(workspaceId: string) {
     onSettled: settle,
   })
 
-  /** Persist a new ordering (array of task ids in their new order). */
-  const reorderTasks = useMutation({
-    mutationFn: async (orderedIds: string[]) => {
-      const updates = positionUpdates(orderedIds)
-      const results = await Promise.all(
-        updates.map((u) =>
-          supabase.from('tasks').update({ position: u.position }).eq('id', u.id),
-        ),
-      )
-      const failed = results.find((r) => r.error)
-      if (failed?.error) throw failed.error
+  /**
+   * Persist a single task's new fractional position (atomic single-row update).
+   * Only the dragged task changes, so sibling views that share the same task
+   * are not reshuffled.
+   */
+  const reorderTask = useMutation({
+    mutationFn: async ({ id, position }: { id: string; position: number }) => {
+      const { error } = await supabase.from('tasks').update({ position }).eq('id', id)
+      if (error) throw error
     },
-    onMutate: async (orderedIds) => {
+    onMutate: async ({ id, position }) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Task[]>(key) ?? []
-      const posById = new Map(positionUpdates(orderedIds).map((u) => [u.id, u.position]))
-      setTasks((p) =>
-        p.map((t) => (posById.has(t.id) ? { ...t, position: posById.get(t.id) ?? t.position } : t)),
-      )
+      setTasks((p) => p.map((t) => (t.id === id ? { ...t, position } : t)))
       return { prev }
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
   })
 
-  return { createTask, updateTask, toggleComplete, deleteTask, reorderTasks }
+  return { createTask, updateTask, toggleComplete, deleteTask, reorderTask }
 }

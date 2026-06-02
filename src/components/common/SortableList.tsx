@@ -21,7 +21,8 @@ import { cn } from '@/lib/utils'
 
 interface SortableListProps {
   ids: string[]
-  onReorder: (orderedIds: string[]) => void
+  /** Receives the new id order and the id that was dragged. */
+  onReorder: (orderedIds: string[], activeId: string) => void
   /** Render the content for an id (without the drag handle). */
   children: (id: string) => ReactNode
   className?: string
@@ -42,7 +43,7 @@ export function SortableList({ ids, onReorder, children, className, disabled }: 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    onReorder(moveItem(ids, String(active.id), String(over.id), (x) => x))
+    onReorder(moveItem(ids, String(active.id), String(over.id), (x) => x), String(active.id))
   }
 
   if (disabled) {
@@ -83,7 +84,7 @@ function SortableRow({ id, children }: { id: string; children: ReactNode }) {
       <button
         type="button"
         aria-label="Drag to reorder"
-        className="focus-ring mt-2 cursor-grab touch-none rounded p-0.5 text-text-muted/30 opacity-0 transition-opacity hover:text-text-muted group-hover/sortable:opacity-100 active:cursor-grabbing"
+        className="focus-ring mt-2 cursor-grab touch-none rounded p-0.5 text-text-muted/30 opacity-0 transition-opacity hover:text-text-muted focus-visible:opacity-100 group-hover/sortable:opacity-100 active:cursor-grabbing"
         {...attributes}
         {...listeners}
       >
