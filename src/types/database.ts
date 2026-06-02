@@ -11,6 +11,7 @@ export type ProjectStatus = 'active' | 'archived'
 export type MemberRole = 'owner' | 'admin' | 'member'
 /** 0 = none, 1 = low, 2 = medium, 3 = high */
 export type TaskPriority = 0 | 1 | 2 | 3
+export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 export interface Profile {
   id: string
@@ -71,6 +72,11 @@ export interface Task {
   /** The day this task is planned for (effort-aware day planning). */
   scheduled_for: string | null
   position: number
+  // Recurrence — recurrence_freq null means a normal one-off task.
+  recurrence_freq: RecurrenceFreq | null
+  recurrence_interval: number
+  recurrence_weekdays: number[] | null
+  recurrence_until: string | null
   created_at: string
   updated_at: string
   completed_at: string | null
@@ -101,6 +107,10 @@ export interface NewTaskInput {
   effort_minutes?: number | null
   scheduled_for?: string | null
   position?: number
+  recurrence_freq?: RecurrenceFreq | null
+  recurrence_interval?: number
+  recurrence_weekdays?: number[] | null
+  recurrence_until?: string | null
 }
 
 export type TaskPatch = Partial<
@@ -117,6 +127,10 @@ export type TaskPatch = Partial<
     | 'project_id'
     | 'section_id'
     | 'completed_at'
+    | 'recurrence_freq'
+    | 'recurrence_interval'
+    | 'recurrence_weekdays'
+    | 'recurrence_until'
   >
 >
 

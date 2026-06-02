@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { NewTaskInput, Task, TaskPatch } from '@/types/database'
+import { buildNextOccurrence } from '../recurrence'
 
 function optimisticTask(input: NewTaskInput): Task {
   const now = new Date().toISOString()
@@ -18,6 +19,10 @@ function optimisticTask(input: NewTaskInput): Task {
     effort_minutes: input.effort_minutes ?? null,
     scheduled_for: input.scheduled_for ?? null,
     position: input.position ?? 0,
+    recurrence_freq: input.recurrence_freq ?? null,
+    recurrence_interval: input.recurrence_interval ?? 1,
+    recurrence_weekdays: input.recurrence_weekdays ?? null,
+    recurrence_until: input.recurrence_until ?? null,
     created_at: now,
     updated_at: now,
     completed_at: null,
@@ -94,7 +99,17 @@ export function useTaskMutations(workspaceId: string) {
         .select('*')
         .single()
       if (error) throw error
-      return data as Task
+      const updated = data as Task
+      // Completing a recurring task keeps it in history AND spawns the next
+      // occurrence (same rule, advanced date). Past the end date -> no spawn.
+      if (done && updated.recurrence_freq) {
+        const next = buildNextOccurrence(updated)
+        if (next) {
+          const { error: spawnError } = await supabase.from('tasks').insert(next)
+          if (spawnError) throw spawnError
+        }
+      }
+      return updated
     },
     onMutate: async ({ id, done }) => {
       await qc.cancelQueries({ queryKey: key })

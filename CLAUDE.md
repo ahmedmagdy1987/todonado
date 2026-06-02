@@ -127,7 +127,10 @@ sync (flagged in `src/lib/config.ts`), and `npm run seed`. **Focus Mode** is bui
 focus sessions with a drift-resistant, refresh-proof timer (elapsed derived from timestamps +
 accumulated pause), pause/resume, interruption logging, a calm circular-timer UI, and a
 recorded session summary (`focus_sessions` table; accumulated focus time shows on task rows).
-**Insights** remains a placeholder (V1).
+**Recurring tasks** are built: daily/weekly(weekday picker)/monthly/yearly with an "every N"
+interval + optional end date (recurrence columns on `tasks`); completing a recurring task keeps
+it in history and spawns the correctly-dated next occurrence (unit-tested date math incl.
+month-end clamp). **Insights** remains a placeholder (V1).
 
 ---
 
@@ -151,7 +154,7 @@ manifest, docs. No full features.
 
 ### V2 — Depth & collaboration
 - Shared workspaces (the `workspace_members` table is already collaboration-ready).
-- Recurring tasks, templates, smarter recovery suggestions.
+- [x] Recurring tasks — **done**. Templates, smarter recovery suggestions still to come.
 
 ---
 

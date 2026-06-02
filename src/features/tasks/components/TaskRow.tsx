@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clock,
   Pencil,
+  Repeat,
   Target,
   Trash2,
 } from 'lucide-react'
@@ -14,6 +15,7 @@ import { Checkbox } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { formatMinutes, formatDateShort } from '@/lib/format'
 import { PRIORITY_META } from '../priority'
+import { recurrenceLabel } from '../recurrence'
 import { SubtaskList } from './SubtaskList'
 
 interface TaskRowProps {
@@ -123,6 +125,11 @@ export function TaskRow({
             {task.due_date && (
               <span className="inline-flex items-center gap-1 text-warning/90">
                 due {formatDateShort(task.due_date)}
+              </span>
+            )}
+            {task.recurrence_freq && (
+              <span className="inline-flex items-center gap-1" title={recurrenceLabel(task)}>
+                <Repeat className="h-3 w-3" aria-hidden />
               </span>
             )}
             {expandable && (

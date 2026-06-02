@@ -5,9 +5,12 @@ import { SortableList } from '@/components/common/SortableList'
 import { newPositionForMove } from '@/lib/reorder'
 import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
 import { focusSecondsByTask } from '@/features/focus/selectors'
+import { useToast } from '@/components/common/toast-context'
+import { formatDateShort } from '@/lib/format'
 import { TaskRow } from './TaskRow'
 import { TaskDialog } from './TaskDialog'
 import { useTaskMutations } from '../api/useTaskMutations'
+import { nextOccurrenceDate } from '../recurrence'
 
 interface TaskListViewProps {
   workspaceId: string
@@ -35,6 +38,7 @@ export function TaskListView({
   emptyState,
 }: TaskListViewProps) {
   const navigate = useNavigate()
+  const toast = useToast()
   const { toggleComplete, deleteTask, reorderTask } = useTaskMutations(workspaceId)
   const { data: focusSessions = [] } = useFocusSessions(workspaceId)
   const focusByTask = focusSecondsByTask(focusSessions)
@@ -62,9 +66,18 @@ export function TaskListView({
           return (
             <TaskRow
               task={task}
-              onToggleComplete={(t) =>
-                toggleComplete.mutate({ id: t.id, done: t.status !== 'done' })
-              }
+              onToggleComplete={(t) => {
+                const willComplete = t.status !== 'done'
+                toggleComplete.mutate({ id: t.id, done: willComplete })
+                if (willComplete && t.recurrence_freq) {
+                  const next = nextOccurrenceDate(t)
+                  toast.show(
+                    next
+                      ? `↻ Next occurrence scheduled for ${formatDateShort(next)}`
+                      : '↻ Recurrence finished — no more occurrences',
+                  )
+                }
+              }}
               onEdit={setEditing}
               onDelete={(t) => deleteTask.mutate(t.id)}
               onScheduleToday={onScheduleToday}

@@ -5,13 +5,32 @@ import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useProjects } from '@/features/projects/api/useProjects'
 import { useSections } from '@/features/projects/api/useSections'
 import { todayISO, isoDateOffset } from '@/lib/date'
-import type { Task, TaskPriority } from '@/types/database'
+import { cn } from '@/lib/utils'
+import type { RecurrenceFreq, Task, TaskPriority } from '@/types/database'
 import { PRIORITY_LABELS } from '../priority'
 import { useTaskMutations } from '../api/useTaskMutations'
 
 const formSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
+  recurInterval: z.number().int().min(1, 'Repeat interval must be at least 1'),
 })
+
+const WEEKDAYS: { value: number; label: string }[] = [
+  { value: 0, label: 'S' },
+  { value: 1, label: 'M' },
+  { value: 2, label: 'T' },
+  { value: 3, label: 'W' },
+  { value: 4, label: 'T' },
+  { value: 5, label: 'F' },
+  { value: 6, label: 'S' },
+]
+
+const FREQ_UNIT: Record<RecurrenceFreq, string> = {
+  daily: 'days',
+  weekly: 'weeks',
+  monthly: 'months',
+  yearly: 'years',
+}
 
 interface TaskDialogProps {
   open: boolean
@@ -38,6 +57,10 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
   const [scheduled, setScheduled] = useState('')
   const [projectId, setProjectId] = useState('')
   const [sectionId, setSectionId] = useState('')
+  const [recurFreq, setRecurFreq] = useState<'' | RecurrenceFreq>('')
+  const [recurInterval, setRecurInterval] = useState(1)
+  const [recurWeekdays, setRecurWeekdays] = useState<number[]>([])
+  const [recurUntil, setRecurUntil] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const { data: sections = [] } = useSections(projectId)
@@ -54,6 +77,10 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       setScheduled(task.scheduled_for ?? '')
       setProjectId(task.project_id ?? '')
       setSectionId(task.section_id ?? '')
+      setRecurFreq(task.recurrence_freq ?? '')
+      setRecurInterval(task.recurrence_interval || 1)
+      setRecurWeekdays(task.recurrence_weekdays ?? [])
+      setRecurUntil(task.recurrence_until ?? '')
     } else {
       setTitle('')
       setNotes('')
@@ -63,6 +90,10 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       setScheduled(defaults?.scheduled_for ?? '')
       setProjectId(defaults?.project_id ?? '')
       setSectionId(defaults?.section_id ?? '')
+      setRecurFreq('')
+      setRecurInterval(1)
+      setRecurWeekdays([])
+      setRecurUntil('')
     }
     // Depend on primitive default fields (not the `defaults` object identity) so
     // an inline-literal `defaults` prop can't reset the form on every render.
@@ -70,7 +101,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const parsed = formSchema.safeParse({ title })
+    const parsed = formSchema.safeParse({ title, recurInterval: recurFreq ? recurInterval : 1 })
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input')
       return
@@ -88,6 +119,13 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       scheduled_for: scheduled || null,
       project_id: projectId || null,
       section_id: projectId ? sectionId || null : null,
+      recurrence_freq: recurFreq || null,
+      recurrence_interval: recurFreq ? Math.max(1, recurInterval) : 1,
+      recurrence_weekdays:
+        recurFreq === 'weekly' && recurWeekdays.length > 0
+          ? [...recurWeekdays].sort((a, b) => a - b)
+          : null,
+      recurrence_until: recurFreq && recurUntil ? recurUntil : null,
     }
 
     if (isEdit && task) {
@@ -209,6 +247,83 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
                 ))}
               </Select>
             </label>
+          )}
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-white/5 bg-surface-2/30 p-3">
+          <label className={labelCls}>
+            Repeat
+            <Select
+              value={recurFreq}
+              onChange={(e) => setRecurFreq(e.target.value as '' | RecurrenceFreq)}
+            >
+              <option value="">Doesn&rsquo;t repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </Select>
+          </label>
+
+          {recurFreq && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={labelCls}>
+                  Every
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={recurInterval}
+                      onChange={(e) =>
+                        setRecurInterval(Math.max(1, Math.floor(Number(e.target.value) || 1)))
+                      }
+                      className="w-20"
+                      aria-label="Repeat interval"
+                    />
+                    <span className="text-sm text-text-muted">{FREQ_UNIT[recurFreq]}</span>
+                  </div>
+                </label>
+                <label className={labelCls}>
+                  Until (optional)
+                  <Input
+                    type="date"
+                    value={recurUntil}
+                    onChange={(e) => setRecurUntil(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              {recurFreq === 'weekly' && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium text-text-muted">On days</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {WEEKDAYS.map((wd, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() =>
+                          setRecurWeekdays((prev) =>
+                            prev.includes(wd.value)
+                              ? prev.filter((d) => d !== wd.value)
+                              : [...prev, wd.value],
+                          )
+                        }
+                        aria-pressed={recurWeekdays.includes(wd.value)}
+                        className={cn(
+                          'focus-ring h-8 w-8 rounded-lg text-xs font-medium transition-colors',
+                          recurWeekdays.includes(wd.value)
+                            ? 'bg-brand-gradient text-white'
+                            : 'bg-surface-2 text-text-muted hover:text-text-primary',
+                        )}
+                      >
+                        {wd.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
