@@ -16,6 +16,8 @@ export interface Profile {
   id: string
   display_name: string | null
   avatar_url: string | null
+  /** Planning capacity per day, in minutes (default 360 = 6h). */
+  daily_capacity_minutes: number
   created_at: string
   updated_at: string
 }
@@ -82,4 +84,56 @@ export interface Subtask {
   position: number
   created_at: string
   updated_at: string
+}
+
+// ---------------------------------------------------------------------------
+//  Insert / update input shapes (what the client sends; DB fills the rest)
+// ---------------------------------------------------------------------------
+export interface NewTaskInput {
+  workspace_id: string
+  title: string
+  project_id?: string | null
+  section_id?: string | null
+  notes?: string | null
+  status?: TaskStatus
+  priority?: TaskPriority
+  due_date?: string | null
+  effort_minutes?: number | null
+  scheduled_for?: string | null
+  position?: number
+}
+
+export type TaskPatch = Partial<
+  Pick<
+    Task,
+    | 'title'
+    | 'notes'
+    | 'status'
+    | 'priority'
+    | 'due_date'
+    | 'effort_minutes'
+    | 'scheduled_for'
+    | 'position'
+    | 'project_id'
+    | 'section_id'
+    | 'completed_at'
+  >
+>
+
+export interface NewProjectInput {
+  workspace_id: string
+  name: string
+  color?: string
+}
+
+export interface NewSectionInput {
+  project_id: string
+  name: string
+  position?: number
+}
+
+export interface NewSubtaskInput {
+  task_id: string
+  title: string
+  position?: number
 }
