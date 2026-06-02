@@ -123,8 +123,11 @@ Phase 0 (foundation) and the **MVP task engine** are done: workspace context, fu
 with optimistic TanStack Query hooks, **Inbox** capture, **Projects** (sections, tasks,
 expandable subtasks, drag-reorder), the **Today** command center with a live **effort-aware
 capacity meter** + overbooking guard, lightweight **roll-over** (with undo), Supabase realtime
-sync (flagged in `src/lib/config.ts`), and `npm run seed`. Focus & Insights remain
-placeholders (V1).
+sync (flagged in `src/lib/config.ts`), and `npm run seed`. **Focus Mode** is built: task-bound
+focus sessions with a drift-resistant, refresh-proof timer (elapsed derived from timestamps +
+accumulated pause), pause/resume, interruption logging, a calm circular-timer UI, and a
+recorded session summary (`focus_sessions` table; accumulated focus time shows on task rows).
+**Insights** remains a placeholder (V1).
 
 ---
 
@@ -142,7 +145,7 @@ manifest, docs. No full features.
 - [x] Per-user daily capacity (`profiles.daily_capacity_minutes`), editable in the meter.
 
 ### V1 — Focus & insight
-- Focus sessions / timer drawing from the planned day.
+- [x] Focus sessions / timer — **done** (task-bound Focus Mode; `focus_sessions`).
 - Insights: planned-vs-actual effort, roll-over patterns, focus trends.
 - Keyboard-first command palette (⌘K). One-way calendar **read** (busy blocks → capacity).
 

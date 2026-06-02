@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Clock,
   Pencil,
+  Target,
   Trash2,
 } from 'lucide-react'
 import type { Task } from '@/types/database'
@@ -22,6 +23,10 @@ interface TaskRowProps {
   onDelete: (task: Task) => void
   onScheduleToday?: (task: Task) => void
   onUnschedule?: (task: Task) => void
+  /** Start a focus session for this task. */
+  onFocus?: (task: Task) => void
+  /** Accumulated completed focus time for this task, in seconds. */
+  focusSeconds?: number
   /** Show an expandable subtasks section (used in Project detail). */
   expandable?: boolean
   /** Show the scheduled-for badge (hidden on Today where it's implied). */
@@ -62,6 +67,8 @@ export function TaskRow({
   onDelete,
   onScheduleToday,
   onUnschedule,
+  onFocus,
+  focusSeconds = 0,
   expandable = false,
   showSchedule = true,
 }: TaskRowProps) {
@@ -96,6 +103,12 @@ export function TaskRow({
               <span className="inline-flex items-center gap-1 font-mono">
                 <Clock className="h-3 w-3" aria-hidden />
                 {formatMinutes(task.effort_minutes as number)}
+              </span>
+            )}
+            {focusSeconds >= 60 && (
+              <span className="inline-flex items-center gap-1 font-mono text-brand/80" title="Focused time">
+                <Target className="h-3 w-3" aria-hidden />
+                {formatMinutes(Math.round(focusSeconds / 60))}
               </span>
             )}
             {prio.dot && (
@@ -138,6 +151,11 @@ export function TaskRow({
           {onUnschedule && (
             <IconButton title="Remove from today" onClick={() => onUnschedule(task)}>
               <CalendarX className="h-4 w-4" aria-hidden />
+            </IconButton>
+          )}
+          {onFocus && (
+            <IconButton title="Focus on this task" onClick={() => onFocus(task)}>
+              <Target className="h-4 w-4" aria-hidden />
             </IconButton>
           )}
           <IconButton title="Edit task" onClick={() => onEdit(task)}>

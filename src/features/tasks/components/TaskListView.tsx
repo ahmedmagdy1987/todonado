@@ -1,7 +1,10 @@
 import { useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Task } from '@/types/database'
 import { SortableList } from '@/components/common/SortableList'
 import { newPositionForMove } from '@/lib/reorder'
+import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
+import { focusSecondsByTask } from '@/features/focus/selectors'
 import { TaskRow } from './TaskRow'
 import { TaskDialog } from './TaskDialog'
 import { useTaskMutations } from '../api/useTaskMutations'
@@ -18,9 +21,9 @@ interface TaskListViewProps {
 }
 
 /**
- * Shared task list: drag-to-reorder + complete/edit/delete, with the edit
- * dialog wired in. Reordering persists `position` for the visible subset
- * (each view sorts within its own subset, so subset-local positions are fine).
+ * Shared task list: drag-to-reorder + complete/edit/delete/focus, with the edit
+ * dialog wired in. Reordering updates only the dragged task's fractional
+ * position, so sibling views that share a task are never reshuffled.
  */
 export function TaskListView({
   workspaceId,
@@ -31,7 +34,10 @@ export function TaskListView({
   showSchedule = true,
   emptyState,
 }: TaskListViewProps) {
+  const navigate = useNavigate()
   const { toggleComplete, deleteTask, reorderTask } = useTaskMutations(workspaceId)
+  const { data: focusSessions = [] } = useFocusSessions(workspaceId)
+  const focusByTask = focusSecondsByTask(focusSessions)
   const [editing, setEditing] = useState<Task | null>(null)
 
   if (tasks.length === 0) {
@@ -63,6 +69,8 @@ export function TaskListView({
               onDelete={(t) => deleteTask.mutate(t.id)}
               onScheduleToday={onScheduleToday}
               onUnschedule={onUnschedule}
+              onFocus={(t) => navigate(`/focus?task=${t.id}`)}
+              focusSeconds={focusByTask.get(task.id) ?? 0}
               expandable={expandable}
               showSchedule={showSchedule}
             />
