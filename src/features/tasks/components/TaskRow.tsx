@@ -149,7 +149,9 @@ export function TaskRow({
           </div>
         </div>
 
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100">
+        {/* Touch has no hover: show row actions by default on mobile, reveal on
+            hover from md up. */}
+        <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/row:opacity-100">
           {onScheduleToday && (
             <IconButton title="Schedule for today" onClick={() => onScheduleToday(task)}>
               <CalendarPlus className="h-4 w-4" aria-hidden />

@@ -8,6 +8,7 @@ import { OnboardingOverlay } from '@/features/onboarding/OnboardingOverlay'
 import { shouldShowOnboarding } from '@/features/onboarding/gating'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { BottomNav } from './BottomNav'
 
 function ShellBody() {
   const { workspaceId, profile } = useWorkspace()
@@ -20,11 +21,14 @@ function ShellBody() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onAddTask={() => setCreateOpen(true)} />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-6 pb-16 pt-10 md:px-8 md:pt-12">
+          {/* Extra bottom padding on mobile so content clears the fixed bottom
+              nav (and the home-indicator safe area); restored to normal at md. */}
+          <div className="mx-auto w-full max-w-3xl px-6 pb-[calc(6rem_+_env(safe-area-inset-bottom))] pt-10 md:px-8 md:pb-16 md:pt-12">
             <Outlet />
           </div>
         </main>
       </div>
+      <BottomNav onAddTask={() => setCreateOpen(true)} />
       <TaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       {shouldShowOnboarding(profile) && <OnboardingOverlay />}
     </div>

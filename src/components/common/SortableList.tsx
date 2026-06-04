@@ -84,7 +84,7 @@ function SortableRow({ id, children }: { id: string; children: ReactNode }) {
       <button
         type="button"
         aria-label="Drag to reorder"
-        className="focus-ring mt-2 cursor-grab touch-none rounded p-0.5 text-text-muted/30 opacity-0 transition-opacity hover:text-text-muted focus-visible:opacity-100 group-hover/sortable:opacity-100 active:cursor-grabbing"
+        className="focus-ring mt-2 cursor-grab touch-none rounded p-0.5 text-text-muted/30 opacity-100 transition-opacity hover:text-text-muted focus-visible:opacity-100 active:cursor-grabbing md:opacity-0 md:group-hover/sortable:opacity-100"
         {...attributes}
         {...listeners}
       >

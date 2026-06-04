@@ -102,10 +102,10 @@ export function ProjectDetailPage() {
               setNameDraft(project.name)
               setEditingName(true)
             }}
-            className="focus-ring group inline-flex items-center gap-2 rounded text-left"
+            className="focus-ring group flex min-w-0 flex-1 items-center gap-2 rounded text-left"
           >
-            <h2 className="font-display text-2xl font-bold tracking-tight">{project.name}</h2>
-            <Pencil className="h-4 w-4 text-text-muted opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+            <h2 className="truncate font-display text-2xl font-bold tracking-tight">{project.name}</h2>
+            <Pencil className="h-4 w-4 shrink-0 text-text-muted opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" aria-hidden />
           </button>
         )}
         <Button
