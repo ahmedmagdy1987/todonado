@@ -9,6 +9,7 @@ import { shouldShowOnboarding } from '@/features/onboarding/gating'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { BottomNav } from './BottomNav'
+import { AddTaskFab } from './AddTaskFab'
 
 function ShellBody() {
   const { workspaceId, profile } = useWorkspace()
@@ -28,7 +29,8 @@ function ShellBody() {
           </div>
         </main>
       </div>
-      <BottomNav onAddTask={() => setCreateOpen(true)} />
+      <BottomNav />
+      <AddTaskFab onClick={() => setCreateOpen(true)} />
       <TaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       {shouldShowOnboarding(profile) && <OnboardingOverlay />}
     </div>
