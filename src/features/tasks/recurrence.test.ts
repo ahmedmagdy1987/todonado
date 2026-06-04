@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeNextOccurrence, buildNextOccurrence } from './recurrence'
+import { computeNextOccurrence, buildNextOccurrence, nextOccurrenceDate } from './recurrence'
 import { makeTask } from '@/test/factories'
 
 // Reference: 2026-06-01 is a Monday (getDay 1).
@@ -144,14 +144,16 @@ describe('buildNextOccurrence (spawn on complete)', () => {
     expect(next?.recurrence_interval).toBe(2)
   })
 
-  it('advances due_date when the task is due-dated', () => {
+  it('advances due_date when the task is due-dated (on-time → month-end clamp)', () => {
     const task = makeTask({
       due_date: '2026-01-31',
       scheduled_for: null,
       recurrence_freq: 'monthly',
       recurrence_interval: 1,
     })
-    const next = buildNextOccurrence(task, MON)
+    // Completed on its due date (on-time) so it anchors normally; this exercises
+    // the Jan-31 → Feb-28 month-end clamp without the overdue-recovery path.
+    const next = buildNextOccurrence(task, '2026-01-31')
     expect(next?.due_date).toBe('2026-02-28')
     expect(next?.scheduled_for).toBeNull()
   })
@@ -176,5 +178,44 @@ describe('buildNextOccurrence (spawn on complete)', () => {
       recurrence_until: '2026-06-01',
     })
     expect(buildNextOccurrence(task, MON)).toBeNull()
+  })
+})
+
+describe('nextOccurrenceDate — overdue recovery (anchor from today)', () => {
+  it('on-time task advances exactly one interval from its own date', () => {
+    const t = makeTask({ scheduled_for: '2026-06-04', recurrence_freq: 'daily', recurrence_interval: 1 })
+    expect(nextOccurrenceDate(t, '2026-06-04')).toBe('2026-06-05')
+  })
+
+  it('overdue daily task lands on the day after TODAY, not one day after the stale date', () => {
+    const t = makeTask({ scheduled_for: '2026-05-20', recurrence_freq: 'daily', recurrence_interval: 1 })
+    // Stale-anchor math would give 2026-05-21 (still ~2 weeks overdue); recovery → next future day.
+    expect(nextOccurrenceDate(t, '2026-06-04')).toBe('2026-06-05')
+  })
+
+  it('overdue weekly task preserves its weekday phase (next Monday after today)', () => {
+    // Mondays; 2026-06-01 and 2026-06-08 are Mondays; today is Thu 2026-06-04.
+    const t = makeTask({
+      scheduled_for: '2026-05-04',
+      recurrence_freq: 'weekly',
+      recurrence_interval: 1,
+      recurrence_weekdays: [1],
+    })
+    expect(nextOccurrenceDate(t, '2026-06-04')).toBe('2026-06-08')
+  })
+
+  it('returns null when an overdue recurrence has already passed its until date', () => {
+    const t = makeTask({
+      scheduled_for: '2026-05-20',
+      recurrence_freq: 'daily',
+      recurrence_interval: 1,
+      recurrence_until: '2026-05-25',
+    })
+    expect(nextOccurrenceDate(t, '2026-06-04')).toBeNull()
+  })
+
+  it('buildNextOccurrence spawns a future-dated clone for an overdue task', () => {
+    const t = makeTask({ scheduled_for: '2026-05-20', recurrence_freq: 'daily', recurrence_interval: 1 })
+    expect(buildNextOccurrence(t, '2026-06-04')?.scheduled_for).toBe('2026-06-05')
   })
 })

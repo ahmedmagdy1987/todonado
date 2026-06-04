@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { NewTaskInput, Task, TaskPatch } from '@/types/database'
-import { buildNextOccurrence } from '../recurrence'
+import { completeTask } from './completeTask'
 
 function optimisticTask(input: NewTaskInput): Task {
   const now = new Date().toISOString()
@@ -88,40 +88,11 @@ export function useTaskMutations(workspaceId: string) {
   })
 
   const toggleComplete = useMutation({
-    mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
-      // Spawn exactly once per genuine todo->done transition. The optimistic
-      // cache already shows 'done', so read the prior status from the server.
-      let wasAlreadyDone = false
-      if (done) {
-        const { data: current } = await supabase
-          .from('tasks')
-          .select('status')
-          .eq('id', id)
-          .single()
-        wasAlreadyDone = (current as { status?: string } | null)?.status === 'done'
-      }
-      const patch: TaskPatch = done
-        ? { status: 'done', completed_at: new Date().toISOString() }
-        : { status: 'todo', completed_at: null }
-      const { data, error } = await supabase
-        .from('tasks')
-        .update(patch)
-        .eq('id', id)
-        .select('*')
-        .single()
-      if (error) throw error
-      const updated = data as Task
-      // Completing a recurring task keeps it in history AND spawns the next
-      // occurrence (same rule, advanced date). Past the end date -> no spawn.
-      if (done && !wasAlreadyDone && updated.recurrence_freq) {
-        const next = buildNextOccurrence(updated)
-        if (next) {
-          const { error: spawnError } = await supabase.from('tasks').insert(next)
-          if (spawnError) throw spawnError
-        }
-      }
-      return updated
-    },
+    // Atomic compare-and-swap on status (see completeTask): only the call that
+    // genuinely transitions a task to done spawns its next recurrence, so
+    // concurrent / double completes create the next occurrence exactly once.
+    mutationFn: ({ id, done }: { id: string; done: boolean }) =>
+      completeTask(supabase, { id, done }).then((r) => r.task),
     onMutate: async ({ id, done }) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Task[]>(key) ?? []

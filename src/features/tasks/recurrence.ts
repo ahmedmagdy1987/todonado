@@ -82,12 +82,28 @@ export function ruleFromTask(task: RecurrenceFields): RecurrenceRule | null {
   }
 }
 
-/** Next occurrence date for a recurring task (anchored on its scheduled/due date). */
+/**
+ * Next occurrence date for a recurring task. Anchored on the task's scheduled/
+ * due date, but if completing it late would produce a date on or before today
+ * (an already-overdue clone), the occurrence is advanced — preserving the rule's
+ * phase (weekday / month-day) — to the first date strictly AFTER today. On-time
+ * tasks advance exactly one interval as before. Honors `until`: returns null
+ * once the rule runs out before reaching a future date.
+ */
 export function nextOccurrenceDate(task: Task, todayStr: string = todayISO()): string | null {
   const rule = ruleFromTask(task)
   if (!rule) return null
   const anchor = task.scheduled_for ?? task.due_date ?? todayStr
-  return computeNextOccurrence(rule, anchor)
+  let next = computeNextOccurrence(rule, anchor)
+  let guard = 0
+  while (next !== null && next <= todayStr && guard < 1000) {
+    const advanced = computeNextOccurrence(rule, next)
+    if (advanced === null) return null // ran out (past `until`) before reaching the future
+    if (advanced === next) break // defensive: no forward progress
+    next = advanced
+    guard += 1
+  }
+  return next
 }
 
 /**
