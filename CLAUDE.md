@@ -194,9 +194,12 @@ new auth user is auto-provisioned a profile + default workspace + owner membersh
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **All migrations are applied** (through `20260606090000_onboarding`) and RLS is verified
-  enforcing on every table (anon reads return `[]`; anon writes are rejected with `42501`).
-  Don't re-create the schema — `supabase db push` should report the remote already up to date.
+- **All migrations are applied** (through `20260607090000_task_workspace_integrity`) and RLS is
+  verified enforcing on every table (anon reads return `[]`; anon writes are rejected with
+  `42501`). The latest migration adds the task↔workspace co-location guard on `tasks` WITH CHECK
+  plus the `project_workspace()` / `section_workspace()` SECURITY DEFINER helpers — verified live
+  (both resolve via anon RPC). Don't re-create the schema — `supabase db push` should report the
+  remote already up to date.
 
 ### Restoring a clean machine / fresh clone
 1. `npm install`
@@ -205,14 +208,19 @@ new auth user is auto-provisioned a profile + default workspace + owner membersh
    (kept in gitignored `.env`); recover it from the dashboard.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. To run future migrations: `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+4. To run future migrations, use a **real terminal** (TTY — see CLI note): `supabase login` →
+   `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
 
-### Agent / CLI note
-In the Claude Code harness the Bash sandbox blocks both network and the Supabase CLI
-credential store, so `git push`, `supabase db push`, `supabase login/link`, and REST/curl
-verification fail when sandboxed ("Could not resolve host" / "Access token not provided"). Run
-those with the sandbox disabled. `supabase db push` prompts `[Y/n]` — pipe `printf 'y\n' |` to
-auto-confirm.
+### Agent / CLI note (verified on this machine — Windows + PowerShell)
+- **`git push` works from the agent's PowerShell tool** — the Windows Git Credential Manager
+  holds the GitHub creds, so HTTPS push needs no `gh` auth. Network + REST/curl verification also
+  work from PowerShell (the old Bash-sandbox network block does not apply here).
+- **`supabase login` CANNOT run in the agent shell** (the `!` prefix and the PowerShell tool are
+  non-TTY): it errors `Cannot use automatic login flow inside non-TTY environments`. Do it in a
+  **real terminal** where the browser flow works, or set `SUPABASE_ACCESS_TOKEN` / pass `--token`.
+  The browser step of `gh auth login` is the same — real TTY or `--with-token`.
+- **Applying a migration:** in a real terminal → `supabase login` → `supabase link --project-ref
+  lplsbfduankkpglyusjp` → `supabase db push` (prompts `[Y/n]`; add `--yes` to auto-confirm).
 
 ### Repo
 `ahmedmagdy1987/todonado` (private), default branch `main`.
