@@ -19,6 +19,19 @@ describe('selectInbox', () => {
     const done = makeTask({ project_id: null, status: 'done' })
     expect(selectInbox([a, b, withProject, done]).map((t) => t.title)).toEqual(['b', 'a'])
   })
+
+  // Data-loss guard: a project-less task with a FUTURE date must never fall
+  // between Today (today only) and Inbox. Inbox is the safety net regardless of
+  // scheduled_for / due_date.
+  it('includes a project-less task with a future scheduled_for', () => {
+    const future = makeTask({ project_id: null, scheduled_for: '2999-01-01', title: 'future-sched' })
+    expect(selectInbox([future]).map((t) => t.title)).toEqual(['future-sched'])
+  })
+
+  it('includes a project-less task with a future due_date', () => {
+    const dueLater = makeTask({ project_id: null, due_date: '2999-01-01', title: 'due-later' })
+    expect(selectInbox([dueLater]).map((t) => t.title)).toEqual(['due-later'])
+  })
 })
 
 describe('selectToday', () => {

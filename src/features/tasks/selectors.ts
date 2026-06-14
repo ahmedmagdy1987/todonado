@@ -16,7 +16,15 @@ export function byPosition(a: Task, b: Task): number {
   return a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0
 }
 
-/** Inbox: open tasks with no project. */
+/**
+ * Inbox: every open task with no project — the catch-all safety net.
+ *
+ * DATA-LOSS GUARD: this deliberately does NOT filter by `scheduled_for` or
+ * `due_date`. Today shows today only, so a project-less task with a future date
+ * is surfaced *only* here; excluding dated tasks would make it invisible
+ * everywhere (lost from the UI). Keep this date-independent — the invariant is
+ * pinned in selectors.test.ts.
+ */
 export function selectInbox(tasks: Task[]): Task[] {
   return tasks.filter((t) => t.project_id == null && isOpen(t)).sort(byPosition)
 }

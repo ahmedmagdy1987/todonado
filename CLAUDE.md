@@ -105,7 +105,10 @@ Group by **feature**, not by file-type. A feature owns its components, hooks, an
 - **RLS-first data model.** Security lives in the database. Every table has RLS; the client
   is assumed hostile. Never rely on client-side filtering for authorization.
 - **No secrets in code.** Only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (public anon
-  key) reach the browser, via `.env` (gitignored). Never commit `.env`; never hardcode keys.
+  key) reach the browser. Both ship as built-in defaults in `src/lib/env.ts` so a fresh clone
+  runs with no `.env`; the anon key is public (RLS-protected) and safe in the client bundle. A
+  real `.env` (gitignored) still overrides. Never commit `.env`; never hardcode the
+  **service_role** key or any other secret.
 - **Path alias:** import from `@/…` (maps to `src/`).
 - **Design tokens only.** No raw hex in components — use the Tailwind tokens above.
 - **Accessibility:** label controls, mark decorative icons `aria-hidden`, keep focus rings.
@@ -203,9 +206,10 @@ new auth user is auto-provisioned a profile + default workspace + owner membersh
 
 ### Restoring a clean machine / fresh clone
 1. `npm install`
-2. `cp .env.example .env`, then set `VITE_SUPABASE_URL` (above) and the **anon** key from
-   Supabase Dashboard → Project Settings → API. The anon key is intentionally NOT committed
-   (kept in gitignored `.env`); recover it from the dashboard.
+2. `npm run dev` — the app runs with **no `.env`**: `src/lib/env.ts` ships the public Supabase
+   URL + anon key as built-in defaults (anon key is public + RLS-protected). To target a
+   different project or override, `cp .env.example .env` and set `VITE_SUPABASE_URL` /
+   `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
 4. To run future migrations, use a **real terminal** (TTY — see CLI note): `supabase login` →

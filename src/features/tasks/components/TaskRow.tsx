@@ -10,8 +10,8 @@ import {
   Target,
   Trash2,
 } from 'lucide-react'
-import type { Task } from '@/types/database'
-import { Checkbox } from '@/components/ui'
+import type { Project, Task } from '@/types/database'
+import { Badge, Checkbox } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { formatMinutes, formatDateShort } from '@/lib/format'
 import { PRIORITY_META } from '../priority'
@@ -33,6 +33,8 @@ interface TaskRowProps {
   expandable?: boolean
   /** Show the scheduled-for badge (hidden on Today where it's implied). */
   showSchedule?: boolean
+  /** The task's project — when set, render a project badge (Today / non-project views). */
+  project?: Project
 }
 
 function IconButton({
@@ -73,6 +75,7 @@ export function TaskRow({
   focusSeconds = 0,
   expandable = false,
   showSchedule = true,
+  project,
 }: TaskRowProps) {
   const [expanded, setExpanded] = useState(false)
   const done = task.status === 'done'
@@ -101,6 +104,16 @@ export function TaskRow({
           </button>
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+            {project && (
+              <Badge title={`Project: ${project.name}`} className="max-w-[10rem]">
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: project.color }}
+                  aria-hidden
+                />
+                <span className="truncate">{project.name}</span>
+              </Badge>
+            )}
             {hasEffort && (
               <span className="inline-flex items-center gap-1 font-mono">
                 <Clock className="h-3 w-3" aria-hidden />

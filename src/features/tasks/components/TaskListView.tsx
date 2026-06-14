@@ -5,6 +5,7 @@ import { SortableList } from '@/components/common/SortableList'
 import { newPositionForMove } from '@/lib/reorder'
 import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
 import { focusSecondsByTask } from '@/features/focus/selectors'
+import { useProjects } from '@/features/projects/api/useProjects'
 import { useToast } from '@/components/common/toast-context'
 import { formatDateShort } from '@/lib/format'
 import { TaskRow } from './TaskRow'
@@ -20,6 +21,8 @@ interface TaskListViewProps {
   onUnschedule?: (task: Task) => void
   expandable?: boolean
   showSchedule?: boolean
+  /** Show each task's project badge (Today / non-project views); off in project views where it's redundant. */
+  showProjectBadge?: boolean
   emptyState?: ReactNode
 }
 
@@ -35,6 +38,7 @@ export function TaskListView({
   onUnschedule,
   expandable = false,
   showSchedule = true,
+  showProjectBadge = true,
   emptyState,
 }: TaskListViewProps) {
   const navigate = useNavigate()
@@ -42,6 +46,8 @@ export function TaskListView({
   const { toggleComplete, deleteTask, reorderTask } = useTaskMutations(workspaceId)
   const { data: focusSessions = [] } = useFocusSessions(workspaceId)
   const focusByTask = focusSecondsByTask(focusSessions)
+  const { data: projects = [] } = useProjects(workspaceId)
+  const projectsById = new Map(projects.map((p) => [p.id, p]))
   const [editing, setEditing] = useState<Task | null>(null)
 
   if (tasks.length === 0) {
@@ -92,6 +98,11 @@ export function TaskListView({
               focusSeconds={focusByTask.get(task.id) ?? 0}
               expandable={expandable}
               showSchedule={showSchedule}
+              project={
+                showProjectBadge && task.project_id
+                  ? projectsById.get(task.project_id)
+                  : undefined
+              }
             />
           )
         }}
