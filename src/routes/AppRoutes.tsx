@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { LandingPage } from '@/features/marketing/LandingPage'
+import { PricingPage } from '@/features/marketing/PricingPage'
 import { TodayPage } from '@/features/today/TodayPage'
 import { InboxPage } from '@/features/inbox/InboxPage'
 import { ProjectsPage } from '@/features/projects/ProjectsPage'
@@ -13,6 +15,8 @@ export function AppRoutes() {
   return (
     <Routes>
       {/* Public */}
+      <Route path="/welcome" element={<LandingPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       {/* Authenticated app shell */}

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { AlertTriangle, Info, Mail, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './auth-context'
@@ -13,7 +13,9 @@ type Feedback = { type: 'error' | 'info'; text: string } | null
 export function LoginPage() {
   const { session, isConfigured } = useAuth()
   const location = useLocation()
-  const [mode, setMode] = useState<Mode>('signin')
+  const initialMode: Mode =
+    (location.state as { mode?: Mode } | null)?.mode === 'signup' ? 'signup' : 'signin'
+  const [mode, setMode] = useState<Mode>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -97,7 +99,9 @@ export function LoginPage() {
 
       <div className="relative z-10 w-full max-w-md animate-fade-in">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Logo iconClassName="h-12 w-12" showWordmark={false} />
+          <Link to="/welcome" className="focus-ring rounded-2xl" aria-label="Todonado home">
+            <Logo iconClassName="h-12 w-12" showWordmark={false} />
+          </Link>
           <h1 className="mt-4 font-display text-2xl font-bold">
             Welcome to <span className="text-gradient-brand">Todonado</span>
           </h1>
@@ -219,6 +223,17 @@ export function LoginPage() {
             </p>
           </CardContent>
         </Card>
+
+        <p className="mt-6 text-center text-xs text-text-muted">
+          New here?{' '}
+          <Link to="/welcome" className="focus-ring rounded text-accent hover:underline">
+            See what Todonado does
+          </Link>{' '}
+          ·{' '}
+          <Link to="/pricing" className="focus-ring rounded text-accent hover:underline">
+            Pricing
+          </Link>
+        </p>
       </div>
     </div>
   )
