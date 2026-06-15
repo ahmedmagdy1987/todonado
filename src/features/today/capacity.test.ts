@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   computeCapacity,
+  countUnestimated,
   sumEffort,
   suggestTasksToMoveTomorrow,
   NEAR_THRESHOLD,
@@ -12,6 +13,23 @@ describe('sumEffort', () => {
     expect(
       sumEffort([{ effort_minutes: 30 }, { effort_minutes: null }, { effort_minutes: 90 }]),
     ).toBe(120)
+  })
+})
+
+describe('countUnestimated', () => {
+  it('counts only tasks with no estimate (null), treating 0 as estimated', () => {
+    expect(
+      countUnestimated([
+        { effort_minutes: 30 },
+        { effort_minutes: null },
+        { effort_minutes: 0 },
+        { effort_minutes: null },
+      ]),
+    ).toBe(2)
+  })
+
+  it('is 0 when every task is estimated', () => {
+    expect(countUnestimated([{ effort_minutes: 30 }, { effort_minutes: 60 }])).toBe(0)
   })
 })
 

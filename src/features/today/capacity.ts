@@ -32,6 +32,15 @@ export function sumEffort(tasks: EffortBearing[]): number {
   return tasks.reduce((total, t) => total + (t.effort_minutes ?? 0), 0)
 }
 
+/**
+ * Count tasks carrying NO effort estimate (null effort_minutes). Lets the meter
+ * surface "N tasks need an estimate" instead of silently reading 0% planned when
+ * scheduled work simply hasn't been estimated yet. (0 is a real estimate, not null.)
+ */
+export function countUnestimated(tasks: EffortBearing[]): number {
+  return tasks.reduce((n, t) => n + (t.effort_minutes == null ? 1 : 0), 0)
+}
+
 /** Derive the full capacity summary from planned minutes vs capacity. */
 export function computeCapacity(
   plannedMinutes: number,

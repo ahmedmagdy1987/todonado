@@ -8,7 +8,7 @@ import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { CapacityMeter } from '@/features/today/CapacityMeter'
-import { computeCapacity, sumEffort } from '@/features/today/capacity'
+import { computeCapacity, countUnestimated, sumEffort } from '@/features/today/capacity'
 import { selectToday } from '@/features/tasks/selectors'
 import { todayISO } from '@/lib/date'
 import { formatMinutes } from '@/lib/format'
@@ -77,9 +77,9 @@ export function OnboardingOverlay() {
   const today = todayISO()
   const captured = tasks.filter((t) => createdIds.includes(t.id))
   const todayTasks = selectToday(tasks, today)
-  const planned = sumEffort(
-    todayTasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled'),
-  )
+  const movable = todayTasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
+  const planned = sumEffort(movable)
+  const unestimatedCount = countUnestimated(movable)
   const summary = computeCapacity(planned, capacityMinutes)
 
   function skip() {
@@ -276,7 +276,11 @@ export function OnboardingOverlay() {
                   Adjust effort and watch your day fill up. Keep it realistic.
                 </p>
               </div>
-              <CapacityMeter summary={summary} onCapacityChange={(m) => updateCapacity.mutate(m)} />
+              <CapacityMeter
+                summary={summary}
+                unestimatedCount={unestimatedCount}
+                onCapacityChange={(m) => updateCapacity.mutate(m)}
+              />
               {captured.length > 0 ? (
                 <ul className="space-y-1">
                   {captured.map((t) => (

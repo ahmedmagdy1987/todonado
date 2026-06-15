@@ -12,7 +12,7 @@ import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { todayISO, isoDateOffset } from '@/lib/date'
 import type { Task } from '@/types/database'
-import { computeCapacity, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
+import { computeCapacity, countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
 import { CapacityMeter } from './CapacityMeter'
 import { RolloverBanner } from './components/RolloverBanner'
@@ -41,9 +41,9 @@ export function TodayPage() {
   const overdue = selectRolloverTasks(tasks, today)
   // Capacity reflects remaining (incomplete) effort, so a finished day reads as
   // clear rather than alarmingly "overbooked".
-  const planned = sumEffort(
-    todayTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress'),
-  )
+  const movableToday = todayTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress')
+  const planned = sumEffort(movableToday)
+  const unestimatedCount = countUnestimated(movableToday)
   const summary = computeCapacity(planned, capacityMinutes)
   const suggestions = suggestTasksToMoveTomorrow(todayTasks, capacityMinutes)
 
@@ -99,7 +99,11 @@ export function TodayPage() {
 
       <RolloverBanner tasks={overdue} onRollOne={rollOne} onRollAll={rollAll} />
 
-      <CapacityMeter summary={summary} onCapacityChange={(m) => updateCapacity.mutate(m)} />
+      <CapacityMeter
+        summary={summary}
+        unestimatedCount={unestimatedCount}
+        onCapacityChange={(m) => updateCapacity.mutate(m)}
+      />
 
       <OverbookingWarning
         overMinutes={summary.overMinutes}

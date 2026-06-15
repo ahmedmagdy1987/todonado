@@ -21,9 +21,15 @@ const PRESETS = [
 interface CapacityMeterProps {
   summary: CapacitySummary
   onCapacityChange: (minutes: number) => void
+  /** Scheduled-but-unestimated tasks; surfaced so a 0% meter isn't misread as "clear". */
+  unestimatedCount?: number
 }
 
-export function CapacityMeter({ summary, onCapacityChange }: CapacityMeterProps) {
+export function CapacityMeter({
+  summary,
+  onCapacityChange,
+  unestimatedCount = 0,
+}: CapacityMeterProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(summary.capacityMinutes))
 
@@ -92,6 +98,13 @@ export function CapacityMeter({ summary, onCapacityChange }: CapacityMeterProps)
             </span>
           )}
         </div>
+
+        {unestimatedCount > 0 && (
+          <p className="text-xs text-warning">
+            {unestimatedCount} {unestimatedCount === 1 ? 'task needs' : 'tasks need'} an estimate —
+            only estimated work counts toward your day.
+          </p>
+        )}
 
         {editing && (
           <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
