@@ -197,12 +197,17 @@ new auth user is auto-provisioned a profile + default workspace + owner membersh
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **All migrations are applied** (through `20260607090000_task_workspace_integrity`) and RLS is
+- **All migrations are applied** (through `20260615120000_upgrade_intents`) and RLS is
   verified enforcing on every table (anon reads return `[]`; anon writes are rejected with
-  `42501`). The latest migration adds the task↔workspace co-location guard on `tasks` WITH CHECK
-  plus the `project_workspace()` / `section_workspace()` SECURITY DEFINER helpers — verified live
-  (both resolve via anon RPC). Don't re-create the schema — `supabase db push` should report the
-  remote already up to date.
+  `42501`). The latest migration (`20260615120000_upgrade_intents`) adds the fake-door
+  `upgrade_intents` table — insert-only RLS (anon may file an anonymous intent with `user_id`
+  null; an authed user may attribute it to themselves via `user_id = auth.uid()`; there is NO
+  select/update/delete policy, so the public API cannot read it back) — applied & verified live
+  on the cloud (the table now exists, anon `SELECT` returns `[]`, and a forged-`user_id` insert
+  is rejected `42501`). The prior migration (`20260607090000_task_workspace_integrity`) added the
+  task↔workspace co-location guard on `tasks` WITH CHECK plus the `project_workspace()` /
+  `section_workspace()` SECURITY DEFINER helpers — verified live (both resolve via anon RPC).
+  Don't re-create the schema — `supabase db push` should report the remote already up to date.
 
 ### Restoring a clean machine / fresh clone
 1. `npm install`
