@@ -1,23 +1,48 @@
 /**
- * One soft, short end-tone (opt-in). Deliberately gentle — no loud alarms.
- * Wrapped in try/catch so an unavailable/locked AudioContext never throws.
+ * Opt-in end-of-session chime.
+ *
+ * A SINGLE shared AudioContext is created and resumed from a user gesture (the
+ * sound toggle) and then reused for the completion chime. This matters: a
+ * context created later (when the timer hits 0, with no gesture) is suspended by
+ * the browser's autoplay policy and stays silent — which is why the button used
+ * to do nothing. Deliberately soft: two gentle sine notes, never an alarm.
+ */
+let ctx: AudioContext | null = null
+
+function audioCtx(): AudioContext | null {
+  try {
+    if (!ctx) ctx = new AudioContext()
+    if (ctx.state === 'suspended') void ctx.resume()
+    return ctx
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Play the soft two-note end chime. Call it from a click handler at least once
+ * (e.g. when enabling sound) so the shared context is unlocked for the later,
+ * gesture-less completion chime.
  */
 export function playEndTone(): void {
+  const audio = audioCtx()
+  if (!audio) return
   try {
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.value = 660
-    const now = ctx.currentTime
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.05)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8)
-    osc.start(now)
-    osc.stop(now + 0.85)
-    osc.onended = () => void ctx.close()
+    const base = audio.currentTime
+    ;[660, 880].forEach((freq, i) => {
+      const osc = audio.createOscillator()
+      const gain = audio.createGain()
+      osc.connect(gain)
+      gain.connect(audio.destination)
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      const start = base + i * 0.18
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.12, start + 0.04)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.5)
+      osc.start(start)
+      osc.stop(start + 0.55)
+    })
   } catch {
     // ignore — sound is a non-critical nicety
   }

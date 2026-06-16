@@ -107,6 +107,14 @@ export function RunningView({
     patchSession.mutate({ id: session.id, patch: { interruptions: session.interruptions + 1 } })
   }
 
+  function toggleSound() {
+    const next = !soundOn
+    setSoundOn(next)
+    // Play the chime now (this runs inside a user gesture) both as a preview and
+    // to unlock the shared AudioContext so the gesture-less completion chime works.
+    if (next) playEndTone()
+  }
+
   function endEarly() {
     end(endStatusFor(elapsed), elapsed)
   }
@@ -143,7 +151,11 @@ export function RunningView({
             </>
           )}
         </Button>
-        <Button variant="outline" onClick={logInterruption}>
+        <Button
+          variant="outline"
+          onClick={logInterruption}
+          title="Tally a distraction without stopping your timer"
+        >
           <Zap className="h-4 w-4" aria-hidden /> Log interruption
         </Button>
         <Button variant="ghost" onClick={endEarly}>
@@ -151,9 +163,9 @@ export function RunningView({
         </Button>
         <button
           type="button"
-          onClick={() => setSoundOn((v) => !v)}
-          title={soundOn ? 'End-tone on' : 'End-tone off'}
-          aria-label={soundOn ? 'Turn end-tone off' : 'Turn end-tone on'}
+          onClick={toggleSound}
+          title={soundOn ? 'End chime on — tap to mute' : 'Play a soft chime when the timer ends'}
+          aria-label={soundOn ? 'Turn end chime off' : 'Turn end chime on'}
           className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
         >
           {soundOn ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
