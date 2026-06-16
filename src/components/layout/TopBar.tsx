@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
-import { LogOut, Plus, Search } from 'lucide-react'
+import { LogOut, Plus } from 'lucide-react'
 import { Logo } from '@/components/brand/Logo'
 import { Button, Modal } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context'
@@ -19,7 +19,6 @@ export function TopBar({ onAddTask }: { onAddTask?: () => void }) {
   const title = usePageTitle()
   const today = format(new Date(), 'EEEE, MMM d')
   const { user, signOut } = useAuth()
-  const [searchOpen, setSearchOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const initial = (user?.email ?? '?').charAt(0).toUpperCase()
 
@@ -36,30 +35,10 @@ export function TopBar({ onAddTask }: { onAddTask?: () => void }) {
         <span className="hidden truncate text-sm text-text-muted sm:inline">· {today}</span>
       </div>
 
-      {/* Desktop search: flexible width with a min so it never collapses. */}
-      <div className="relative hidden min-w-[10rem] max-w-sm flex-1 md:block">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
-          aria-hidden
-        />
-        <input
-          disabled
-          placeholder="Search or jump to…  ⌘K"
-          aria-label="Search (coming soon)"
-          className="focus-ring h-9 w-full rounded-xl border border-white/10 bg-surface-2/40 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted/70 disabled:cursor-not-allowed"
-        />
-      </div>
-
-      {/* Right cluster — shrink-0 so the actions never overflow or clip. */}
-      <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-3">
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          aria-label="Search"
-          className="focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-surface-2/40 text-text-muted transition-colors hover:text-text-primary md:hidden"
-        >
-          <Search className="h-4 w-4" aria-hidden />
-        </button>
+      {/* Right cluster: ml-auto pushes the primary action to the far right so the
+          title sits left and the action sits right, with clean whitespace between
+          (standard app-header layout). shrink-0 so the actions never clip. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         {/* Mobile account: avatar opens a profile sheet (email + Log out).
             Desktop keeps the account + sign-out in the sidebar. */}
         <button
@@ -83,25 +62,6 @@ export function TopBar({ onAddTask }: { onAddTask?: () => void }) {
           Add task
         </Button>
       </div>
-
-      <Modal open={searchOpen} onClose={() => setSearchOpen(false)} title="Search">
-        <div className="space-y-3 p-4">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
-              aria-hidden
-            />
-            <input
-              autoFocus
-              disabled
-              placeholder="Search or jump to…"
-              aria-label="Search (coming soon)"
-              className="focus-ring h-11 w-full rounded-xl border border-white/10 bg-surface-2/40 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted/70 disabled:cursor-not-allowed"
-            />
-          </div>
-          <p className="text-xs text-text-muted">Jump-to-anything search is coming soon.</p>
-        </div>
-      </Modal>
 
       <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="Account">
         <div className="space-y-3 p-4">
