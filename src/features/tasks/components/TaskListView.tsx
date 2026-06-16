@@ -83,7 +83,7 @@ export function TaskListView({
                         toast.show(
                           next
                             ? `↻ Next occurrence scheduled for ${formatDateShort(next)}`
-                            : '↻ Recurrence finished — no more occurrences',
+                            : '↻ Recurrence finished: no more occurrences',
                         )
                       }
                     },

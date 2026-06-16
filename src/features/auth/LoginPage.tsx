@@ -71,7 +71,7 @@ export function LoginPage() {
       if (error) throw error
       setFeedback({
         type: 'info',
-        text: 'Magic link sent — check your email to finish signing in.',
+        text: 'Magic link sent. Check your email to finish signing in.',
       })
     } catch (err) {
       setFeedback({

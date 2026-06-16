@@ -70,7 +70,7 @@ export function SummaryView({
                           toast.show(
                             next
                               ? `↻ Next occurrence scheduled for ${formatDateShort(next)}`
-                              : '↻ Recurrence finished — no more occurrences',
+                              : '↻ Recurrence finished: no more occurrences',
                           )
                         }
                       },
@@ -89,7 +89,7 @@ export function SummaryView({
 
           {session.status === 'abandoned' && (
             <p className="text-xs text-text-muted/70">
-              Short session — not counted toward focus time.
+              Short session, not counted toward focus time.
             </p>
           )}
         </CardContent>

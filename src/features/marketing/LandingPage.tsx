@@ -31,7 +31,7 @@ const FEATURES: Feature[] = [
   {
     icon: RotateCcw,
     title: 'Roll-over & recovery',
-    body: "Didn't finish? Unfinished work surfaces for a calm, one-tap roll-over — no guilt pile, no silent backlog.",
+    body: "Didn't finish? Unfinished work surfaces for a calm, one-tap roll-over. No guilt pile, no silent backlog.",
   },
   {
     icon: Timer,
@@ -41,7 +41,7 @@ const FEATURES: Feature[] = [
   {
     icon: CalendarClock,
     title: 'Recurring tasks',
-    body: 'Daily, weekly, monthly, or yearly cadences with smart next-occurrence dates — set it once.',
+    body: 'Daily, weekly, monthly, or yearly cadences with smart next-occurrence dates. Set it once.',
   },
   {
     icon: ListChecks,
@@ -50,7 +50,7 @@ const FEATURES: Feature[] = [
   },
   {
     icon: Target,
-    title: 'Insights — planned vs actual',
+    title: 'Insights: planned vs actual',
     body: 'See where your estimates drift from reality and plan a more honest day over time.',
     soon: true,
   },
@@ -83,7 +83,7 @@ function CapacityMock() {
           <span className="text-text-muted">30m free</span>
         </div>
         <p className="text-xs text-text-muted">
-          Nearly full. Protect your focus — add only what truly matters.
+          Nearly full. Protect your focus and add only what truly matters.
         </p>
       </CardContent>
     </Card>
@@ -130,7 +130,7 @@ export function LandingPage() {
               </h1>
               <p className="mt-5 max-w-xl text-base text-text-muted sm:text-lg">
                 Todonado knows your time is finite. Tag each task with the effort it takes, and a
-                live capacity meter shows what actually fits — so you commit to a day you can
+                live capacity meter shows what actually fits, so you commit to a day you can
                 finish, and recover gracefully when plans slip.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -170,7 +170,7 @@ export function LandingPage() {
                 <Badge variant="danger">Every other to-do app</Badge>
                 <p className="text-sm text-text-muted">
                   A bottomless list. You schedule twelve things into an eight-hour day and only
-                  discover at 6pm that you never had a chance — then everything rolls into an
+                  discover at 6pm that you never had a chance. Then everything rolls into an
                   ever-growing pile of guilt.
                 </p>
               </CardContent>
@@ -180,7 +180,7 @@ export function LandingPage() {
                 <Badge variant="brand">With Todonado</Badge>
                 <p className="text-sm text-text-primary/90">
                   Every task carries an estimate. The meter fills as you plan. Cross your capacity
-                  and Todonado flags it — and suggests the smallest set of tasks to move to
+                  and Todonado flags it, then suggests the smallest set of tasks to move to
                   tomorrow. You commit to a day that fits.
                 </p>
               </CardContent>
@@ -194,7 +194,7 @@ export function LandingPage() {
             <h2 className="font-display text-2xl font-bold sm:text-3xl">Built for over-committers</h2>
             <p className="mt-4 text-text-muted">
               Solo knowledge workers, founders, freelancers, and grad students who lose the day to
-              an ever-growing list. You don&rsquo;t need another place to hoard tasks — you need a
+              an ever-growing list. You don&rsquo;t need another place to hoard tasks. You need a
               way to decide what fits <em>today</em> and protect that decision.
             </p>
           </div>

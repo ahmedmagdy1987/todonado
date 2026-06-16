@@ -33,12 +33,7 @@ export function MarketingHeader() {
             </Button>
           ) : (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="hidden sm:inline-flex"
-                onClick={() => goAuth('signin')}
-              >
+              <Button variant="ghost" size="sm" onClick={() => goAuth('signin')}>
                 Sign in
               </Button>
               <Button size="sm" onClick={() => goAuth('signup')}>

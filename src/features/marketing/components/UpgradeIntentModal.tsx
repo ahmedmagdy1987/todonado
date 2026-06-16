@@ -40,7 +40,7 @@ export function UpgradeIntentModal({ plan, source, onClose }: UpgradeIntentModal
       await captureUpgradeIntent({ tier, userId: user?.id ?? null, email: trimmed, source })
       setDone(true)
     } catch {
-      setError('Something went wrong — please try again.')
+      setError('Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -54,7 +54,7 @@ export function UpgradeIntentModal({ plan, source, onClose }: UpgradeIntentModal
           <div>
             <h3 className="font-display text-xl font-semibold">You’re on the list.</h3>
             <p className="mt-1 text-sm text-text-muted">
-              We’ll email you the moment {plan.name} opens — thanks for helping shape it.
+              We’ll email you the moment {plan.name} opens. Thanks for helping shape it.
             </p>
           </div>
           <Button onClick={onClose} className="mt-1">
@@ -67,7 +67,7 @@ export function UpgradeIntentModal({ plan, source, onClose }: UpgradeIntentModal
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
             <span>
               {plan.name} isn’t live yet and nothing is charged. Leave your email and we’ll notify
-              you at launch — your interest helps us decide it’s worth building.
+              you at launch. Your interest helps us decide it’s worth building.
             </span>
           </p>
           <label className="flex flex-col gap-1.5">

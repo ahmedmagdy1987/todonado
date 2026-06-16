@@ -22,7 +22,7 @@ export function InboxPage() {
         </span>
         <div>
           <h2 className="font-display text-xl font-semibold">Inbox</h2>
-          <p className="text-sm text-text-muted">Capture everything — triage it later.</p>
+          <p className="text-sm text-text-muted">Capture everything. Triage it later.</p>
         </div>
         <span className="ml-auto font-mono text-sm text-text-muted">{inbox.length}</span>
       </header>

@@ -17,7 +17,7 @@ const ROADMAP = [
 
 function priceLabel(plan: Plan): { big: string; small: string } {
   if (plan.priceMonthly === 0) return { big: 'Free', small: plan.priceNote }
-  if (plan.priceMonthly == null) return { big: '—', small: plan.priceNote }
+  if (plan.priceMonthly == null) return { big: 'Soon', small: plan.priceNote }
   return { big: `$${plan.priceMonthly}`, small: `/mo · ${plan.priceNote}` }
 }
 
@@ -102,7 +102,7 @@ export function PricingPage() {
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-text-muted">
             Start free with full task management. Upgrade to Pro for the part that makes Todonado
-            different — realistic-day planning that actually fits.
+            different: realistic-day planning that actually fits.
           </p>
           <p className="mx-auto mt-4 inline-flex max-w-xl items-start gap-2 rounded-xl border border-white/10 bg-surface-2/50 px-3 py-2 text-left text-xs text-text-muted">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />

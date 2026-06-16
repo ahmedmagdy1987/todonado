@@ -311,11 +311,11 @@ export function OnboardingOverlay() {
                 </ul>
               ) : (
                 <p className="text-sm text-text-muted">
-                  No tasks yet — that&rsquo;s okay. You can capture them anytime from your day.
+                  No tasks yet. That&rsquo;s okay. You can capture them anytime from your day.
                 </p>
               )}
               <Button size="lg" className="w-full" onClick={finish}>
-                Finish — go to my day <Check className="h-4 w-4" aria-hidden />
+                Finish and go to my day <Check className="h-4 w-4" aria-hidden />
               </Button>
             </div>
           )}

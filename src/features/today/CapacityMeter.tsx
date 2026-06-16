@@ -101,8 +101,8 @@ export function CapacityMeter({
 
         {unestimatedCount > 0 && (
           <p className="text-xs text-warning">
-            {unestimatedCount} {unestimatedCount === 1 ? 'task needs' : 'tasks need'} an estimate —
-            only estimated work counts toward your day.
+            {unestimatedCount} {unestimatedCount === 1 ? 'task needs' : 'tasks need'} an estimate.
+            Only estimated work counts toward your day.
           </p>
         )}
 
@@ -134,9 +134,9 @@ export function CapacityMeter({
         {!editing && (
           <p className="text-xs text-text-muted">
             {summary.status === 'over'
-              ? 'Overbooked — Todonado suggests moving the lowest-priority work to tomorrow.'
+              ? 'Overbooked. Todonado suggests moving the lowest-priority work to tomorrow.'
               : summary.status === 'near'
-                ? 'Nearly full. Protect your focus — add only what truly matters.'
+                ? 'Nearly full. Protect your focus and add only what truly matters.'
                 : 'Plan a realistic day: schedule work and watch your remaining headroom.'}
           </p>
         )}

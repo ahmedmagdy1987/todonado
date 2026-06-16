@@ -48,17 +48,17 @@ export const PLANS: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    tagline: 'Plan a realistic day — every day.',
+    tagline: 'Plan a realistic day, every day.',
     priceMonthly: 6,
     priceNote: 'per month, billed yearly',
     cta: 'Start Pro',
     featured: true,
     features: [
-      'Effort-aware capacity meter — plan what actually fits',
+      'Effort-aware capacity meter: plan what actually fits',
       'Overbooking guard + one-tap roll-over & recovery',
-      'Focus mode — distraction-free deep-work timer',
+      'Focus mode: a distraction-free deep-work timer',
       'Recurring tasks (daily / weekly / monthly / yearly)',
-      'Insights — planned-vs-actual effort & focus trends',
+      'Insights: planned-vs-actual effort & focus trends',
       'Everything in Free, unlimited',
     ],
   },
@@ -80,4 +80,4 @@ export const PLANS: Plan[] = [
 ]
 
 export const PRICING_DISCLAIMER =
-  'Prices are an early hypothesis we’re still validating — nothing is charged yet. Pick a paid plan to get notified at launch.'
+  'Prices are an early hypothesis we’re still validating, and nothing is charged yet. Pick a paid plan to get notified at launch.'
