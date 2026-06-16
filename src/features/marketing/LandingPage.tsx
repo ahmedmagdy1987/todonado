@@ -107,8 +107,9 @@ export function LandingPage() {
       <MarketingHeader />
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="relative overflow-hidden">
+        {/* Hero: fills the first viewport (minus the sticky h-16 header) on load.
+            min-height (svh) so short screens grow + scroll instead of clipping. */}
+        <section className="relative flex min-h-[calc(100svh_-_4rem)] flex-col justify-center overflow-hidden">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
