@@ -35,6 +35,9 @@ interface TaskRowProps {
   showSchedule?: boolean
   /** The task's project — when set, render a project badge (Today / non-project views). */
   project?: Project
+  /** Raised card tone for rows nested inside a surface panel (e.g. Projects
+   *  sections) so the card still contrasts against the panel it sits on. */
+  nested?: boolean
 }
 
 function IconButton({
@@ -76,6 +79,7 @@ export function TaskRow({
   expandable = false,
   showSchedule = true,
   project,
+  nested = false,
 }: TaskRowProps) {
   const [expanded, setExpanded] = useState(false)
   const done = task.status === 'done'
@@ -84,7 +88,14 @@ export function TaskRow({
 
   return (
     <div className="group/row">
-      <div className="flex items-start gap-3 rounded-xl border border-transparent px-4 py-3 transition-colors hover:border-white/5 hover:bg-surface-2/50">
+      <div
+        className={cn(
+          'flex items-start gap-3 rounded-xl border px-4 py-3 transition-colors',
+          nested
+            ? 'border-white/10 bg-surface-2/70 hover:border-white/20 hover:bg-surface-2'
+            : 'border-white/5 bg-surface hover:border-white/10 hover:bg-surface-2',
+        )}
+      >
         <Checkbox
           checked={done}
           onChange={() => onToggleComplete(task)}

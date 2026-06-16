@@ -23,6 +23,8 @@ interface TaskListViewProps {
   showSchedule?: boolean
   /** Show each task's project badge (Today / non-project views); off in project views where it's redundant. */
   showProjectBadge?: boolean
+  /** Raised card tone for lists rendered inside a surface panel (e.g. Projects sections). */
+  nested?: boolean
   emptyState?: ReactNode
 }
 
@@ -39,6 +41,7 @@ export function TaskListView({
   expandable = false,
   showSchedule = true,
   showProjectBadge = true,
+  nested = false,
   emptyState,
 }: TaskListViewProps) {
   const navigate = useNavigate()
@@ -64,7 +67,7 @@ export function TaskListView({
           const positionById = new Map(tasks.map((t) => [t.id, t.position]))
           reorderTask.mutate({ id: activeId, position: newPositionForMove(ordered, activeId, positionById) })
         }}
-        className="space-y-1"
+        className="space-y-2"
       >
         {(id) => {
           const task = tasks.find((t) => t.id === id)
@@ -98,6 +101,7 @@ export function TaskListView({
               focusSeconds={focusByTask.get(task.id) ?? 0}
               expandable={expandable}
               showSchedule={showSchedule}
+              nested={nested}
               project={
                 showProjectBadge && task.project_id
                   ? projectsById.get(task.project_id)

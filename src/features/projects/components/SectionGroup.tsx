@@ -93,6 +93,7 @@ export function SectionGroup({
         workspaceId={workspaceId}
         tasks={tasks}
         expandable
+        nested
         showProjectBadge={false}
         onScheduleToday={(t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: todayISO() } })}
       />
