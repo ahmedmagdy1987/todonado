@@ -13,6 +13,8 @@ import { ProjectsPage } from '@/features/projects/ProjectsPage'
 import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage'
 import { FocusPage } from '@/features/focus/FocusPage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
+import { SettingsPage } from '@/features/settings/SettingsPage'
+import { PlanPage } from '@/features/settings/PlanPage'
 
 export function AppRoutes() {
   return (
@@ -35,6 +37,8 @@ export function AppRoutes() {
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="focus" element={<FocusPage />} />
           <Route path="insights" element={<InsightsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/plan" element={<PlanPage />} />
         </Route>
       </Route>
 

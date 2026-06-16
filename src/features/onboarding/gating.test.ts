@@ -6,6 +6,8 @@ function profile(onboarding_completed: boolean): Profile {
   return {
     id: 'u1',
     display_name: null,
+    full_name: null,
+    username: null,
     avatar_url: null,
     daily_capacity_minutes: 360,
     onboarding_completed,

@@ -1,14 +1,17 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
-import { AlertTriangle, Info, Mail, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, Info, Loader2, Mail, Sparkles } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './auth-context'
 import { Logo } from '@/components/brand/Logo'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { isValidEmail, looksLikeEmail, usernameError } from './identifier'
+import { checkUsernameAvailable, resolveLoginEmail } from './api/accounts'
 
 type Mode = 'signin' | 'signup'
 type Feedback = { type: 'error' | 'info'; text: string } | null
+type UStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
 
 export function LoginPage() {
   const { session, isConfigured } = useAuth()
@@ -16,16 +19,53 @@ export function LoginPage() {
   const initialMode: Mode =
     (location.state as { mode?: Mode } | null)?.mode === 'signup' ? 'signup' : 'signin'
   const [mode, setMode] = useState<Mode>(initialMode)
-  const [email, setEmail] = useState('')
+
+  const [identifier, setIdentifier] = useState('') // signin: username OR email
+  const [email, setEmail] = useState('') // signup
+  const [fullName, setFullName] = useState('') // signup
+  const [username, setUsername] = useState('') // signup
   const [password, setPassword] = useState('')
+  const [uStatus, setUStatus] = useState<UStatus>('idle')
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<Feedback>(null)
 
-  // Already signed in -> bounce to where they were headed (or the command center).
+  // Debounced username availability check (signup only).
+  useEffect(() => {
+    if (mode !== 'signup') return
+    const trimmed = username.trim()
+    if (trimmed === '') {
+      setUStatus('idle')
+      return
+    }
+    if (usernameError(trimmed)) {
+      setUStatus('invalid')
+      return
+    }
+    setUStatus('checking')
+    let cancelled = false
+    const t = setTimeout(() => {
+      void checkUsernameAvailable(trimmed).then((ok) => {
+        if (cancelled) return
+        setUStatus(ok === null ? 'idle' : ok ? 'available' : 'taken')
+      })
+    }, 400)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [username, mode])
+
+  // Already signed in -> bounce to where they were headed.
   if (session) {
-    const from = (location.state as { from?: { pathname?: string } } | null)?.from
-      ?.pathname
+    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
     return <Navigate to={from ?? '/'} replace />
+  }
+
+  /** Turn a username-or-email identifier into a login email (null if unresolvable). */
+  async function emailForIdentifier(id: string): Promise<string | null> {
+    const value = id.trim()
+    if (looksLikeEmail(value)) return value
+    return resolveLoginEmail(value)
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -35,21 +75,60 @@ export function LoginPage() {
     setFeedback(null)
     try {
       if (mode === 'signin') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const id = identifier.trim()
+        if (looksLikeEmail(id) && !isValidEmail(id)) {
+          setFeedback({ type: 'error', text: 'Enter a valid email address.' })
+          return
+        }
+        const resolved = await emailForIdentifier(id)
+        if (!resolved) {
+          setFeedback({ type: 'error', text: 'We couldn’t find an account with that username.' })
+          return
+        }
+        const { error } = await supabase.auth.signInWithPassword({ email: resolved, password })
         if (error) throw error
       } else {
-        const { error } = await supabase.auth.signUp({ email, password })
-        if (error) throw error
+        const uname = username.trim()
+        const fmt = usernameError(uname)
+        if (fmt) {
+          setFeedback({ type: 'error', text: fmt })
+          return
+        }
+        if (uStatus === 'taken') {
+          setFeedback({ type: 'error', text: 'That username is already taken.' })
+          return
+        }
+        if (!isValidEmail(email)) {
+          setFeedback({ type: 'error', text: 'Enter a valid email address.' })
+          return
+        }
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: { full_name: fullName.trim(), username: uname },
+          },
+        })
+        if (error) {
+          const msg = error.message
+          if (/already registered|already exists/i.test(msg)) {
+            throw new Error('An account with that email already exists — try signing in instead.')
+          }
+          // A duplicate username surfaces from the bootstrap trigger as a unique
+          // violation / generic "Database error saving new user".
+          if (/duplicate|unique|database error/i.test(msg)) {
+            throw new Error('That username may be taken — please try another.')
+          }
+          throw new Error(msg)
+        }
         setFeedback({
           type: 'info',
           text: 'Account created. Check your inbox to confirm, then sign in.',
         })
       }
     } catch (err) {
-      setFeedback({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Something went wrong.',
-      })
+      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Something went wrong.' })
     } finally {
       setSubmitting(false)
     }
@@ -57,22 +136,25 @@ export function LoginPage() {
 
   async function handleMagicLink() {
     if (!isConfigured) return
-    if (!email) {
-      setFeedback({ type: 'error', text: 'Enter your email first.' })
+    const resolved = mode === 'signin' ? await emailForIdentifier(identifier) : email.trim()
+    if (!resolved) {
+      setFeedback({
+        type: 'error',
+        text: looksLikeEmail(identifier) || mode === 'signup'
+          ? 'Enter your email first.'
+          : 'Magic links need your email — enter it instead of your username.',
+      })
       return
     }
     setSubmitting(true)
     setFeedback(null)
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: resolved,
         options: { emailRedirectTo: window.location.origin },
       })
       if (error) throw error
-      setFeedback({
-        type: 'info',
-        text: 'Magic link sent. Check your email to finish signing in.',
-      })
+      setFeedback({ type: 'info', text: 'Magic link sent. Check your email to finish signing in.' })
     } catch (err) {
       setFeedback({
         type: 'error',
@@ -85,9 +167,21 @@ export function LoginPage() {
 
   const disabled = submitting || !isConfigured
 
+  const uHint =
+    mode === 'signup' && username.trim() !== ''
+      ? uStatus === 'checking'
+        ? { icon: 'spin', text: 'Checking availability…', tone: 'text-text-muted' }
+        : uStatus === 'available'
+          ? { icon: 'check', text: 'Username is available.', tone: 'text-success' }
+          : uStatus === 'taken'
+            ? { icon: 'x', text: 'That username is already taken.', tone: 'text-danger' }
+            : uStatus === 'invalid'
+              ? { icon: 'x', text: usernameError(username.trim()) ?? '', tone: 'text-danger' }
+              : null
+      : null
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
-      {/* Ambient brand glow */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -120,14 +214,13 @@ export function LoginPage() {
                   <p className="mt-0.5 text-text-muted">
                     Add <code className="font-mono text-xs">VITE_SUPABASE_URL</code> and{' '}
                     <code className="font-mono text-xs">VITE_SUPABASE_ANON_KEY</code> to{' '}
-                    <code className="font-mono text-xs">.env</code>, then restart the dev
-                    server to enable sign-in.
+                    <code className="font-mono text-xs">.env</code>, then restart the dev server to
+                    enable sign-in.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Mode toggle */}
             <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-surface-2/60 p-1">
               {(['signin', 'signup'] as const).map((m) => (
                 <button
@@ -150,18 +243,70 @@ export function LoginPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-text-muted">Email</span>
-                <Input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={disabled}
-                />
-              </label>
+              {mode === 'signup' ? (
+                <>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-text-muted">Name</span>
+                    <Input
+                      autoComplete="name"
+                      placeholder="Your name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      maxLength={80}
+                      disabled={disabled}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-text-muted">Username</span>
+                    <Input
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      placeholder="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      disabled={disabled}
+                    />
+                    {uHint && (
+                      <span className={cn('flex items-center gap-1 text-xs', uHint.tone)}>
+                        {uHint.icon === 'spin' && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
+                        {uHint.icon === 'check' && <Check className="h-3 w-3" aria-hidden />}
+                        {uHint.text}
+                      </span>
+                    )}
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-text-muted">Email</span>
+                    <Input
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      disabled={disabled}
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-text-muted">Username or email</span>
+                  <Input
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="username or you@example.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    required
+                    disabled={disabled}
+                  />
+                </label>
+              )}
 
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-text-muted">Password</span>
@@ -181,9 +326,7 @@ export function LoginPage() {
                 <div
                   className={cn(
                     'flex items-start gap-2 rounded-lg p-2.5 text-xs',
-                    feedback.type === 'error'
-                      ? 'bg-danger/10 text-danger'
-                      : 'bg-accent/10 text-accent',
+                    feedback.type === 'error' ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-accent',
                   )}
                 >
                   {feedback.type === 'error' ? (

@@ -16,6 +16,10 @@ export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly' | 'yearly'
 export interface Profile {
   id: string
   display_name: string | null
+  /** The user's display name (collected at signup; editable in Settings). */
+  full_name: string | null
+  /** Unique (case-insensitive) handle for username login; null until set. */
+  username: string | null
   avatar_url: string | null
   /** Planning capacity per day, in minutes (default 360 = 6h). */
   daily_capacity_minutes: number
