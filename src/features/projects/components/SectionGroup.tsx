@@ -92,6 +92,7 @@ export function SectionGroup({
       <TaskListView
         workspaceId={workspaceId}
         tasks={tasks}
+        viewKey={`section:${sectionId ?? 'none'}`}
         expandable
         nested
         showProjectBadge={false}

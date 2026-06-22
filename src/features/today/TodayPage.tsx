@@ -130,6 +130,7 @@ export function TodayPage() {
         <TaskListView
           workspaceId={workspaceId}
           tasks={todayTasks}
+          viewKey="today"
           showSchedule={false}
           onUnschedule={(t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: null } })}
           emptyState={<TodayEmpty />}

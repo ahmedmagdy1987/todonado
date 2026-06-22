@@ -46,6 +46,7 @@ export function InboxPage() {
         <TaskListView
           workspaceId={workspaceId}
           tasks={inbox}
+          viewKey="inbox"
           onScheduleToday={(t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: todayISO() } })}
           emptyState={<InboxEmpty />}
         />
