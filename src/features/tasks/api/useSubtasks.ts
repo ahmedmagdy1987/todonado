@@ -59,6 +59,8 @@ export function useSubtaskMutations(taskId: string) {
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
+    // Non-idempotent insert: don't offer a one-click Retry (could double-insert).
+    meta: { noRetry: true },
   })
 
   const toggleSubtask = useMutation({

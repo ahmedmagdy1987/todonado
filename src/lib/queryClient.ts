@@ -18,6 +18,19 @@ declare module '@tanstack/react-query' {
 const DEFAULT_MUTATION_ERROR = 'Something went wrong saving your changes — please try again.'
 
 /**
+ * Whether the error toast should offer a one-click Retry. Only for mutations that
+ * are safe to re-run: a mutation with `variables` (so it can be replayed) that has
+ * NOT opted out via `meta.noRetry`. Non-idempotent inserts set `noRetry` so a
+ * commit-then-lost-response + Retry can't silently duplicate a row.
+ */
+export function shouldOfferRetry(
+  meta: { noRetry?: boolean } | undefined,
+  variables: unknown,
+): boolean {
+  return variables !== undefined && !meta?.noRetry
+}
+
+/**
  * Shared TanStack Query client.
  * ALL server state in Todonado flows through TanStack Query — never store
  * server data in ad-hoc component state or context.
@@ -43,7 +56,7 @@ export const queryClient = new QueryClient({
       if (meta?.skipErrorToast) return
       const message = meta?.errorMessage ?? DEFAULT_MUTATION_ERROR
       // Offer Retry only for retriable mutations (skip non-idempotent inserts).
-      const canRetry = variables !== undefined && !meta?.noRetry
+      const canRetry = shouldOfferRetry(meta, variables)
       notifyToast(message, {
         variant: 'error',
         // Retry re-runs the same mutation (re-applies its optimistic update too).

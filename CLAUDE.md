@@ -235,20 +235,30 @@ item delete). See `supabase/migrations/`.
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **Migrations are applied through `20260622130000_wellness_tracking`** and RLS is verified
-  enforcing on every table (anon reads return `[]`; anon writes are rejected with `42501`).
-  **PENDING (committed, NOT yet applied — run the SQL in the Supabase editor):**
-  `20260622140000_recurrence_anchor_and_atomic_complete` (H5/H2) and
-  `20260622150000_drop_resolve_login_email` (H1). Apply both, then this note moves up. Recent
-  additions:
+- **Migrations applied through `20260622150000`** — RLS verified enforcing on every table (anon
+  reads return `[]`; anon writes rejected with `42501`). Live-probe verified on 2026-06-22
+  (audit follow-up): `20260622150000_drop_resolve_login_email` IS applied (`resolve_login_email`
+  → 404 PGRST202) and `20260622140000`'s DDL IS applied (`tasks.recurrence_anchor` present;
+  `complete_task` executes). **ONE live discrepancy remains:** the `revoke all on
+  public.complete_task(uuid,jsonb) from public` / `grant … to authenticated` in `20260622140000`
+  did **NOT** take effect — anon can still EXECUTE `complete_task` (returns `500 P0002` from the
+  body, not `403/42501`). It is RLS-contained (the RPC is SECURITY INVOKER, so anon's null
+  `auth.uid()` sees zero rows — no read/write/oracle), so this is a **defense-in-depth** gap, not
+  exploitable. To close, run in the SQL editor:
+  `revoke all on function public.complete_task(uuid, jsonb) from public;`
+  `grant execute on function public.complete_task(uuid, jsonb) to authenticated;`
+  then re-probe (anon should then get `42501`, not `500`). See
+  `docs/AUDIT_2026-06-22_followup.md`. Recent additions:
   - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
     profile **display identity**; usernames are not shown publicly) plus two pre-auth
     `SECURITY DEFINER` RPCs granted to `anon, authenticated` (`revoke … from public`):
     `username_available(text) -> boolean` (signup/settings availability hint, boolean-only, no
-    PII) and `resolve_login_email(text) -> text`. **Login is EMAIL-ONLY**: the username→email
-    resolver was an anon enumeration oracle (audit **H1**) and is **dropped** by
-    `20260622150000_drop_resolve_login_email` — once that runs, the only anon-callable function
-    is `username_available`, which returns a boolean and never PII.
+    PII) and (formerly) `resolve_login_email(text) -> text`. **Login is EMAIL-ONLY**: the
+    username→email resolver was an anon enumeration oracle (audit **H1**) and is **dropped** by
+    `20260622150000_drop_resolve_login_email` (live: 404). No anon-callable function returns PII:
+    `username_available` returns a boolean; the SECURITY DEFINER RLS helpers
+    (`is_workspace_member`, `project_workspace`, …) are anon-callable but return `false`/`null`
+    for a null `auth.uid()` (audit **L1**, defense-in-depth).
   - `20260622120000_feature_intents` — fake-door interest capture for the Focus & Calm concepts
     (`feature_key in ('meditation','sleep_sounds','supplement_tracker')`). Insert-only RLS
     (`to anon, authenticated with check (user_id is null or user_id = auth.uid())`); NO

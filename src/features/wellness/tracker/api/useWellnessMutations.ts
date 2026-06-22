@@ -54,6 +54,8 @@ export function useWellnessMutations(userId: string) {
       if (ctx?.prev) qc.setQueryData(itemsKey, ctx.prev)
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: itemsKey }),
+    // Non-idempotent insert: don't offer a one-click Retry (could double-insert).
+    meta: { noRetry: true },
   })
 
   const updateItem = useMutation({
@@ -137,6 +139,9 @@ export function useWellnessMutations(userId: string) {
       if (ctx?.prev) qc.setQueryData(logsKey, ctx.prev)
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: logsKey }),
+    // Non-idempotent insert: don't offer a one-click Retry (could double-insert
+    // a "taken" log; the day-dedup softens it but a duplicate row is still wrong).
+    meta: { noRetry: true },
   })
 
   /** Undo "taken" by removing today's log rows for an item. Keyed by itemId so

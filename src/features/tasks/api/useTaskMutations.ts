@@ -65,6 +65,9 @@ export function useTaskMutations(workspaceId: string) {
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
+    // Non-idempotent insert: don't offer a one-click Retry (a commit-then-lost-
+    // response + Retry could create a duplicate task).
+    meta: { noRetry: true },
   })
 
   const updateTask = useMutation({
