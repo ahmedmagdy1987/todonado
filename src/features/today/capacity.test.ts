@@ -41,6 +41,21 @@ describe('computeCapacity', () => {
     expect(c.barPct).toBe(0)
   })
 
+  it('treats a non-finite planned value as 0 (no NaN leaks into the meter)', () => {
+    const c = computeCapacity(Number.NaN, 360)
+    expect(c.plannedMinutes).toBe(0)
+    expect(c.pct).toBe(0)
+    expect(c.barPct).toBe(0)
+    expect(c.status).toBe('empty')
+    expect(Number.isNaN(c.freeMinutes)).toBe(false)
+  })
+
+  it('falls back to the default when capacity is non-finite', () => {
+    const c = computeCapacity(120, Number.NaN)
+    expect(c.capacityMinutes).toBe(360)
+    expect(Number.isNaN(c.pct)).toBe(false)
+  })
+
   it('is ok below the near threshold', () => {
     const c = computeCapacity(120, 360)
     expect(c.status).toBe('ok')

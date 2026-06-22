@@ -12,6 +12,7 @@ import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { todayISO, isoDateOffset } from '@/lib/date'
 import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
+import { LoadError } from '@/components/common/LoadError'
 import type { Task } from '@/types/database'
 import { computeCapacity, countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
@@ -29,7 +30,7 @@ function getGreeting(): string {
 export function TodayPage() {
   const { user } = useAuth()
   const { workspaceId, capacityMinutes } = useWorkspace()
-  const { data: tasks = [], isPending } = useTasks(workspaceId)
+  const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
   const { createTask, updateTask } = useTaskMutations(workspaceId)
   const updateCapacity = useUpdateCapacity()
   const [undo, setUndo] = useState<{ id: string; scheduled_for: string | null }[] | null>(null)
@@ -126,7 +127,9 @@ export function TodayPage() {
         }
       />
 
-      {!isPending && (
+      {isError ? (
+        <LoadError message="We couldn't load today's tasks." onRetry={() => void refetch()} />
+      ) : !isPending ? (
         <TaskListView
           workspaceId={workspaceId}
           tasks={todayTasks}
@@ -135,7 +138,7 @@ export function TodayPage() {
           onUnschedule={(t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: null } })}
           emptyState={<TodayEmpty />}
         />
-      )}
+      ) : null}
     </div>
   )
 }

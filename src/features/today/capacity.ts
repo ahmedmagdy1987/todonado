@@ -46,8 +46,12 @@ export function computeCapacity(
   plannedMinutes: number,
   capacityMinutes: number,
 ): CapacitySummary {
-  const capacity = capacityMinutes > 0 ? capacityMinutes : DEFAULT_DAILY_CAPACITY_MINUTES
-  const planned = Math.max(0, Math.round(plannedMinutes))
+  const capacity =
+    Number.isFinite(capacityMinutes) && capacityMinutes > 0
+      ? capacityMinutes
+      : DEFAULT_DAILY_CAPACITY_MINUTES
+  // Guard against a non-finite input (NaN/Infinity) propagating through the meter.
+  const planned = Math.max(0, Math.round(Number.isFinite(plannedMinutes) ? plannedMinutes : 0))
   const ratio = planned / capacity
 
   let status: CapacityStatus

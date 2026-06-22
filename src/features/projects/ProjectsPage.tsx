@@ -7,13 +7,14 @@ import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
 import { cn } from '@/lib/utils'
 import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
+import { LoadError } from '@/components/common/LoadError'
 import { useProjects, useProjectMutations } from './api/useProjects'
 
 const SWATCHES = ['#6C5CE7', '#4EA8FF', '#22D3A6', '#F59E0B', '#F43F5E', '#94A3B8']
 
 export function ProjectsPage() {
   const { workspaceId } = useWorkspace()
-  const { data: projects = [] } = useProjects(workspaceId)
+  const { data: projects = [], isError, refetch } = useProjects(workspaceId)
   const { data: tasks = [] } = useTasks(workspaceId)
   const { createProject, archiveProject } = useProjectMutations(workspaceId)
   const [name, setName] = useState('')
@@ -73,7 +74,9 @@ export function ProjectsPage() {
         </Button>
       </form>
 
-      {active.length === 0 ? (
+      {isError ? (
+        <LoadError message="We couldn't load your projects." onRetry={() => void refetch()} />
+      ) : active.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <FolderKanban className="h-8 w-8 text-text-muted/40" aria-hidden />

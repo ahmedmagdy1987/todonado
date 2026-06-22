@@ -7,11 +7,12 @@ import { selectInbox } from '@/features/tasks/selectors'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
+import { LoadError } from '@/components/common/LoadError'
 import { todayISO } from '@/lib/date'
 
 export function InboxPage() {
   const { workspaceId } = useWorkspace()
-  const { data: tasks = [], isPending } = useTasks(workspaceId)
+  const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
   const { createTask, updateTask } = useTaskMutations(workspaceId)
   const inbox = selectInbox(tasks)
 
@@ -42,7 +43,9 @@ export function InboxPage() {
         }
       />
 
-      {!isPending && (
+      {isError ? (
+        <LoadError message="We couldn't load your inbox." onRetry={() => void refetch()} />
+      ) : !isPending ? (
         <TaskListView
           workspaceId={workspaceId}
           tasks={inbox}
@@ -50,7 +53,7 @@ export function InboxPage() {
           onScheduleToday={(t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: todayISO() } })}
           emptyState={<InboxEmpty />}
         />
-      )}
+      ) : null}
     </div>
   )
 }
