@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { Undo2, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui'
+import { FEATURES } from '@/lib/config'
 import { track } from '@/features/analytics/track'
 import { useAuth } from '@/features/auth/auth-context'
 import { useWorkspace } from '@/features/workspace/workspace-context'
@@ -18,9 +19,11 @@ import { LoadError } from '@/components/common/LoadError'
 import type { Task } from '@/types/database'
 import { computeCapacity, countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
+import type { PlanPick } from './autoPlan'
 import { CapacityMeter } from './CapacityMeter'
 import { RolloverBanner } from './components/RolloverBanner'
 import { OverbookingWarning } from './components/OverbookingWarning'
+import { PlanMyDay } from './components/PlanMyDay'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -36,7 +39,12 @@ export function TodayPage() {
   const { createTask, updateTask } = useTaskMutations(workspaceId)
   const suggestEffort = useEffortSuggester(workspaceId)
   const updateCapacity = useUpdateCapacity()
-  const [undo, setUndo] = useState<{ id: string; scheduled_for: string | null }[] | null>(null)
+  // Shared undo for any "scheduled tasks to today" action (roll-over OR auto-plan);
+  // `verb` keeps the banner copy accurate for each.
+  const [undo, setUndo] = useState<{
+    verb: string
+    items: { id: string; scheduled_for: string | null }[]
+  } | null>(null)
 
   const today = todayISO()
   const tomorrow = isoDateOffset(1)
@@ -66,36 +74,67 @@ export function TodayPage() {
   }, [summary.status])
 
   function rollOne(task: Task) {
-    setUndo((prev) => [...(prev ?? []), { id: task.id, scheduled_for: task.scheduled_for }])
+    setUndo((prev) => ({
+      verb: 'Rolled over',
+      items: [...(prev?.items ?? []), { id: task.id, scheduled_for: task.scheduled_for }],
+    }))
     updateTask.mutate({ id: task.id, patch: { scheduled_for: today } })
   }
   function rollAll() {
     const snapshot = overdue.map((t) => ({ id: t.id, scheduled_for: t.scheduled_for }))
     overdue.forEach((t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: today } }))
-    if (snapshot.length) setUndo(snapshot)
+    if (snapshot.length) setUndo({ verb: 'Rolled over', items: snapshot })
   }
   function undoRoll() {
-    undo?.forEach((s) => updateTask.mutate({ id: s.id, patch: { scheduled_for: s.scheduled_for } }))
+    undo?.items.forEach((s) =>
+      updateTask.mutate({ id: s.id, patch: { scheduled_for: s.scheduled_for } }),
+    )
     setUndo(null)
   }
   function moveToTomorrow(list: Task[]) {
     list.forEach((t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: tomorrow } }))
   }
 
+  // Assumed cost for an effortless task = the 3A estimate (calc only; never written).
+  const estimateCost = useCallback(
+    (task: Task) => suggestEffort(task.title, task.project_id)?.minutes ?? 30,
+    [suggestEffort],
+  )
+
+  function applyPlan(picks: PlanPick[]) {
+    if (picks.length === 0) return
+    const snapshot = picks.map((p) => ({ id: p.task.id, scheduled_for: p.task.scheduled_for }))
+    picks.forEach((p) => updateTask.mutate({ id: p.task.id, patch: { scheduled_for: today } }))
+    setUndo({ verb: 'Planned', items: snapshot })
+    track('auto_planned', { flag: picks.some((p) => p.estimated), source: 'today' })
+  }
+
   return (
     <div className="animate-fade-in space-y-8">
-      <header>
-        <p className="text-sm text-text-muted">{format(new Date(), 'EEEE, MMMM d')}</p>
-        <h2 className="mt-1 font-display text-3xl font-bold tracking-tight">Your Command Center</h2>
-        <p className="mt-1 text-text-muted">
-          {getGreeting()}, {name}. Here&rsquo;s your day at a glance.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-text-muted">{format(new Date(), 'EEEE, MMMM d')}</p>
+          <h2 className="mt-1 font-display text-3xl font-bold tracking-tight">Your Command Center</h2>
+          <p className="mt-1 text-text-muted">
+            {getGreeting()}, {name}. Here&rsquo;s your day at a glance.
+          </p>
+        </div>
+        {FEATURES.autoPlan && (
+          <PlanMyDay
+            tasks={tasks}
+            capacityMinutes={capacityMinutes}
+            today={today}
+            estimate={estimateCost}
+            onApply={applyPlan}
+            variant="compact"
+          />
+        )}
       </header>
 
-      {undo && undo.length > 0 && (
+      {undo && undo.items.length > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-surface-2/50 px-4 py-2.5 text-sm">
           <span className="text-text-muted">
-            Rolled over {undo.length} {undo.length === 1 ? 'task' : 'tasks'} to today.
+            {undo.verb} {undo.items.length} {undo.items.length === 1 ? 'task' : 'tasks'} to today.
           </span>
           <button
             type="button"
@@ -153,14 +192,29 @@ export function TodayPage() {
           viewKey="today"
           showSchedule={false}
           onUnschedule={(t) => updateTask.mutate({ id: t.id, patch: { scheduled_for: null } })}
-          emptyState={<TodayEmpty />}
+          emptyState={
+            <TodayEmpty
+              planButton={
+                FEATURES.autoPlan ? (
+                  <PlanMyDay
+                    tasks={tasks}
+                    capacityMinutes={capacityMinutes}
+                    today={today}
+                    estimate={estimateCost}
+                    onApply={applyPlan}
+                    variant="prominent"
+                  />
+                ) : null
+              }
+            />
+          }
         />
       ) : null}
     </div>
   )
 }
 
-function TodayEmpty() {
+function TodayEmpty({ planButton }: { planButton?: ReactNode }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
@@ -169,6 +223,7 @@ function TodayEmpty() {
           <h3 className="font-display text-xl font-semibold">Your day is clear.</h3>
           <p className="mt-1 text-text-muted">Pull in what matters most.</p>
         </div>
+        {planButton}
         <p className="text-xs text-text-muted/70">
           Capture tasks in the Inbox, then schedule them here.
         </p>

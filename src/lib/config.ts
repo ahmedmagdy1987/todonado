@@ -37,4 +37,12 @@ export const FEATURES = {
    * false to hide the suggestion chip everywhere (no other behavior changes).
    */
   autoEffort: true,
+  /**
+   * Auto-plan-my-day — a "Plan my day" button on Today that deterministically
+   * fills today within the REMAINING capacity (priority → due → effort, greedy,
+   * never over) and schedules the chosen tasks, behind a preview/confirm. Pure +
+   * unit-tested; no AI. Default ON; set to false to hide the button (Today's
+   * existing capacity/roll-over behavior is untouched either way).
+   */
+  autoPlan: true,
 } as const
