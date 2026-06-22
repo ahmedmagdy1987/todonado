@@ -274,9 +274,14 @@ item delete). See `supabase/migrations/`.
    lplsbfduankkpglyusjp` → `supabase db push`.
 
 ### Agent / CLI note (verified on this machine — Windows + PowerShell)
-- **`git push` works from the agent's PowerShell tool** — the Windows Git Credential Manager
-  holds the GitHub creds, so HTTPS push needs no `gh` auth. Network + REST/curl verification also
-  work from PowerShell (the old Bash-sandbox network block does not apply here).
+- **`git push` from the agent's PowerShell tool relies on a VALID GitHub token** — supplied by
+  the Windows Git Credential Manager and/or `gh`, so a push usually needs no interactive step.
+  But that token CAN expire / be invalidated mid-session: if a push fails with
+  `Invalid username or token` / `Authentication failed` (or `gh auth status` reports the keyring
+  token invalid), run `gh auth login` (or `gh auth refresh -h github.com -s repo`) in a **real
+  terminal** (browser flow — NOT the non-TTY agent shell or the `!` prefix), optionally
+  `gh auth setup-git` to point git at gh's credential, then retry the push. Network + REST/curl
+  verification also work from PowerShell (the old Bash-sandbox network block does not apply here).
 - **`supabase login` CANNOT run in the agent shell** (the `!` prefix and the PowerShell tool are
   non-TTY): it errors `Cannot use automatic login flow inside non-TTY environments`. Do it in a
   **real terminal** where the browser flow works, or set `SUPABASE_ACCESS_TOKEN` / pass `--token`.
