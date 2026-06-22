@@ -235,13 +235,20 @@ item delete). See `supabase/migrations/`.
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **All migrations are applied** (through `20260622130000_wellness_tracking`, the latest file on
-  disk) and RLS is verified enforcing on every table (anon reads return `[]`; anon writes are
-  rejected with `42501`). Recent additions, all applied live on the cloud:
-  - `20260616120000_accounts_username` — username login: a unique, case-insensitive
-    `profiles.username`, plus two pre-auth `SECURITY DEFINER` RPCs (`username_available(text)`,
-    `resolve_login_email(text)`) with `execute` granted to `anon, authenticated` (and `revoke …
-    from public`).
+- **Migrations are applied through `20260622130000_wellness_tracking`** and RLS is verified
+  enforcing on every table (anon reads return `[]`; anon writes are rejected with `42501`).
+  **PENDING (committed, NOT yet applied — run the SQL in the Supabase editor):**
+  `20260622140000_recurrence_anchor_and_atomic_complete` (H5/H2) and
+  `20260622150000_drop_resolve_login_email` (H1). Apply both, then this note moves up. Recent
+  additions:
+  - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
+    profile **display identity**; usernames are not shown publicly) plus two pre-auth
+    `SECURITY DEFINER` RPCs granted to `anon, authenticated` (`revoke … from public`):
+    `username_available(text) -> boolean` (signup/settings availability hint, boolean-only, no
+    PII) and `resolve_login_email(text) -> text`. **Login is EMAIL-ONLY**: the username→email
+    resolver was an anon enumeration oracle (audit **H1**) and is **dropped** by
+    `20260622150000_drop_resolve_login_email` — once that runs, the only anon-callable function
+    is `username_available`, which returns a boolean and never PII.
   - `20260622120000_feature_intents` — fake-door interest capture for the Focus & Calm concepts
     (`feature_key in ('meditation','sleep_sounds','supplement_tracker')`). Insert-only RLS
     (`to anon, authenticated with check (user_id is null or user_id = auth.uid())`); NO

@@ -328,10 +328,12 @@ demand validation first.**
 
 ### Workspace invites (email/username) + member roster — ⏳ needs real users first
 - **What:** Invite-by-username/email → `workspace_members` row + a roster UI.
-- **Why it fits:** Roles, RLS helpers, and `resolve_login_email` /
-  `username_available` RPCs already exist; this is the missing "add a second
-  human" primitive everything else depends on. Pure plumbing — zero value until
-  two users want a shared space.
+- **Why it fits:** Roles, RLS helpers, and the `username_available` RPC already
+  exist; this is the missing "add a second human" primitive everything else
+  depends on. Pure plumbing — zero value until two users want a shared space.
+  Note: `resolve_login_email` was **removed** (H1, email-only login) — an invite
+  flow must invite by email and must **not** reintroduce a username→email /
+  account-discovery oracle.
 - **Effort:** M · **Risk:** privacy (user-discovery surface; needs invite-accept
   + rate limiting — already flagged in the username migration).
 

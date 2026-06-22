@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isValidEmail, isValidUsername, looksLikeEmail, usernameError } from './identifier'
-
-describe('looksLikeEmail', () => {
-  it('routes anything with "@" to the email path', () => {
-    expect(looksLikeEmail('a@b.com')).toBe(true)
-    expect(looksLikeEmail('alice')).toBe(false)
-    expect(looksLikeEmail('alice_99')).toBe(false)
-  })
-})
+import { isValidEmail, isValidUsername, usernameError } from './identifier'
 
 describe('isValidEmail', () => {
   it('accepts well-formed emails and rejects junk', () => {

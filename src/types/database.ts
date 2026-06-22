@@ -20,7 +20,7 @@ export interface Profile {
   display_name: string | null
   /** The user's display name (collected at signup; editable in Settings). */
   full_name: string | null
-  /** Unique (case-insensitive) handle for username login; null until set. */
+  /** Unique (case-insensitive) display handle (shown as @username); not used for login — sign-in is email-only. Null until set. */
   username: string | null
   avatar_url: string | null
   /** Planning capacity per day, in minutes (default 360 = 6h). */

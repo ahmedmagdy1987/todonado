@@ -343,7 +343,7 @@ export function SettingsPage() {
 
       <p className="flex items-center gap-1.5 text-xs text-text-muted">
         <AtSign className="h-3.5 w-3.5" aria-hidden />
-        Your username lets you sign in without typing your email.
+        Your username is your handle in Todonado — you sign in with your email.
       </p>
     </div>
   )

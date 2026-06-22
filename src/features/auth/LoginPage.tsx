@@ -6,8 +6,8 @@ import { useAuth } from './auth-context'
 import { Logo } from '@/components/brand/Logo'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { isValidEmail, looksLikeEmail, usernameError } from './identifier'
-import { checkUsernameAvailable, resolveLoginEmail } from './api/accounts'
+import { isValidEmail, usernameError } from './identifier'
+import { checkUsernameAvailable } from './api/accounts'
 
 type Mode = 'signin' | 'signup'
 type Feedback = { type: 'error' | 'info'; text: string } | null
@@ -20,8 +20,7 @@ export function LoginPage() {
     (location.state as { mode?: Mode } | null)?.mode === 'signup' ? 'signup' : 'signin'
   const [mode, setMode] = useState<Mode>(initialMode)
 
-  const [identifier, setIdentifier] = useState('') // signin: username OR email
-  const [email, setEmail] = useState('') // signup
+  const [email, setEmail] = useState('') // login email (sign in + sign up)
   const [fullName, setFullName] = useState('') // signup
   const [username, setUsername] = useState('') // signup
   const [password, setPassword] = useState('')
@@ -61,13 +60,6 @@ export function LoginPage() {
     return <Navigate to={from ?? '/'} replace />
   }
 
-  /** Turn a username-or-email identifier into a login email (null if unresolvable). */
-  async function emailForIdentifier(id: string): Promise<string | null> {
-    const value = id.trim()
-    if (looksLikeEmail(value)) return value
-    return resolveLoginEmail(value)
-  }
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!isConfigured) return
@@ -75,18 +67,22 @@ export function LoginPage() {
     setFeedback(null)
     try {
       if (mode === 'signin') {
-        const id = identifier.trim()
-        if (looksLikeEmail(id) && !isValidEmail(id)) {
-          setFeedback({ type: 'error', text: 'Enter a valid email address.' })
+        const value = email.trim()
+        if (!isValidEmail(value)) {
+          setFeedback({ type: 'error', text: 'Enter the email you signed up with.' })
           return
         }
-        const resolved = await emailForIdentifier(id)
-        if (!resolved) {
-          setFeedback({ type: 'error', text: 'We couldn’t find an account with that username.' })
-          return
+        const { error } = await supabase.auth.signInWithPassword({ email: value, password })
+        if (error) {
+          if (/email not confirmed/i.test(error.message)) {
+            throw new Error('Please confirm your email first — check your inbox for the link.')
+          }
+          // Generic message: never reveal whether the email exists (no enumeration).
+          if (/invalid login credentials/i.test(error.message)) {
+            throw new Error('That email and password don’t match an account.')
+          }
+          throw error
         }
-        const { error } = await supabase.auth.signInWithPassword({ email: resolved, password })
-        if (error) throw error
       } else {
         const uname = username.trim()
         const fmt = usernameError(uname)
@@ -141,21 +137,16 @@ export function LoginPage() {
 
   async function handleMagicLink() {
     if (!isConfigured) return
-    const resolved = mode === 'signin' ? await emailForIdentifier(identifier) : email.trim()
-    if (!resolved) {
-      setFeedback({
-        type: 'error',
-        text: looksLikeEmail(identifier) || mode === 'signup'
-          ? 'Enter your email first.'
-          : 'Magic links need your email — enter it instead of your username.',
-      })
+    const value = email.trim()
+    if (!isValidEmail(value)) {
+      setFeedback({ type: 'error', text: 'Enter your email first.' })
       return
     }
     setSubmitting(true)
     setFeedback(null)
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email: resolved,
+        email: value,
         options: { emailRedirectTo: window.location.origin },
       })
       if (error) throw error
@@ -298,15 +289,16 @@ export function LoginPage() {
                 </>
               ) : (
                 <label className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-text-muted">Username or email</span>
+                  <span className="text-xs font-medium text-text-muted">Email</span>
                   <Input
-                    autoComplete="username"
+                    type="email"
+                    autoComplete="email"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
-                    placeholder="username or you@example.com"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={disabled}
                   />

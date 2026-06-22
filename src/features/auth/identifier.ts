@@ -1,14 +1,10 @@
 /**
- * Pure helpers for the "username or email" auth field. No I/O — unit-tested.
- * Username rules mirror the DB check in 20260616120000_accounts_username.sql.
+ * Pure helpers for the auth fields. No I/O — unit-tested.
+ * Login is email-only; usernames are a signup/profile display identity whose
+ * rules mirror the DB check in 20260616120000_accounts_username.sql.
  */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const USERNAME_RE = /^[A-Za-z0-9_]{3,30}$/
-
-/** Treat the login identifier as an email when it contains "@" (usernames cannot). */
-export function looksLikeEmail(value: string): boolean {
-  return value.includes('@')
-}
 
 export function isValidEmail(value: string): boolean {
   return EMAIL_RE.test(value.trim())

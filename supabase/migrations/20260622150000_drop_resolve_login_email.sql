@@ -1,0 +1,24 @@
+-- ============================================================================
+--  Todonado — H1 fix: drop the username -> email enumeration RPC (email-only login)
+--
+--  AUDIT_2026-06-22 H1 (launch blocker): public.resolve_login_email(text) was a
+--  SECURITY DEFINER function granted to `anon` that mapped a KNOWN username to its
+--  real login email (read from auth.users, which RLS otherwise hides) — an
+--  unauthenticated enumeration oracle with no rate limit.
+--
+--  Full fix: remove username-based login entirely. The client now signs in with
+--  EMAIL ONLY (LoginPage.tsx), so this RPC has no caller and is dropped here. No
+--  anon-callable function returns PII after this migration.
+--
+--  KEPT INTENTIONALLY:
+--    - public.username_available(text) -> boolean : signup/settings availability
+--      hint. Returns a boolean ONLY (account-existence, never an email or any PII).
+--      Acceptable per the audit once the email-relay (H1) is gone.
+--    - profiles.username (+ unique index, format check) : usernames remain a
+--      profile display identity; only the LOGIN lookup is removed. Existing
+--      accounts are unaffected — they keep signing in with their email.
+--
+--  Idempotent: safe to run more than once.
+-- ============================================================================
+
+drop function if exists public.resolve_login_email(text);
