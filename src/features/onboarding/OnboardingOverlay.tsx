@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Button, Card, Input } from '@/components/ui'
 import { Logo } from '@/components/brand/Logo'
 import { useWorkspace } from '@/features/workspace/workspace-context'
@@ -14,6 +15,7 @@ import { todayISO } from '@/lib/date'
 import { formatMinutes } from '@/lib/format'
 import { useToast } from '@/components/common/toast-context'
 import { cn } from '@/lib/utils'
+import { FEATURES } from '@/lib/config'
 import { useCompleteOnboarding } from './api/useCompleteOnboarding'
 
 const CAPACITY_PRESETS = [
@@ -39,6 +41,7 @@ export function OnboardingOverlay() {
   const updateCapacity = useUpdateCapacity()
   const completeOnboarding = useCompleteOnboarding()
   const toast = useToast()
+  const navigate = useNavigate()
 
   const [step, setStep] = useState(1)
   const [createdIds, setCreatedIds] = useState<string[]>([])
@@ -84,6 +87,11 @@ export function OnboardingOverlay() {
 
   function skip() {
     completeOnboarding.mutate()
+  }
+  function browseTemplates() {
+    // Skippable head-start: finish onboarding and jump into the template library.
+    completeOnboarding.mutate()
+    navigate('/templates')
   }
   function finish() {
     completeOnboarding.mutate()
@@ -238,6 +246,15 @@ export function OnboardingOverlay() {
                 </p>
               </div>
               <QuickAdd autoFocus placeholder="Add a task… (press Enter)" onAdd={addTask} />
+              {FEATURES.templates && (
+                <button
+                  type="button"
+                  onClick={browseTemplates}
+                  className="focus-ring inline-flex items-center gap-1 rounded text-sm text-accent hover:underline"
+                >
+                  Or start from a ready-made template <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              )}
               {captured.length > 0 && (
                 <ul className="space-y-1">
                   {captured.map((t) => (

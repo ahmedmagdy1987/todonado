@@ -4,10 +4,12 @@ import { cn } from '@/lib/utils'
 
 /**
  * Mobile primary navigation: a fixed, evenly-spaced tab bar covering every
- * destination (Today · Inbox · Projects · Focus · Insights · Wellness). Tabs are
- * data-driven from NAV_ITEMS and flex-1, so the bar reflows as items change. The
- * desktop sidebar (md:flex) is unchanged. Add-task lives in the floating FAB; the
- * account + Log out live behind the top-bar avatar.
+ * destination (Today · Inbox · Projects · Focus · Insights, plus Wellness and
+ * Templates when their feature flags are on). Tabs are data-driven from NAV_ITEMS
+ * and flex-1, so the bar reflows as items change (labels truncate on narrow
+ * phones when many optional flags are enabled). The desktop sidebar (md:flex) is
+ * unchanged. Add-task lives in the floating FAB; account + Log out live behind
+ * the top-bar avatar.
  */
 export function BottomNav() {
   return (

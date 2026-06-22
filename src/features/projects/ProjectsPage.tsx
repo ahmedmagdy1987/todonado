@@ -6,6 +6,7 @@ import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
 import { cn } from '@/lib/utils'
+import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
 import { useProjects, useProjectMutations } from './api/useProjects'
 
 const SWATCHES = ['#6C5CE7', '#4EA8FF', '#22D3A6', '#F59E0B', '#F43F5E', '#94A3B8']
@@ -80,6 +81,7 @@ export function ProjectsPage() {
             <p className="max-w-sm text-sm text-text-muted">
               Create your first project above to group related work into sections and tasks.
             </p>
+            <StartFromTemplateCTA variant="outline" />
           </CardContent>
         </Card>
       ) : (

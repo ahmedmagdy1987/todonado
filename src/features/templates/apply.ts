@@ -111,7 +111,6 @@ export async function applyTemplate(
 export function applySuccessMessage(result: ApplyResult): string {
   const n = result.taskCount
   const noun = n === 1 ? 'task' : 'tasks'
-  const where = result.target === 'project' ? result.destinationLabel : result.destinationLabel
-  const base = `Added ${n} ${noun} to ${where}`
+  const base = `Added ${n} ${noun} to ${result.destinationLabel}`
   return result.failedCount > 0 ? `${base} (${result.failedCount} couldn't be added)` : base
 }

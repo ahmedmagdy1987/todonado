@@ -1,4 +1,4 @@
-import { BarChart3, FolderKanban, HeartPulse, Inbox, Sun, Timer } from 'lucide-react'
+import { BarChart3, FolderKanban, HeartPulse, Inbox, LayoutTemplate, Sun, Timer } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FEATURES } from '@/lib/config'
 
@@ -18,4 +18,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/insights', label: 'Insights', icon: BarChart3 },
   // Wellness suite — only present when the feature flag is on.
   ...(FEATURES.wellness ? [{ to: '/wellness', label: 'Wellness', icon: HeartPulse }] : []),
+  // Templates library — only present when the feature flag is on.
+  ...(FEATURES.templates ? [{ to: '/templates', label: 'Templates', icon: LayoutTemplate }] : []),
 ]

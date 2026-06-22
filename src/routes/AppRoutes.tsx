@@ -18,6 +18,8 @@ import { BreathePage } from '@/features/wellness/breathwork/BreathePage'
 import { SoundsPage } from '@/features/wellness/audio/SoundsPage'
 import { MeditatePage } from '@/features/wellness/audio/MeditatePage'
 import { TrackerPage } from '@/features/wellness/tracker/TrackerPage'
+import { TemplatesPage } from '@/features/templates/TemplatesPage'
+import { TemplateDetailPage } from '@/features/templates/TemplateDetailPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { PlanPage } from '@/features/settings/PlanPage'
 import { FEATURES } from '@/lib/config'
@@ -50,6 +52,12 @@ export function AppRoutes() {
               <Route path="wellness/sleep" element={<SoundsPage />} />
               <Route path="wellness/meditate" element={<MeditatePage />} />
               <Route path="wellness/tracker" element={<TrackerPage />} />
+            </>
+          )}
+          {FEATURES.templates && (
+            <>
+              <Route path="templates" element={<TemplatesPage />} />
+              <Route path="templates/:templateId" element={<TemplateDetailPage />} />
             </>
           )}
           <Route path="settings" element={<SettingsPage />} />

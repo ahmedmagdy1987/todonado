@@ -6,6 +6,7 @@ import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
 import { selectInbox } from '@/features/tasks/selectors'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
+import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
 import { todayISO } from '@/lib/date'
 
 export function InboxPage() {
@@ -62,6 +63,7 @@ function InboxEmpty() {
         <p className="max-w-sm text-sm text-text-muted">
           Capture anything on your mind above. Add an effort estimate to plan it into your day later.
         </p>
+        <StartFromTemplateCTA variant="outline" />
       </CardContent>
     </Card>
   )

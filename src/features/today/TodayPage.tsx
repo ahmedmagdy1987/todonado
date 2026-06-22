@@ -11,6 +11,7 @@ import { selectToday } from '@/features/tasks/selectors'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { todayISO, isoDateOffset } from '@/lib/date'
+import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
 import type { Task } from '@/types/database'
 import { computeCapacity, countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
@@ -150,6 +151,7 @@ function TodayEmpty() {
         <p className="text-xs text-text-muted/70">
           Capture tasks in the Inbox, then schedule them here.
         </p>
+        <StartFromTemplateCTA />
       </CardContent>
     </Card>
   )
