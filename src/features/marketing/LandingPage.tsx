@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context'
+import { FocusCalmCards } from '@/features/wellness/components/FocusCalmCards'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 
@@ -221,6 +222,27 @@ export function LandingPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </section>
+
+        {/* Focus & Calm — wellness fake-door teaser (signal only; nothing here is built) */}
+        <section className="border-y border-white/5 bg-surface/40">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <div className="mx-auto max-w-2xl text-center">
+              <Badge variant="outline" className="mb-4">
+                Exploring
+              </Badge>
+              <h2 className="font-display text-2xl font-bold sm:text-3xl">
+                A calmer side to your day
+              </h2>
+              <p className="mt-3 text-text-muted">
+                We&rsquo;re weighing a wellness companion to Todonado. None of these are built yet —
+                tell us what you&rsquo;d actually use and we&rsquo;ll let you know if we ship it.
+              </p>
+            </div>
+            <div className="mt-10">
+              <FocusCalmCards source="landing" />
+            </div>
           </div>
         </section>
 

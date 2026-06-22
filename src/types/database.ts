@@ -12,6 +12,8 @@ export type MemberRole = 'owner' | 'admin' | 'member'
 /** 0 = none, 1 = low, 2 = medium, 3 = high */
 export type TaskPriority = 0 | 1 | 2 | 3
 export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly' | 'yearly'
+/** Fake-door demand-capture keys for unbuilt "Focus & Calm" wellness concepts. */
+export type FeatureKey = 'meditation' | 'sleep_sounds' | 'supplement_tracker'
 
 export interface Profile {
   id: string
@@ -199,3 +201,23 @@ export type FocusSessionPatch = Partial<
     | 'accumulated_paused_seconds'
   >
 >
+
+// ---------------------------------------------------------------------------
+//  Feature intents (fake-door demand capture — insert-only, no read-back)
+// ---------------------------------------------------------------------------
+export interface FeatureIntent {
+  id: string
+  /** null for a logged-out landing visitor; else the signed-in user. */
+  user_id: string | null
+  feature_key: FeatureKey
+  /** Where the click came from, e.g. 'wellness' or 'landing'. */
+  source: string | null
+  created_at: string
+}
+
+/** Insert-only client shape (DB fills id + created_at; no update/patch type — write-only). */
+export interface NewFeatureIntentInput {
+  feature_key: FeatureKey
+  user_id?: string | null
+  source?: string | null
+}

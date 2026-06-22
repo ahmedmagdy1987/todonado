@@ -1,4 +1,4 @@
-import { BarChart3, FolderKanban, Inbox, Sun, Timer } from 'lucide-react'
+import { BarChart3, FolderKanban, HeartPulse, Inbox, Sun, Timer } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -15,4 +15,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/focus', label: 'Focus', icon: Timer },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
+  { to: '/wellness', label: 'Wellness', icon: HeartPulse },
 ]
