@@ -181,6 +181,82 @@ describe('buildNextOccurrence (spawn on complete)', () => {
   })
 })
 
+describe('recurrence anchor — month-end no longer drifts (H2)', () => {
+  const monthlyOcc = (due: string, anchor: string | null) =>
+    makeTask({
+      due_date: due,
+      scheduled_for: null,
+      recurrence_freq: 'monthly',
+      recurrence_interval: 1,
+      recurrence_anchor: anchor,
+    })
+
+  it('monthly on the 31st: Jan 31 → Feb 28 → Mar 31 (not Mar 28)', () => {
+    const n1 = buildNextOccurrence(monthlyOcc('2026-01-31', '2026-01-31'), '2026-01-31')
+    expect(n1?.due_date).toBe('2026-02-28')
+    expect(n1?.recurrence_anchor).toBe('2026-01-31') // anchor carried forward
+
+    const n2 = buildNextOccurrence(monthlyOcc('2026-02-28', '2026-01-31'), '2026-02-28')
+    expect(n2?.due_date).toBe('2026-03-31') // recovers the 31st
+    expect(n2?.recurrence_anchor).toBe('2026-01-31')
+
+    const n3 = buildNextOccurrence(monthlyOcc('2026-03-31', '2026-01-31'), '2026-03-31')
+    expect(n3?.due_date).toBe('2026-04-30')
+  })
+
+  it('monthly on the 30th recovers the 30th after February', () => {
+    expect(buildNextOccurrence(monthlyOcc('2026-01-30', '2026-01-30'), '2026-01-30')?.due_date).toBe(
+      '2026-02-28',
+    )
+    expect(buildNextOccurrence(monthlyOcc('2026-02-28', '2026-01-30'), '2026-02-28')?.due_date).toBe(
+      '2026-03-30',
+    )
+  })
+
+  it('leap year: Jan 31 → Feb 29 → Mar 31', () => {
+    expect(buildNextOccurrence(monthlyOcc('2028-01-31', '2028-01-31'), '2028-01-31')?.due_date).toBe(
+      '2028-02-29',
+    )
+    expect(buildNextOccurrence(monthlyOcc('2028-02-29', '2028-01-31'), '2028-02-29')?.due_date).toBe(
+      '2028-03-31',
+    )
+  })
+
+  it('computeNextOccurrence honors an explicit anchor for monthly', () => {
+    expect(
+      computeNextOccurrence({ freq: 'monthly', interval: 1 }, '2026-02-28', '2026-01-31'),
+    ).toBe('2026-03-31')
+  })
+
+  it('legacy rows without an anchor still advance (no regression, no recovery)', () => {
+    const legacy = monthlyOcc('2026-02-28', null)
+    expect(buildNextOccurrence(legacy, '2026-02-28')?.due_date).toBe('2026-03-28')
+  })
+
+  it('overdue monthly recovers through the loop using the anchor (preserving the 31st)', () => {
+    // Anchored on the 31st; the live occurrence is stale (Jan 31) and today is
+    // Apr 10. The recovery loop must walk the ANCHOR series (Feb 28, Mar 31,
+    // Apr 30) to the first date after today — Apr 30 — not drift off the 31st.
+    const t = makeTask({
+      scheduled_for: '2026-01-31',
+      due_date: null,
+      recurrence_freq: 'monthly',
+      recurrence_interval: 1,
+      recurrence_anchor: '2026-01-31',
+    })
+    expect(nextOccurrenceDate(t, '2026-04-10')).toBe('2026-04-30')
+    // ...and the following occurrence recovers the 31st again (May has 31 days).
+    const may = makeTask({
+      scheduled_for: '2026-04-30',
+      due_date: null,
+      recurrence_freq: 'monthly',
+      recurrence_interval: 1,
+      recurrence_anchor: '2026-01-31',
+    })
+    expect(buildNextOccurrence(may, '2026-04-30')?.scheduled_for).toBe('2026-05-31')
+  })
+})
+
 describe('nextOccurrenceDate — overdue recovery (anchor from today)', () => {
   it('on-time task advances exactly one interval from its own date', () => {
     const t = makeTask({ scheduled_for: '2026-06-04', recurrence_freq: 'daily', recurrence_interval: 1 })

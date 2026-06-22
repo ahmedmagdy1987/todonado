@@ -39,7 +39,31 @@ function nextWeekly(from: Date, interval: number, weekdays?: number[] | null): D
   return addDays(from, interval * 7)
 }
 
-function nextDate(rule: RecurrenceRule, from: Date): Date {
+/**
+ * First date STRICTLY after `from` in the series anchored at `anchor`, stepping
+ * `addFn` by `interval` from the anchor. Computing from the anchor (not the
+ * previous, already-clamped date) is what keeps month-end intent: Jan 31 ->
+ * Feb 28 -> Mar 31 (not Mar 28). addMonths/addYears are monotonic in k, so the
+ * loop terminates; the guard is a belt-and-suspenders cap.
+ */
+function nthFromAnchor(
+  addFn: (date: Date, amount: number) => Date,
+  anchor: Date,
+  from: Date,
+  interval: number,
+): Date {
+  let k = 1
+  let cand = addFn(anchor, k * interval)
+  let guard = 0
+  while (cand <= from && guard < 4000) {
+    k += 1
+    cand = addFn(anchor, k * interval)
+    guard += 1
+  }
+  return cand
+}
+
+function nextDate(rule: RecurrenceRule, from: Date, anchor: Date): Date {
   const interval = Number.isFinite(rule.interval) ? Math.max(1, Math.floor(rule.interval)) : 1
   switch (rule.freq) {
     case 'daily':
@@ -47,11 +71,11 @@ function nextDate(rule: RecurrenceRule, from: Date): Date {
     case 'weekly':
       return nextWeekly(from, interval, rule.weekdays)
     case 'monthly':
-      // date-fns addMonths clamps month-end (Jan 31 -> Feb 28/29).
-      return addMonths(from, interval)
+      // Anchored so the clamp (Jan 31 -> Feb 28/29) is per target month, never permanent.
+      return nthFromAnchor(addMonths, anchor, from, interval)
     case 'yearly':
-      // addYears clamps Feb 29 -> Feb 28 on non-leap years.
-      return addYears(from, interval)
+      // Anchored so Feb 29 clamps to Feb 28 only on non-leap years, then recovers.
+      return nthFromAnchor(addYears, anchor, from, interval)
     default: {
       const exhaustive: never = rule.freq
       return exhaustive
@@ -59,9 +83,17 @@ function nextDate(rule: RecurrenceRule, from: Date): Date {
   }
 }
 
-/** The next occurrence after `fromDate`, or null if it would fall past `until`. */
-export function computeNextOccurrence(rule: RecurrenceRule, fromDate: string): string | null {
-  const next = nextDate(rule, parseISO(fromDate))
+/**
+ * The next occurrence strictly after `fromDate`, or null if it would fall past
+ * `until`. For monthly/yearly, `anchorDate` pins the intended day-of-month
+ * (defaults to `fromDate`, preserving single-step behaviour); daily/weekly ignore it.
+ */
+export function computeNextOccurrence(
+  rule: RecurrenceRule,
+  fromDate: string,
+  anchorDate: string = fromDate,
+): string | null {
+  const next = nextDate(rule, parseISO(fromDate), parseISO(anchorDate))
   const nextStr = format(next, 'yyyy-MM-dd')
   if (rule.until && nextStr > rule.until) return null
   return nextStr
@@ -93,11 +125,15 @@ export function ruleFromTask(task: RecurrenceFields): RecurrenceRule | null {
 export function nextOccurrenceDate(task: Task, todayStr: string = todayISO()): string | null {
   const rule = ruleFromTask(task)
   if (!rule) return null
-  const anchor = task.scheduled_for ?? task.due_date ?? todayStr
-  let next = computeNextOccurrence(rule, anchor)
+  const current = task.scheduled_for ?? task.due_date ?? todayStr
+  // Anchor pins monthly/yearly day-of-month across the series; legacy rows
+  // without a persisted anchor fall back to the current date (no drift fix, but
+  // no regression either).
+  const anchor = task.recurrence_anchor ?? current
+  let next = computeNextOccurrence(rule, current, anchor)
   let guard = 0
   while (next !== null && next <= todayStr && guard < 1000) {
-    const advanced = computeNextOccurrence(rule, next)
+    const advanced = computeNextOccurrence(rule, next, anchor)
     if (advanced === null) return null // ran out (past `until`) before reaching the future
     if (advanced === next) break // defensive: no forward progress
     next = advanced
@@ -116,6 +152,9 @@ export function buildNextOccurrence(task: Task, todayStr: string = todayISO()): 
   const next = nextOccurrenceDate(task, todayStr)
   if (!next) return null
   const hasAnyDate = task.due_date != null || task.scheduled_for != null
+  // Carry the stable anchor forward unchanged so the whole series computes from
+  // the original day-of-month (legacy rows derive it from their current date).
+  const carriedAnchor = task.recurrence_anchor ?? task.scheduled_for ?? task.due_date ?? null
   return {
     workspace_id: task.workspace_id,
     title: task.title,
@@ -133,6 +172,7 @@ export function buildNextOccurrence(task: Task, todayStr: string = todayISO()): 
     recurrence_interval: task.recurrence_interval,
     recurrence_weekdays: task.recurrence_weekdays,
     recurrence_until: task.recurrence_until,
+    recurrence_anchor: carriedAnchor,
   }
 }
 

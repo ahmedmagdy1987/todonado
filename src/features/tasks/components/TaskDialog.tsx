@@ -131,6 +131,9 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
           ? [...recurWeekdays].sort((a, b) => a - b)
           : null,
       recurrence_until: recurFreq && recurUntil ? recurUntil : null,
+      // Anchor monthly/yearly to the chosen start date so the day-of-month is
+      // preserved across occurrences (see recurrence.ts). Null when non-recurring.
+      recurrence_anchor: recurFreq ? scheduled || due || null : null,
     }
 
     if (isEdit && task) {

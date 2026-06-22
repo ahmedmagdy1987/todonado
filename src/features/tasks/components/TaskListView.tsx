@@ -128,16 +128,15 @@ export function TaskListView({
               onToggleComplete={(t) => {
                 const willComplete = t.status !== 'done'
                 toggleComplete.mutate(
-                  { id: t.id, done: willComplete },
+                  { task: t, done: willComplete },
                   {
-                    onSuccess: () => {
-                      if (willComplete && t.recurrence_freq) {
-                        const next = nextOccurrenceDate(t)
-                        toast.show(
-                          next
-                            ? `↻ Next occurrence scheduled for ${formatDateShort(next)}`
-                            : '↻ Recurrence finished: no more occurrences',
-                        )
+                    onSuccess: (result) => {
+                      if (!willComplete || !t.recurrence_freq) return
+                      const next = nextOccurrenceDate(t)
+                      if (result.spawnedNext && next) {
+                        toast.show(`↻ Next occurrence scheduled for ${formatDateShort(next)}`)
+                      } else if (!result.spawnedNext && next === null) {
+                        toast.show('↻ Recurrence finished: no more occurrences')
                       }
                     },
                   },

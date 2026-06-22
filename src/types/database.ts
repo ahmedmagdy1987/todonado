@@ -85,6 +85,9 @@ export interface Task {
   recurrence_interval: number
   recurrence_weekdays: number[] | null
   recurrence_until: string | null
+  /** Stable anchor date for monthly/yearly recurrence so the intended day-of-month
+   *  is preserved across occurrences (month-end clamp is per-occurrence, not permanent). */
+  recurrence_anchor: string | null
   created_at: string
   updated_at: string
   completed_at: string | null
@@ -119,6 +122,7 @@ export interface NewTaskInput {
   recurrence_interval?: number
   recurrence_weekdays?: number[] | null
   recurrence_until?: string | null
+  recurrence_anchor?: string | null
 }
 
 export type TaskPatch = Partial<
@@ -139,6 +143,7 @@ export type TaskPatch = Partial<
     | 'recurrence_interval'
     | 'recurrence_weekdays'
     | 'recurrence_until'
+    | 'recurrence_anchor'
   >
 >
 

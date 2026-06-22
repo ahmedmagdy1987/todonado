@@ -23,6 +23,7 @@ function optimisticTask(input: NewTaskInput): Task {
     recurrence_interval: input.recurrence_interval ?? 1,
     recurrence_weekdays: input.recurrence_weekdays ?? null,
     recurrence_until: input.recurrence_until ?? null,
+    recurrence_anchor: input.recurrence_anchor ?? null,
     created_at: now,
     updated_at: now,
     completed_at: null,
@@ -91,14 +92,17 @@ export function useTaskMutations(workspaceId: string) {
     // Atomic compare-and-swap on status (see completeTask): only the call that
     // genuinely transitions a task to done spawns its next recurrence, so
     // concurrent / double completes create the next occurrence exactly once.
-    mutationFn: ({ id, done }: { id: string; done: boolean }) =>
-      completeTask(supabase, { id, done }).then((r) => r.task),
-    onMutate: async ({ id, done }) => {
+    // Returns the full CompleteTaskResult so callers can gate the recurrence
+    // toast on the RPC's authoritative `spawnedNext` (no false toast on a
+    // compare-and-swap miss / already-done complete).
+    mutationFn: ({ task, done }: { task: Task; done: boolean }) =>
+      completeTask(supabase, { task, done }),
+    onMutate: async ({ task, done }) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Task[]>(key) ?? []
       setTasks((p) =>
         p.map((t) =>
-          t.id === id
+          t.id === task.id
             ? {
                 ...t,
                 status: done ? 'done' : 'todo',
