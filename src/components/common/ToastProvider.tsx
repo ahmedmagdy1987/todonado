@@ -1,6 +1,8 @@
-import { useCallback, useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
-import { ToastContext, type Toast } from './toast-context'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { AlertTriangle, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { ToastContext, type Toast, type ToastOptions } from './toast-context'
+import { registerToast } from './toastBridge'
 
 /** Minimal, calm toast stack (auto-dismiss). Brief, non-blocking feedback. */
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -11,13 +13,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const show = useCallback(
-    (message: string) => {
+    (message: string, options?: ToastOptions) => {
       const id = crypto.randomUUID()
-      setToasts((current) => [...current, { id, message }])
-      setTimeout(() => dismiss(id), 3500)
+      const variant = options?.variant ?? 'default'
+      setToasts((current) => [...current, { id, message, variant, action: options?.action }])
+      // Errors linger a little longer so the user can read them / hit retry.
+      setTimeout(() => dismiss(id), variant === 'error' ? 6000 : 3500)
     },
     [dismiss],
   )
+
+  // Let non-React code (queryClient mutation errors) raise toasts via the bridge.
+  useEffect(() => registerToast(show), [show])
 
   return (
     <ToastContext.Provider value={{ show }}>
@@ -26,10 +33,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            role="status"
-            className="pointer-events-auto flex max-w-md items-center gap-3 rounded-xl border border-white/10 bg-surface-2 px-4 py-2.5 text-sm text-text-primary shadow-elevation-lg animate-fade-in"
+            role={toast.variant === 'error' ? 'alert' : 'status'}
+            className={cn(
+              'pointer-events-auto flex max-w-md items-center gap-3 rounded-xl border bg-surface-2 px-4 py-2.5 text-sm text-text-primary shadow-elevation-lg animate-fade-in',
+              toast.variant === 'error' ? 'border-danger/30' : 'border-white/10',
+            )}
           >
+            {toast.variant === 'error' && (
+              <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden />
+            )}
             <span className="min-w-0 flex-1">{toast.message}</span>
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.action?.onClick()
+                  dismiss(toast.id)
+                }}
+                className="focus-ring shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-accent hover:underline"
+              >
+                {toast.action.label}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => dismiss(toast.id)}

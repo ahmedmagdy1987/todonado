@@ -51,6 +51,9 @@ export function useFocusMutations(workspaceId: string) {
       setSessions((p) => [row, ...p.filter((s) => s.id !== row.id)])
     },
     onSettled: settle,
+    // Non-idempotent insert: don't offer a one-click Retry (could double-insert
+    // if the row actually persisted before a network error surfaced).
+    meta: { noRetry: true },
   })
 
   const patchSession = useMutation({

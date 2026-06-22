@@ -1,12 +1,25 @@
 import { createContext, useContext } from 'react'
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
+export interface ToastOptions {
+  variant?: 'default' | 'error'
+  /** Optional inline action button (e.g. "Retry"). */
+  action?: ToastAction
+}
+
 export interface Toast {
   id: string
   message: string
+  variant: 'default' | 'error'
+  action?: ToastAction
 }
 
 interface ToastContextValue {
-  show: (message: string) => void
+  show: (message: string, options?: ToastOptions) => void
 }
 
 export const ToastContext = createContext<ToastContextValue | undefined>(undefined)

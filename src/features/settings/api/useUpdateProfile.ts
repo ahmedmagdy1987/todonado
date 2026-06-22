@@ -48,5 +48,8 @@ export function useUpdateProfile() {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: qk.profile })
     },
+    // SettingsPage renders its own inline error (incl. the username-taken case),
+    // so suppress the global mutation-error toast for this one.
+    meta: { skipErrorToast: true },
   })
 }
