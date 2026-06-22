@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
+import { useEffortSuggester } from '@/features/tasks/api/useEffortSuggester'
 import { selectInbox } from '@/features/tasks/selectors'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
@@ -14,6 +15,7 @@ export function InboxPage() {
   const { workspaceId } = useWorkspace()
   const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
   const { createTask, updateTask } = useTaskMutations(workspaceId)
+  const suggestEffort = useEffortSuggester(workspaceId)
   const inbox = selectInbox(tasks)
 
   return (
@@ -32,6 +34,7 @@ export function InboxPage() {
       <QuickAdd
         autoFocus
         placeholder="Capture a task… (press Enter)"
+        suggest={suggestEffort}
         onAdd={(v) =>
           createTask.mutate({
             workspace_id: workspaceId,

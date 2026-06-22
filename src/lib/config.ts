@@ -29,4 +29,12 @@ export const FEATURES = {
    * /templates routes, and the empty-state CTAs without touching the core.
    */
   templates: true,
+  /**
+   * Auto-effort estimation — when a task has no effort yet, suggest an
+   * `effort_minutes` value (from the user's own history of similar tasks, else a
+   * transparent keyword heuristic) as a one-tap chip. Always a visible SUGGESTION
+   * the user accepts/overrides; never sets effort silently. Default ON; set to
+   * false to hide the suggestion chip everywhere (no other behavior changes).
+   */
+  autoEffort: true,
 } as const

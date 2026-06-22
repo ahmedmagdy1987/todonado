@@ -1,9 +1,12 @@
-import { useState, type FormEvent } from 'react'
-import { Plus } from 'lucide-react'
+import { useMemo, useState, type FormEvent } from 'react'
+import { Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { formatMinutes } from '@/lib/format'
+import { track } from '@/features/analytics/track'
 import { EFFORT_PRESETS, parseEffortInput, toggleEffortPreset } from '../effort'
+import { isEffortPreset } from '../autoEffort'
+import type { EffortSuggester } from '../api/useEffortSuggester'
 
 export interface QuickAddValue {
   title: string
@@ -15,6 +18,9 @@ interface QuickAddProps {
   onAdd: (value: QuickAddValue) => void
   placeholder?: string
   autoFocus?: boolean
+  /** Optional effort suggester; when set, shows a one-tap "Suggest Xm" chip while
+   *  no estimate has been entered. Tapping it fills (never silently sets) effort. */
+  suggest?: EffortSuggester
 }
 
 const chipClass = (active: boolean) =>
@@ -30,12 +36,32 @@ const chipClass = (active: boolean) =>
  * (15/30/60/90/120 or a custom value) — optional, but the low-friction default
  * path, because the capacity meter is only as good as the estimates it's fed.
  */
-export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus }: QuickAddProps) {
+export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus, suggest }: QuickAddProps) {
   const [title, setTitle] = useState('')
   const [effort, setEffort] = useState<number | null>(null)
   const [customOpen, setCustomOpen] = useState(false)
   const [customValue, setCustomValue] = useState('')
   const [due, setDue] = useState('')
+
+  // Only suggest while no estimate is set yet (the chip disappears once chosen).
+  const suggestion = useMemo(
+    () => (suggest && effort === null ? suggest(title) : null),
+    [suggest, title, effort],
+  )
+
+  function acceptSuggestion(minutes: number) {
+    track('effort_entered', { source: 'suggestion', flag: true })
+    if (isEffortPreset(minutes)) {
+      setCustomOpen(false)
+      setCustomValue('')
+      setEffort(minutes)
+    } else {
+      // Non-preset value: open the custom field so the number stays visible/editable.
+      setCustomOpen(true)
+      setCustomValue(String(minutes))
+      setEffort(minutes)
+    }
+  }
 
   function reset() {
     setTitle('')
@@ -117,6 +143,23 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus }: Qu
             autoFocus
             className="focus-ring h-7 w-16 rounded-lg border border-white/10 bg-surface-2/60 px-2 text-xs text-text-primary placeholder:text-text-muted/60"
           />
+        )}
+        {suggestion && (
+          <button
+            type="button"
+            onClick={() => acceptSuggestion(suggestion.minutes)}
+            title={
+              suggestion.basis === 'history'
+                ? `Based on ${suggestion.sampleCount} similar ${suggestion.sampleCount === 1 ? 'task' : 'tasks'} you've completed`
+                : 'A quick starting estimate'
+            }
+            aria-label={`Suggest ${suggestion.minutes} minutes${
+              suggestion.basis === 'history' ? ', based on your similar tasks' : ', a quick estimate'
+            }`}
+            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-dashed border-brand/50 px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand/10"
+          >
+            <Sparkles className="h-3 w-3" aria-hidden /> Suggest {formatMinutes(suggestion.minutes)}
+          </button>
         )}
         <span className="mx-1 hidden h-4 w-px bg-white/10 sm:block" aria-hidden />
         <input

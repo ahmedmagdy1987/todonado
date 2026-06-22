@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useCallback, useState, type FormEvent } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { Task } from '@/types/database'
 import { Input } from '@/components/ui'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
+import { useEffortSuggester } from '@/features/tasks/api/useEffortSuggester'
 import { todayISO } from '@/lib/date'
 
 interface SectionGroupProps {
@@ -27,6 +28,12 @@ export function SectionGroup({
   onDelete,
 }: SectionGroupProps) {
   const { createTask, updateTask } = useTaskMutations(workspaceId)
+  const effortSuggester = useEffortSuggester(workspaceId)
+  // Bind this section's project so suggestions weight same-project history.
+  const suggestEffort = useCallback(
+    (taskTitle: string) => effortSuggester(taskTitle, projectId),
+    [effortSuggester, projectId],
+  )
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
 
@@ -102,6 +109,7 @@ export function SectionGroup({
       <div className="mt-2">
         <QuickAdd
           placeholder="Add task…"
+          suggest={suggestEffort}
           onAdd={(v) =>
             createTask.mutate({
               workspace_id: workspaceId,

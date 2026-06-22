@@ -1,14 +1,18 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { z } from 'zod'
+import { Sparkles } from 'lucide-react'
 import { Button, Input, Modal, Select, Textarea } from '@/components/ui'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useProjects } from '@/features/projects/api/useProjects'
 import { useSections } from '@/features/projects/api/useSections'
+import { track } from '@/features/analytics/track'
 import { todayISO, isoDateOffset } from '@/lib/date'
 import { cn } from '@/lib/utils'
+import { formatMinutes } from '@/lib/format'
 import type { RecurrenceFreq, Task, TaskPriority } from '@/types/database'
 import { PRIORITY_LABELS } from '../priority'
 import { useTaskMutations } from '../api/useTaskMutations'
+import { useEffortSuggester } from '../api/useEffortSuggester'
 
 const formSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
@@ -47,6 +51,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
   const { workspaceId } = useWorkspace()
   const { createTask, updateTask } = useTaskMutations(workspaceId)
   const { data: projects = [] } = useProjects(workspaceId)
+  const suggester = useEffortSuggester(workspaceId)
   const isEdit = !!task
 
   const [title, setTitle] = useState('')
@@ -64,6 +69,18 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
   const [error, setError] = useState<string | null>(null)
 
   const { data: sections = [] } = useSections(projectId)
+
+  // Suggest an effort estimate only while the field is empty (history → heuristic);
+  // it's always a one-tap chip the user accepts/overrides — never set silently.
+  const suggestion = useMemo(
+    () => (effort.trim() === '' ? suggester(title, projectId || null) : null),
+    [suggester, title, projectId, effort],
+  )
+
+  function acceptSuggestion(minutes: number) {
+    setEffort(String(minutes))
+    track('effort_entered', { source: 'suggestion', flag: true })
+  }
 
   useEffect(() => {
     if (!open) return
@@ -177,6 +194,23 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
               onChange={(e) => setEffort(e.target.value)}
               placeholder="e.g. 30"
             />
+            {suggestion && (
+              <button
+                type="button"
+                onClick={() => acceptSuggestion(suggestion.minutes)}
+                title={
+                  suggestion.basis === 'history'
+                    ? `Based on ${suggestion.sampleCount} similar ${suggestion.sampleCount === 1 ? 'task' : 'tasks'} you've completed`
+                    : 'A quick starting estimate'
+                }
+                aria-label={`Suggest ${suggestion.minutes} minutes${
+                  suggestion.basis === 'history' ? ', based on your similar tasks' : ', a quick estimate'
+                }`}
+                className="focus-ring mt-1 inline-flex w-fit items-center gap-1 rounded-lg border border-dashed border-brand/50 px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand/10"
+              >
+                <Sparkles className="h-3 w-3" aria-hidden /> Suggest {formatMinutes(suggestion.minutes)}
+              </button>
+            )}
           </label>
           <label className={labelCls}>
             Priority

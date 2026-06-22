@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
+import { useEffortSuggester } from '@/features/tasks/api/useEffortSuggester'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
 import { selectToday } from '@/features/tasks/selectors'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
@@ -33,6 +34,7 @@ export function TodayPage() {
   const { workspaceId, capacityMinutes } = useWorkspace()
   const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
   const { createTask, updateTask } = useTaskMutations(workspaceId)
+  const suggestEffort = useEffortSuggester(workspaceId)
   const updateCapacity = useUpdateCapacity()
   const [undo, setUndo] = useState<{ id: string; scheduled_for: string | null }[] | null>(null)
 
@@ -129,6 +131,7 @@ export function TodayPage() {
 
       <QuickAdd
         placeholder="Add a task to today…"
+        suggest={suggestEffort}
         onAdd={(v) =>
           createTask.mutate({
             workspace_id: workspaceId,
