@@ -1,12 +1,11 @@
 import { HeartPulse } from 'lucide-react'
-import { Badge } from '@/components/ui'
-import { FocusCalmCards } from './components/FocusCalmCards'
+import { WELLNESS_MODULES } from './modules'
+import { ModuleCard } from './components/ModuleCard'
 
 /**
- * "Focus & Calm" — an in-app fake-door for the wellness / self-help angle.
- * Shows three coming-soon concepts, each with one honest "Notify me" button that
- * records interest. NOTHING here is built — no meditation, sleep audio, or
- * supplement logic. It exists only to measure demand before we commit to it.
+ * "Focus & Calm" hub — the in-app entry point for the wellness suite. Each
+ * module renders as a live card (linking to its real page) or, until built, the
+ * insert-only fake-door "Notify me" card. Gated by FEATURES.wellness.
  */
 export function WellnessPage() {
   return (
@@ -16,19 +15,19 @@ export function WellnessPage() {
           <HeartPulse className="h-5 w-5" aria-hidden />
         </span>
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl font-semibold">Focus &amp; Calm</h2>
-            <Badge variant="outline">Coming soon</Badge>
-          </div>
+          <h2 className="font-display text-xl font-semibold">Focus &amp; Calm</h2>
           <p className="text-sm text-text-muted">
-            A calmer, wellness-minded side to Todonado we&rsquo;re exploring. None of these are
-            built yet — tap <span className="text-text-primary">Notify me</span> on anything
-            you&rsquo;d want and we&rsquo;ll reach out if we ship it.
+            A calmer, wellness-minded side to Todonado. Open what&rsquo;s ready, and tell us what
+            you&rsquo;d want next.
           </p>
         </div>
       </header>
 
-      <FocusCalmCards source="wellness" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {WELLNESS_MODULES.map((m) => (
+          <ModuleCard key={m.id} module={m} />
+        ))}
+      </div>
     </div>
   )
 }

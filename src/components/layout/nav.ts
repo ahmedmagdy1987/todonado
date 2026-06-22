@@ -1,5 +1,6 @@
 import { BarChart3, FolderKanban, HeartPulse, Inbox, Sun, Timer } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { FEATURES } from '@/lib/config'
 
 export interface NavItem {
   to: string
@@ -15,5 +16,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/focus', label: 'Focus', icon: Timer },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
-  { to: '/wellness', label: 'Wellness', icon: HeartPulse },
+  // Wellness suite — only present when the feature flag is on.
+  ...(FEATURES.wellness ? [{ to: '/wellness', label: 'Wellness', icon: HeartPulse }] : []),
 ]

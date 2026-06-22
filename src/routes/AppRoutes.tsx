@@ -14,8 +14,10 @@ import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage'
 import { FocusPage } from '@/features/focus/FocusPage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
 import { WellnessPage } from '@/features/wellness/WellnessPage'
+import { BreathePage } from '@/features/wellness/breathwork/BreathePage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { PlanPage } from '@/features/settings/PlanPage'
+import { FEATURES } from '@/lib/config'
 
 export function AppRoutes() {
   return (
@@ -38,7 +40,12 @@ export function AppRoutes() {
           <Route path="projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="focus" element={<FocusPage />} />
           <Route path="insights" element={<InsightsPage />} />
-          <Route path="wellness" element={<WellnessPage />} />
+          {FEATURES.wellness && (
+            <>
+              <Route path="wellness" element={<WellnessPage />} />
+              <Route path="wellness/breathe" element={<BreathePage />} />
+            </>
+          )}
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/plan" element={<PlanPage />} />
         </Route>
