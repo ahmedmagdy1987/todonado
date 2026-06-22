@@ -87,6 +87,7 @@ src/
     auth/      # AuthProvider, auth-context, ProtectedRoute, LoginPage
     today/     # TodayPage (command center), CapacityMeter
     inbox/ projects/ focus/ insights/   # feature pages
+    wellness/  # "Focus & Calm" suite — breathwork/ audio/ tracker/ + /wellness hub (FEATURES.wellness)
   lib/         # supabase, env, queryClient, utils
   routes/      # AppRoutes
   types/       # database row types
@@ -139,6 +140,34 @@ scheduling logic to land a new user on a planned Today with a live capacity mete
 `profiles.onboarding_completed`, never re-shown once finished/skipped. **Insights** remains a
 placeholder (V1).
 
+The **wellness suite ("Focus & Calm")** is built behind a single feature flag,
+`FEATURES.wellness` in `src/lib/config.ts` (default **ON** for signed-in users). Flip it off to
+remove the whole suite — the Wellness nav entry, every `/wellness` route, and the hub — with
+**zero** impact on the core (Today/Inbox/Projects/Focus/Insights). It all lives under
+`src/features/wellness/`: a `/wellness` hub (`modules.ts` registry — live modules link to their
+page; any module still marked `'soon'` falls back to the insert-only `feature_intents` fake-door
+card). Modules:
+- **Breathwork** (`wellness/breathwork/`) — an animated breathing pacer with Box (4-4-4-4), Calm
+  (4-7-8), and Simple (4-4) patterns and 1/3/5-min durations. The phase + circle are derived from
+  wall-clock elapsed (mirroring the Focus timer's drift-resistant approach, ms precision via rAF),
+  with pause/resume and a calm rounds-completed summary. Optional end chime **reuses** the Focus
+  AudioContext chime (`playEndTone` from `@/features/focus/sound`). No audio files, no DB.
+- **Sleep sounds + Guided meditation** (`wellness/audio/`) — ONE reusable `<AudioPlayer>`
+  (play/pause, loop, volume, sleep-timer auto-stop) shared by both sections, driven by a
+  `tracks.ts` manifest (`id, title, description, category 'sleep'|'meditation', src?, durationSec?`).
+  **NO copyrighted audio is bundled**: every track ships with empty `src` and shows an "Audio
+  coming soon" state until licensed/CC0 files are dropped in `public/audio/` (served at `/audio/…`)
+  or pointed at a Supabase Storage URL — see `public/audio/README.md`.
+- **Supplement / medication tracker** (`wellness/tracker/`) — owner-only CRUD over `wellness_items`
+  + `wellness_logs` (TanStack Query, optimistic, mirrors `useTaskMutations`): add/edit/delete,
+  mark-taken-today, taken-streak (pure `tracking.ts`, unit-tested), and recent activity. A
+  **PERSONAL LOG ONLY** — no drug database, interaction/contraindication checks, or dosing logic;
+  `dose`/`schedule` are free text — with a persistent, non-dismissible "not medical advice"
+  disclaimer.
+
+A read-only **fake-door teaser** for Focus & Calm also lives on the `/welcome` marketing page
+(records `feature_intents`); it is independent of `FEATURES.wellness`.
+
 ---
 
 ## 4. Roadmap (3 phases)
@@ -185,8 +214,17 @@ If a request implies one of these, pause and confirm scope before building.
 `scheduled_for` (the differentiator). All mutable tables have `updated_at` triggers. RLS
 isolates every row to workspaces the user **owns or is a member of**, enforced via
 `SECURITY DEFINER` helpers (`is_workspace_member`, `is_workspace_owner`, `can_access_*`). A
-new auth user is auto-provisioned a profile + default workspace + owner membership. See
-`supabase/migrations/`.
+new auth user is auto-provisioned a profile + default workspace + owner membership.
+
+**Fake-door demand capture (insert-only, no read-back):** `upgrade_intents` (willingness-to-pay)
+and `feature_intents` (interest in unbuilt features) — anon or authed may INSERT only their own
+row (`user_id` null, or `= auth.uid()` when signed in); there is intentionally **no**
+select/update/delete policy, so the client can never read them back.
+
+**Wellness tracker (owner-only, user-scoped not workspace-scoped):** `wellness_items` +
+`wellness_logs`, every row private to its owner via `user_id = auth.uid()` (items: full CRUD +
+`updated_at` trigger; logs: append-only select/insert/delete; `wellness_logs.item_id` cascades on
+item delete). See `supabase/migrations/`.
 
 ---
 
@@ -197,19 +235,32 @@ new auth user is auto-provisioned a profile + default workspace + owner membersh
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **All migrations are applied** (through `20260615120000_upgrade_intents`) and RLS is
-  verified enforcing on every table (anon reads return `[]`; anon writes are rejected with
-  `42501`). The latest migration (`20260615120000_upgrade_intents`) adds the fake-door
-  `upgrade_intents` table — insert-only RLS (anon may file an anonymous intent with `user_id`
-  null; an authed user may attribute it to themselves via `user_id = auth.uid()`; there is NO
-  select/update/delete policy, so the public API cannot read it back) — applied & verified live
-  on the cloud (the table now exists, anon `SELECT` returns `[]`, and a forged-`user_id` insert
-  is rejected `42501`). The prior migration (`20260607090000_task_workspace_integrity`) added the
-  task↔workspace co-location guard on `tasks` WITH CHECK plus the `project_workspace()` /
-  `section_workspace()` SECURITY DEFINER helpers — verified live (both resolve via anon RPC).
-  Don't re-create the schema — `supabase db push` should report the remote already up to date.
+- **All migrations are applied** (through `20260622130000_wellness_tracking`, the latest file on
+  disk) and RLS is verified enforcing on every table (anon reads return `[]`; anon writes are
+  rejected with `42501`). Recent additions, all applied live on the cloud:
+  - `20260616120000_accounts_username` — username login: a unique, case-insensitive
+    `profiles.username`, plus two pre-auth `SECURITY DEFINER` RPCs (`username_available(text)`,
+    `resolve_login_email(text)`) with `execute` granted to `anon, authenticated` (and `revoke …
+    from public`).
+  - `20260622120000_feature_intents` — fake-door interest capture for the Focus & Calm concepts
+    (`feature_key in ('meditation','sleep_sounds','supplement_tracker')`). Insert-only RLS
+    (`to anon, authenticated with check (user_id is null or user_id = auth.uid())`); NO
+    select/update/delete — sibling to `upgrade_intents`, so the client can't read it back.
+  - `20260622130000_wellness_tracking` — the tracker's `wellness_items` + `wellness_logs`.
+    Owner-only RLS (`user_id = auth.uid()`): items get select/insert/update/delete + the shared
+    `set_updated_at` trigger; logs are append-only (select/insert/delete); `wellness_logs.item_id`
+    references `wellness_items` `on delete cascade`.
+  - The earlier `20260615120000_upgrade_intents` (willingness-to-pay fake-door, insert-only) and
+    `20260607090000_task_workspace_integrity` (task↔workspace co-location guard + the
+    `project_workspace()` / `section_workspace()` SECURITY DEFINER helpers) remain in place.
+  Don't re-create the schema or re-run migrations — `supabase db push` should report the remote
+  already up to date.
 
 ### Restoring a clean machine / fresh clone
+0. Clone the **private** repo into `C:\Users\bdstd\Documents\projects` (so it lands at
+   `…\projects\todonado`). `gh` is usually still authed after a wipe → `gh repo clone
+   ahmedmagdy1987/todonado`. If the clone fails on auth, run `gh auth login` in a **real terminal**
+   (browser flow), then retry.
 1. `npm install`
 2. `npm run dev` — the app runs with **no `.env`**: `src/lib/env.ts` ships the public Supabase
    URL + anon key as built-in defaults (anon key is public + RLS-protected). To target a
@@ -217,8 +268,10 @@ new auth user is auto-provisioned a profile + default workspace + owner membersh
    `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. To run future migrations, use a **real terminal** (TTY — see CLI note): `supabase login` →
-   `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+4. **Do NOT re-run migrations** — the cloud DB is already current (through
+   `20260622130000_wellness_tracking`). Only when adding a **new** migration, use a **real
+   terminal** (TTY — see CLI note): `supabase login` → `supabase link --project-ref
+   lplsbfduankkpglyusjp` → `supabase db push`.
 
 ### Agent / CLI note (verified on this machine — Windows + PowerShell)
 - **`git push` works from the agent's PowerShell tool** — the Windows Git Credential Manager
