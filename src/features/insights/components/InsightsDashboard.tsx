@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   CalendarClock,
   CheckCircle2,
+  Crosshair,
   Gauge,
   RotateCcw,
   Target,
@@ -12,7 +13,7 @@ import {
 import { Card } from '@/components/ui'
 import { formatDateShort, formatMinutes } from '@/lib/format'
 import type { CapacityStatus } from '@/features/today/capacity'
-import type { InsightsData } from '../insights'
+import type { EstimationBias, InsightsData } from '../insights'
 import { InsightBarChart } from './InsightBarChart'
 import { TONE, type ChartTone } from './chartTones'
 import { StatTile } from './StatTile'
@@ -79,6 +80,81 @@ function NoPlanData({ windowDays }: { windowDays: number }) {
   )
 }
 
+function EstimationPanel({ data }: { data: EstimationBias }) {
+  const { hasEnough, biasPct, direction, sampleCount, minSamples, samples } = data
+  const pct = Math.min(100, Math.round((sampleCount / minSamples) * 100))
+
+  return (
+    <Panel
+      icon={Crosshair}
+      title="Estimation accuracy"
+      subtitle="How your effort estimates compare to the time you actually focus"
+    >
+      {hasEnough && biasPct != null ? (
+        <>
+          <p className="font-display text-2xl font-semibold text-text-primary">
+            {direction === 'accurate' ? (
+              'Your estimates are on the mark'
+            ) : direction === 'under' ? (
+              <>
+                You tend to <span className="text-warning">under-estimate</span> by ~{biasPct}%
+              </>
+            ) : (
+              <>
+                You tend to <span className="text-accent">over-estimate</span> by ~{Math.abs(biasPct)}%
+              </>
+            )}
+          </p>
+          <p className="mt-1 text-sm text-text-muted">
+            {direction === 'under'
+              ? 'Tasks take longer than you plan — try padding estimates or scheduling fewer.'
+              : direction === 'over'
+                ? 'Tasks take less time than you plan — you may have room for a bit more.'
+                : 'Your planned effort closely matches your real focus time. Nice calibration.'}{' '}
+            Based on {sampleCount} completed {sampleCount === 1 ? 'task' : 'tasks'} with focus time.
+          </p>
+          {samples.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {samples.map((s) => (
+                <li
+                  key={s.taskId}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-surface-2/40 px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 truncate text-text-primary">{s.title}</span>
+                  <span className="shrink-0 font-mono text-xs text-text-muted">
+                    est {formatMinutes(s.estimateMin)} → {formatMinutes(s.actualMin)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-text-muted">
+            Keep logging — complete tasks that carry an effort estimate while running a focus session,
+            and we&rsquo;ll show whether you tend to under- or over-estimate.
+          </p>
+          <p className="mt-3 text-xs text-text-muted">
+            {sampleCount} of {minSamples} samples so far
+          </p>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-brand-gradient transition-all"
+              style={{ width: `${pct}%` }}
+              role="progressbar"
+              aria-valuenow={sampleCount}
+              aria-valuemin={0}
+              aria-valuemax={minSamples}
+              aria-label="Estimation samples collected"
+            />
+          </div>
+        </>
+      )}
+    </Panel>
+  )
+}
+
 export function InsightsDashboard({ data }: { data: InsightsData }) {
   const { daily, focus, rollover, summary } = data
   const hasPlanned = data.planningDays > 0
@@ -136,6 +212,9 @@ export function InsightsDashboard({ data }: { data: InsightsData }) {
           />
         </div>
       </div>
+
+      {/* Estimation accuracy — the estimate→actual flywheel (sharpens the wedge) */}
+      <EstimationPanel data={data.estimation} />
 
       {/* Planned vs completed effort */}
       <Panel

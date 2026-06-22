@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { track } from '@/features/analytics/track'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import type { FocusSession } from '@/types/database'
@@ -67,6 +68,7 @@ export function RunningView({
   function end(status: 'completed' | 'abandoned', actualSeconds: number) {
     if (endingRef.current) return
     endingRef.current = true
+    if (status === 'completed') track('focus_completed')
     patchSession.mutate(
       {
         id: session.id,

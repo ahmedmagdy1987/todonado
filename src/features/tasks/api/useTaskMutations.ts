@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { track } from '@/features/analytics/track'
 import type { NewTaskInput, Task, TaskPatch } from '@/types/database'
 import { completeTask } from './completeTask'
 
@@ -63,6 +64,11 @@ export function useTaskMutations(workspaceId: string) {
       setTasks((p) => [...p, optimisticTask(input)])
       return { prev }
     },
+    onSuccess: (_data, input) => {
+      const hasEffort = input.effort_minutes != null
+      track('task_created', { flag: hasEffort })
+      if (hasEffort) track('effort_entered', { source: 'create' })
+    },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
     // Non-idempotent insert: don't offer a one-click Retry (a commit-then-lost-
@@ -86,6 +92,10 @@ export function useTaskMutations(workspaceId: string) {
       const prev = qc.getQueryData<Task[]>(key) ?? []
       setTasks((p) => p.map((t) => (t.id === id ? { ...t, ...patch } : t)))
       return { prev }
+    },
+    onSuccess: (_data, { patch }) => {
+      // Count an effort estimate attached via edit (a non-null number, not a clear).
+      if (typeof patch.effort_minutes === 'number') track('effort_entered', { source: 'edit' })
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
@@ -115,6 +125,9 @@ export function useTaskMutations(workspaceId: string) {
         ),
       )
       return { prev }
+    },
+    onSuccess: (_res, { done }) => {
+      if (done) track('task_completed')
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,

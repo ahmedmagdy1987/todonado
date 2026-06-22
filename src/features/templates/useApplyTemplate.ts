@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { track } from '@/features/analytics/track'
 import { todayISO } from '@/lib/date'
 import type { NewProjectInput, NewSectionInput, NewTaskInput, Project, Section, Task } from '@/types/database'
 import { applyTemplate, type ApplyResult, type ApplyTargetKind } from './apply'
@@ -35,6 +36,7 @@ export function useApplyTemplate(workspaceId: string) {
 
   return async function apply(template: Template, target: ApplyTargetKind): Promise<ApplyResult> {
     const result = await applyTemplate(deps, template, target, { workspaceId, today: todayISO() })
+    track('template_applied', { source: typeof target === 'string' ? target : null })
     await qc.invalidateQueries({ queryKey: qk.tasks(workspaceId) })
     if (result.projectId) {
       await qc.invalidateQueries({ queryKey: qk.projects(workspaceId) })

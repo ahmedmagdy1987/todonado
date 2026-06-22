@@ -25,6 +25,10 @@ import { computeCapacity, type CapacityStatus } from '@/features/today/capacity'
 
 export const INSIGHTS_WINDOW_DAYS = 14
 export const INSIGHTS_SUMMARY_DAYS = 7
+/** Minimum estimate-vs-actual samples before we show an estimation-bias figure. */
+export const ESTIMATION_MIN_SAMPLES = 5
+/** Inside ±this %, estimates are reported as "on the mark" rather than under/over. */
+export const ESTIMATION_ACCURATE_PCT = 5
 
 export interface DailyPoint {
   /** yyyy-MM-dd */
@@ -74,6 +78,31 @@ export interface InsightsSummary {
   focusSeconds: number
 }
 
+/** One completed task's estimate vs the focus time actually spent on it. */
+export interface EstimationSample {
+  taskId: string
+  title: string
+  estimateMin: number
+  actualMin: number
+  /** actualMin / estimateMin. >1 = took longer than estimated (under-estimated). */
+  ratio: number
+}
+
+export interface EstimationBias {
+  /** Completed tasks that have BOTH an estimate and real focused time. */
+  sampleCount: number
+  minSamples: number
+  /** True once there are enough samples to report a figure. */
+  hasEnough: boolean
+  /** Median(actual/estimate) across samples, or null below threshold. */
+  medianRatio: number | null
+  /** round((medianRatio - 1) * 100). Positive = under-estimate, negative = over. */
+  biasPct: number | null
+  direction: 'under' | 'over' | 'accurate' | null
+  /** Largest-miss samples first, capped for display. */
+  samples: EstimationSample[]
+}
+
 export interface InsightsData {
   today: string
   windowDays: number
@@ -88,8 +117,73 @@ export interface InsightsData {
   focus: FocusStats
   rollover: RolloverStats
   summary: InsightsSummary
+  /** Estimation accuracy: how the user's estimates compare to real focus time. */
+  estimation: EstimationBias
   /** Whether there is enough real data to show charts (else: empty state). */
   hasData: boolean
+}
+
+/** Median of a non-empty list (sorted copy; averages the middle pair if even). */
+function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
+}
+
+/**
+ * The user's estimation bias: median(actual focus / estimated effort) over
+ * COMPLETED tasks that carry both an `effort_minutes` estimate and real focused
+ * time (`focus_sessions.actual_seconds`). Restricting to done tasks keeps the
+ * comparison fair — partial progress would understate "actual". The median (not
+ * mean) is robust to the occasional wildly-off task. No window: more history =
+ * a better estimate, and this is the compounding reason to keep estimating.
+ */
+export function estimationBias(
+  tasks: Task[],
+  sessions: FocusSession[],
+  opts: { minSamples?: number } = {},
+): EstimationBias {
+  const minSamples = opts.minSamples ?? ESTIMATION_MIN_SAMPLES
+  const actualByTask = new Map<string, number>()
+  for (const s of sessions) {
+    if (!s.task_id || s.status === 'running') continue // unfinished = no actual yet
+    actualByTask.set(s.task_id, (actualByTask.get(s.task_id) ?? 0) + s.actual_seconds)
+  }
+
+  const samples: EstimationSample[] = []
+  for (const t of tasks) {
+    if (t.status !== 'done') continue
+    const est = t.effort_minutes
+    if (est == null || est <= 0) continue
+    const actualSec = actualByTask.get(t.id) ?? 0
+    if (actualSec <= 0) continue
+    const actualMin = actualSec / 60
+    samples.push({
+      taskId: t.id,
+      title: t.title,
+      estimateMin: est,
+      actualMin: Math.round(actualMin),
+      ratio: actualMin / est,
+    })
+  }
+
+  const sampleCount = samples.length
+  const hasEnough = sampleCount >= minSamples
+  const medianRatio = sampleCount > 0 ? median(samples.map((s) => s.ratio)) : null
+  const biasPct = medianRatio != null ? Math.round((medianRatio - 1) * 100) : null
+  const direction =
+    biasPct == null
+      ? null
+      : biasPct > ESTIMATION_ACCURATE_PCT
+        ? 'under'
+        : biasPct < -ESTIMATION_ACCURATE_PCT
+          ? 'over'
+          : 'accurate'
+  const display = [...samples]
+    .sort((a, b) => Math.abs(b.ratio - 1) - Math.abs(a.ratio - 1))
+    .slice(0, 5)
+
+  return { sampleCount, minSamples, hasEnough, medianRatio, biasPct, direction, samples: display }
 }
 
 /** Chronological list of the last `n` local days ending today (yyyy-MM-dd). */
@@ -230,7 +324,7 @@ export function computeInsights(
   sessions: FocusSession[],
   capacityMinutes: number,
   todayStr: string,
-  opts: { windowDays?: number; summaryDays?: number } = {},
+  opts: { windowDays?: number; summaryDays?: number; minSamples?: number } = {},
 ): InsightsData {
   const windowDays = opts.windowDays ?? INSIGHTS_WINDOW_DAYS
   const summaryDays = opts.summaryDays ?? INSIGHTS_SUMMARY_DAYS
@@ -249,6 +343,8 @@ export function computeInsights(
   const focus = focusStats(sessions, dayList)
   const rollover = rolloverStats(tasks, todayStr)
   const summary = summaryFor(tasks, sessions, summaryDays, todayStr)
+  // Estimation bias spans ALL history (not the window) for the largest sample.
+  const estimation = estimationBias(tasks, sessions, { minSamples: opts.minSamples })
 
   const hasData =
     focus.sessionCount > 0 ||
@@ -267,6 +363,7 @@ export function computeInsights(
     focus,
     rollover,
     summary,
+    estimation,
     hasData,
   }
 }

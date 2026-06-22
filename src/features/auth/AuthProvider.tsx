@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { setAnalyticsUser, trackDayReturnedOncePerDay } from '@/features/analytics/track'
 import { AuthContext, type AuthContextValue } from './auth-context'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -34,6 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       listener.subscription.unsubscribe()
     }
   }, [])
+
+  // Keep the analytics user id in sync and record the first session of each day.
+  // trackDayReturnedOncePerDay dedupes per local day, so token refreshes are no-ops.
+  useEffect(() => {
+    const userId = session?.user?.id ?? null
+    setAnalyticsUser(userId)
+    if (userId) trackDayReturnedOncePerDay()
+  }, [session])
 
   const value = useMemo<AuthContextValue>(
     () => ({

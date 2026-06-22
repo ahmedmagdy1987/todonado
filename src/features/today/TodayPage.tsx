@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { Undo2, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui'
+import { track } from '@/features/analytics/track'
 import { useAuth } from '@/features/auth/auth-context'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
@@ -48,6 +49,19 @@ export function TodayPage() {
   const unestimatedCount = countUnestimated(movableToday)
   const summary = computeCapacity(planned, capacityMinutes)
   const suggestions = suggestTasksToMoveTomorrow(todayTasks, capacityMinutes)
+
+  // capacity_viewed: once per Today mount. over_capacity_hit: once per mount, the
+  // first time the day is planned over capacity (the wedge's key "aha" moment).
+  useEffect(() => {
+    track('capacity_viewed', { source: 'today' })
+  }, [])
+  const overFiredRef = useRef(false)
+  useEffect(() => {
+    if (summary.status === 'over' && !overFiredRef.current) {
+      overFiredRef.current = true
+      track('over_capacity_hit', { source: 'today' })
+    }
+  }, [summary.status])
 
   function rollOne(task: Task) {
     setUndo((prev) => [...(prev ?? []), { id: task.id, scheduled_for: task.scheduled_for }])
