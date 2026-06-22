@@ -239,15 +239,17 @@ item delete). See `supabase/migrations/`.
   reads return `[]`; anon writes rejected with `42501`). Live-probe verified on 2026-06-22
   (audit follow-up): `20260622150000_drop_resolve_login_email` IS applied (`resolve_login_email`
   → 404 PGRST202) and `20260622140000`'s DDL IS applied (`tasks.recurrence_anchor` present;
-  `complete_task` executes). **ONE live discrepancy remains:** the `revoke all on
-  public.complete_task(uuid,jsonb) from public` / `grant … to authenticated` in `20260622140000`
-  did **NOT** take effect — anon can still EXECUTE `complete_task` (returns `500 P0002` from the
-  body, not `403/42501`). It is RLS-contained (the RPC is SECURITY INVOKER, so anon's null
-  `auth.uid()` sees zero rows — no read/write/oracle), so this is a **defense-in-depth** gap, not
-  exploitable. To close, run in the SQL editor:
+  `complete_task` executes). **PENDING (committed, NOT yet applied — run the SQL in the Supabase
+  editor):** `20260622160000_lock_complete_task_to_authenticated` (audit **F1**). The
+  `revoke/grant` block in `20260622140000` never took effect, so anon could still EXECUTE
+  `complete_task` (returns `500 P0002` from the body, not `42501`) — RLS-contained (SECURITY
+  INVOKER ⇒ anon's null `auth.uid()` sees zero rows; no read/write/oracle), a defense-in-depth gap,
+  not exploitable. `20260622160000` re-asserts least privilege idempotently:
   `revoke all on function public.complete_task(uuid, jsonb) from public;`
+  `revoke all on function public.complete_task(uuid, jsonb) from anon;`
   `grant execute on function public.complete_task(uuid, jsonb) to authenticated;`
-  then re-probe (anon should then get `42501`, not `500`). See
+  It changes only the grant (not the body/RLS); `authenticated` keeps EXECUTE so the client RPC is
+  unaffected. After it runs, anon should get `42501`, not `500`. See
   `docs/AUDIT_2026-06-22_followup.md`. Recent additions:
   - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
     profile **display identity**; usernames are not shown publicly) plus two pre-auth

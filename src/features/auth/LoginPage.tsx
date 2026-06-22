@@ -7,6 +7,7 @@ import { Logo } from '@/components/brand/Logo'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { isValidEmail, usernameError } from './identifier'
+import { isNoAccountOtpError } from './authErrors'
 import { checkUsernameAvailable } from './api/accounts'
 
 type Mode = 'signin' | 'signup'
@@ -144,13 +145,21 @@ export function LoginPage() {
     }
     setSubmitting(true)
     setFeedback(null)
+    // Neutral confirmation shown whether or not the address has an account, so the
+    // magic-link button can't be used to probe who's registered (non-enumerating).
+    const neutral = 'If an account exists for that email, a magic link is on its way.'
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: value,
-        options: { emailRedirectTo: window.location.origin },
+        // Only sign IN existing users — never provision an account (and email) for an
+        // arbitrary address. Account creation goes through the password signup form.
+        options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
       })
-      if (error) throw error
-      setFeedback({ type: 'info', text: 'Magic link sent. Check your email to finish signing in.' })
+      // With shouldCreateUser:false GoTrue rejects an unknown email ("otp_disabled").
+      // Treat that as the SAME neutral confirmation so the response never reveals
+      // whether the address exists; only surface genuine (e.g. rate-limit) errors.
+      if (error && !isNoAccountOtpError(error)) throw error
+      setFeedback({ type: 'info', text: neutral })
     } catch (err) {
       setFeedback({
         type: 'error',

@@ -32,8 +32,8 @@ Tags: **FACT** = reproduced from code/live; **INFERENCE** = reasoned.
 
 | # | Severity | Tag | Finding | Status |
 | - | -------- | --- | ------- | ------ |
-| **F1** | **Low** (def-in-depth) | FACT | `complete_task` is **anon-EXECUTABLE** — the migration's `revoke … from public` isn't live | **FLAGGED** (grants/migration) |
-| **F2** | **Medium** | FACT | Magic-link `signInWithOtp` omits `shouldCreateUser:false` → creates accounts + emails **arbitrary** addresses | **FLAGGED** (auth) — patch ready |
+| **F1** | **Low** (def-in-depth) | FACT | `complete_task` is **anon-EXECUTABLE** — the migration's `revoke … from public` isn't live | ✅ **RESOLVED** — migration `20260622160000` (committed, run SQL to apply) |
+| **F2** | **Medium** | FACT | Magic-link `signInWithOtp` omits `shouldCreateUser:false` → creates accounts + emails **arbitrary** addresses | ✅ **FIXED** (+ test) |
 | **F3** | **Low** | FACT | Sign-in error mapping distinguishes "email not confirmed" vs "invalid credentials" (narrow enumeration oracle) | **FLAGGED** (auth copy/config) |
 | **F4** | **Medium** | FACT/INF | Global toast's **Retry** offered for non-idempotent inserts → duplicate-row risk | **FIXED** (+ test) |
 | **F5** | **Low** | FACT | Spawned next occurrence not added to optimistic cache (appears only after settle refetch) | **FLAGGED** (defer) |
@@ -55,13 +55,17 @@ Tags: **FACT** = reproduced from code/live; **INFERENCE** = reasoned.
   realistic `p_next` (valid-looking `workspace_id`, `title`, `recurrence_freq`): **zero writes, zero
   reads, NO existence oracle** (every id returns the identical message). Net effect of anon execute =
   a 500 response + trivial CPU. **Not exploitable.**
-- **Fix (FLAGGED — touches grants/migration; do not auto-apply):** run in the SQL editor (idempotent):
+- **✅ RESOLVED (migration committed; run the SQL to apply):** added a dedicated idempotent
+  migration `supabase/migrations/20260622160000_lock_complete_task_to_authenticated.sql`. Run in the
+  SQL editor:
   ```sql
   revoke all on function public.complete_task(uuid, jsonb) from public;
+  revoke all on function public.complete_task(uuid, jsonb) from anon;
   grant  execute on function public.complete_task(uuid, jsonb) to authenticated;
   ```
-  Then re-probe: anon should get `42501`, not `500`. (Same root cause as audit **L1** — the other
-  `SECURITY DEFINER` helpers are likewise PUBLIC-executable; harden together if desired.)
+  Changes only the grant (not the body/RLS); `authenticated` keeps EXECUTE so the client RPC path is
+  unaffected. Then re-probe: anon should get `42501`, not `500`. (Same root cause as audit **L1** — the
+  other `SECURITY DEFINER` helpers are likewise PUBLIC-executable; harden together if desired.)
 
 ### F2 — Magic-link creates accounts for arbitrary emails · Medium · FACT
 - **Where:** `src/features/auth/LoginPage.tsx` `handleMagicLink` — `signInWithOtp({ email, options:{ emailRedirectTo } })`, **no** `shouldCreateUser`.
@@ -72,13 +76,13 @@ Tags: **FACT** = reproduced from code/live; **INFERENCE** = reasoned.
   prominent "Email me a magic link" button is an **open unauthenticated email-relay/spam + ghost-account
   + weak-enumeration** vector. **Pre-existing** (identical OTP call before `3dbdd5c`) but never flagged,
   and now front-and-center on the email-only login.
-- **Fix (FLAGGED — auth behavior change; recommend applying):** pass `options.shouldCreateUser:false`
-  so magic-link only signs in **existing** users (account creation stays on the password signup form,
-  which also collects the required username). Also handle the resulting `otp_disabled` error with a
-  friendly "No account found for that email — sign up first," keep success copy generic ("If an account
-  exists, we sent a link"), and confirm Supabase rate-limit/CAPTCHA is on (project config, out of repo).
-  Flagged rather than auto-applied per the "STOP and FLAG anything touching auth" rule — it changes the
-  magic-link flow (no more passwordless account creation).
+- **✅ RESOLVED (applied):** `handleMagicLink` now passes `options.shouldCreateUser:false`, so the
+  magic link only signs in **existing** users (account creation stays on the password signup form, which
+  also collects the required username). The "no account" GoTrue error (`otp_disabled`) is detected by the
+  tested pure helper `isNoAccountOtpError` (`src/features/auth/authErrors.ts`) and swallowed into the
+  **same** neutral, non-enumerating confirmation shown on success — *"If an account exists for that email,
+  a magic link is on its way."* — so the button can't probe who's registered; only genuine errors (rate
+  limit/network) surface. Still **recommended (out of repo):** confirm Supabase rate-limit/CAPTCHA is on.
 
 ### F3 — Sign-in error oracle (confirmed-vs-invalid) · Low · FACT
 - **Where:** `LoginPage.tsx:76-84`. `/email not confirmed/` → "confirm your email"; `/invalid login
@@ -158,15 +162,17 @@ Mitigate via Supabase Auth config + generic copy if strict anti-enumeration is r
 
 **Fixed (safe, contained, with tests):**
 - **F4** — `noRetry` on all 6 non-idempotent insert mutations + tested `shouldOfferRetry` gating helper.
-- **Docs** — corrected the stale migration-state in `CLAUDE.md`; recorded F1's open grant item.
+- **F2** — magic-link `shouldCreateUser:false` + neutral non-enumerating copy + tested `isNoAccountOtpError`
+  (commit after this doc).
+- **F1** — dedicated idempotent migration `20260622160000_lock_complete_task_to_authenticated` (committed;
+  run the SQL to apply live).
+- **Docs** — corrected the stale migration-state in `CLAUDE.md`.
 
-**Flagged (NOT auto-applied — touch RLS/auth/migrations or are product decisions):**
-- **F1** — re-apply the `complete_task` `revoke/grant` on the live DB (SQL above).
-- **F2** — add `shouldCreateUser:false` to magic-link (patch above) + verify Supabase rate-limit/CAPTCHA.
+**Flagged (NOT auto-applied — touch Supabase Auth config or are product decisions):**
 - **F3 / F8** — auth error/enumeration copy + Supabase Auth config decisions.
 - **F5 / F6 / F7** — spawn cache/visibility & archived-project invariant (defer / product).
 
 **Bottom line:** H1, H2, and H5's atomicity are genuinely closed (live-verified); H6 is closed and its
-one gap fixed. No Critical/High exploitable issue. The only security-relevant residue is **F1** (a
-defense-in-depth grant, fully RLS-contained) and **F2** (a pre-existing magic-link abuse vector) — both
-flagged with ready fixes that touch auth/grants and are left for explicit approval.
+one gap fixed. **F2 is now fixed in code and F1 is closed by a committed migration** (apply its SQL). No
+Critical/High exploitable issue remains; the residual F3/F5–F8 items are Low and flagged for product/
+Supabase-config decisions.
