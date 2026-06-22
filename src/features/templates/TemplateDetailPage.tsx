@@ -12,8 +12,9 @@ import { useApplyTemplate } from './useApplyTemplate'
 import { applySuccessMessage, type ApplyTargetKind } from './apply'
 
 const TARGETS: { kind: ApplyTargetKind; label: string; hint: string; Icon: LucideIcon }[] = [
+  // Today first + default: it lights up the capacity meter immediately — the first "aha".
+  { kind: 'today', label: 'Today', hint: 'Plan it into today', Icon: Sun },
   { kind: 'project', label: 'New project', hint: 'A project with these tasks', Icon: FolderPlus },
-  { kind: 'today', label: 'Today', hint: 'Scheduled for today', Icon: Sun },
   { kind: 'inbox', label: 'Inbox', hint: 'Capture for later', Icon: Inbox },
 ]
 
@@ -41,7 +42,7 @@ export function TemplateDetailPage() {
   const apply = useApplyTemplate(workspaceId)
   const toast = useToast()
   const navigate = useNavigate()
-  const [target, setTarget] = useState<ApplyTargetKind>('project')
+  const [target, setTarget] = useState<ApplyTargetKind>('today')
   const [busy, setBusy] = useState(false)
 
   if (!template) return <NotFound />

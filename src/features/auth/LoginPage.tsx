@@ -102,7 +102,7 @@ export function LoginPage() {
           setFeedback({ type: 'error', text: 'Enter a valid email address.' })
           return
         }
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -122,10 +122,15 @@ export function LoginPage() {
           }
           throw new Error(msg)
         }
-        setFeedback({
-          type: 'info',
-          text: 'Account created. Check your inbox to confirm, then sign in.',
-        })
+        // When email auto-confirm is on, signUp returns a session and
+        // onAuthStateChange routes the new user straight into onboarding — no inbox
+        // step. Only ask them to confirm when confirmation is actually required.
+        if (!data.session) {
+          setFeedback({
+            type: 'info',
+            text: 'Account created — check your inbox to confirm your email, then sign in.',
+          })
+        }
       }
     } catch (err) {
       setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Something went wrong.' })

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Check, X } from 'lucide-react'
+import { ArrowRight, Check, LayoutTemplate, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Input } from '@/components/ui'
 import { Logo } from '@/components/brand/Logo'
@@ -250,9 +250,20 @@ export function OnboardingOverlay() {
                 <button
                   type="button"
                   onClick={browseTemplates}
-                  className="focus-ring inline-flex items-center gap-1 rounded text-sm text-accent hover:underline"
+                  className="focus-ring flex w-full items-center gap-3 rounded-xl border border-white/10 bg-surface-2/30 px-3 py-2.5 text-left transition-colors hover:bg-surface-2/60"
                 >
-                  Or start from a ready-made template <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-gradient-soft text-brand">
+                    <LayoutTemplate className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-text-primary">
+                      Or start from a template
+                    </span>
+                    <span className="block text-xs text-text-muted">
+                      Prefill an effort-tagged list — instant tasks and a live capacity meter.
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
                 </button>
               )}
               {captured.length > 0 && (
@@ -328,12 +339,29 @@ export function OnboardingOverlay() {
                 </ul>
               ) : (
                 <p className="text-sm text-text-muted">
-                  No tasks yet. That&rsquo;s okay. You can capture them anytime from your day.
+                  {FEATURES.templates
+                    ? 'No tasks yet — start from a ready-made template and your day fills with realistic, effort-tagged work, with the capacity meter live from the first minute.'
+                    : "No tasks yet. That's okay — you can capture them anytime from your day."}
                 </p>
               )}
-              <Button size="lg" className="w-full" onClick={finish}>
-                Finish and go to my day <Check className="h-4 w-4" aria-hidden />
-              </Button>
+              {captured.length === 0 && FEATURES.templates ? (
+                <div className="space-y-2">
+                  <Button size="lg" className="w-full" onClick={browseTemplates}>
+                    <LayoutTemplate className="h-4 w-4" aria-hidden /> Start from a template
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={finish}
+                    className="focus-ring mx-auto block rounded px-2 py-1 text-xs text-text-muted hover:text-text-primary"
+                  >
+                    or start with an empty day
+                  </button>
+                </div>
+              ) : (
+                <Button size="lg" className="w-full" onClick={finish}>
+                  Finish and go to my day <Check className="h-4 w-4" aria-hidden />
+                </Button>
+              )}
             </div>
           )}
         </Card>
