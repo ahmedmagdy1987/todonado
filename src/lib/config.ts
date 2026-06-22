@@ -22,4 +22,11 @@ export const FEATURES = {
    * set to false to hide the entire in-app suite without touching the core.
    */
   wellness: true,
+  /**
+   * "Start from a template" — a catalog of ready-made, effort-tagged task lists
+   * users can apply in one click. Content-only (no DB); free, to drive
+   * activation. Default ON; set to false to hide the Templates nav item, the
+   * /templates routes, and the empty-state CTAs without touching the core.
+   */
+  templates: true,
 } as const
