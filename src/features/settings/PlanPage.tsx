@@ -21,7 +21,8 @@ export function PlanPage() {
       : 'You are on the Free plan. Everything you need to plan and run your day is included.'
 
   return (
-    <div className="animate-fade-in space-y-6">
+    // Text page: cap at a comfortable reading width, centered in the wider frame.
+    <div className="animate-fade-in mx-auto max-w-2xl space-y-6">
       <header className="flex items-center gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
           <Crown className="h-5 w-5" aria-hidden />

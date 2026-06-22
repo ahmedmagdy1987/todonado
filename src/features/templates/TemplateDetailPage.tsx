@@ -69,7 +69,8 @@ export function TemplateDetailPage() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    // Preview/detail: cap at a comfortable reading width, centered in the wider frame.
+    <div className="animate-fade-in mx-auto max-w-2xl space-y-6">
       <Link
         to="/templates"
         className="focus-ring inline-flex items-center gap-1.5 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary"

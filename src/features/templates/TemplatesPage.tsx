@@ -132,7 +132,7 @@ export function TemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {results.map((t) => (
                 <TemplateCard key={t.id} template={t} />
               ))}
