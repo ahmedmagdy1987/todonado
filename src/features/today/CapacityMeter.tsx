@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Gauge, Pencil } from 'lucide-react'
+import { CalendarDays, Gauge, Pencil } from 'lucide-react'
 import { Badge, Button, Card, CardContent, Input } from '@/components/ui'
 import { formatMinutes } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -23,15 +23,27 @@ interface CapacityMeterProps {
   onCapacityChange: (minutes: number) => void
   /** Scheduled-but-unestimated tasks; surfaced so a 0% meter isn't misread as "clear". */
   unestimatedCount?: number
+  /** Today's calendar busy minutes (part of `summary.plannedMinutes`); shown distinctly. */
+  busyMinutes?: number
 }
 
 export function CapacityMeter({
   summary,
   onCapacityChange,
   unestimatedCount = 0,
+  busyMinutes = 0,
 }: CapacityMeterProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(summary.capacityMinutes))
+
+  // `summary.plannedMinutes` already includes meetings; split them out for display.
+  const busy = Math.max(0, Math.round(busyMinutes))
+  const hasBusy = busy > 0
+  const taskPlanned = Math.max(0, summary.plannedMinutes - busy)
+  const busyPct = hasBusy
+    ? Math.min(summary.barPct, Math.round((busy / summary.capacityMinutes) * 100))
+    : 0
+  const taskPct = Math.max(0, summary.barPct - busyPct)
 
   function save(minutes: number) {
     const m = Math.max(1, Math.round(minutes))
@@ -59,22 +71,43 @@ export function CapacityMeter({
         </div>
 
         <div
-          className="h-3 w-full overflow-hidden rounded-full bg-surface-2"
+          className="flex h-3 w-full overflow-hidden rounded-full bg-surface-2"
           role="progressbar"
           aria-valuenow={summary.barPct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label="Planned share of today's capacity"
+          aria-label="Planned share of today's capacity, including calendar meetings"
         >
-          <div
-            className={cn('h-full rounded-full transition-all', FILL[summary.status])}
-            style={{ width: `${summary.barPct}%` }}
-          />
+          {hasBusy ? (
+            <>
+              <div
+                className="h-full bg-accent transition-all"
+                style={{ width: `${busyPct}%` }}
+                title="Calendar meetings"
+              />
+              <div
+                className={cn('h-full transition-all', FILL[summary.status])}
+                style={{ width: `${taskPct}%` }}
+              />
+            </>
+          ) : (
+            <div
+              className={cn('h-full rounded-full transition-all', FILL[summary.status])}
+              style={{ width: `${summary.barPct}%` }}
+            />
+          )}
         </div>
+
+        {hasBusy && (
+          <p className="flex items-center gap-1.5 text-xs text-accent">
+            <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+            Meetings: ~{formatMinutes(busy)} from your calendar (counts toward your day).
+          </p>
+        )}
 
         <div className="flex items-center justify-between font-mono text-sm">
           <span className="text-text-primary">
-            {formatMinutes(summary.plannedMinutes)}{' '}
+            {formatMinutes(hasBusy ? taskPlanned : summary.plannedMinutes)}{' '}
             <span className="text-text-muted">planned</span>
           </span>
           {!editing ? (

@@ -45,4 +45,13 @@ export const FEATURES = {
    * existing capacity/roll-over behavior is untouched either way).
    */
   autoPlan: true,
+  /**
+   * Calendar busy-import (ICS) — let a user add an .ics calendar (file upload =
+   * reliable; URL subscribe = best-effort, often CORS-blocked) in Settings, so
+   * today's timed meetings subtract from available capacity alongside task effort.
+   * Pure parser + capacity math, unit-tested; a calendar failure NEVER breaks the
+   * meter (falls back to task-only capacity). Default ON; set to false to hide the
+   * Settings section and ignore all calendar sources (capacity = tasks only).
+   */
+  calendarImport: true,
 } as const

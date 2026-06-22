@@ -13,4 +13,7 @@ export const qk = {
   // Wellness tracker — user-owned (keyed by user, not workspace).
   wellnessItems: (userId: string) => ['wellness-items', userId] as const,
   wellnessLogs: (userId: string) => ['wellness-logs', userId] as const,
+  // Calendar busy-import — user-owned sources + derived today busy-minutes.
+  calendarSources: (userId: string) => ['calendar-sources', userId] as const,
+  calendarBusy: (userId: string, day: string) => ['calendar-busy', userId, day] as const,
 }

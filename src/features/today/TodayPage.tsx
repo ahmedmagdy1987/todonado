@@ -9,6 +9,8 @@ import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
 import { useEffortSuggester } from '@/features/tasks/api/useEffortSuggester'
+import { useCalendarBusy } from '@/features/calendar/api/useCalendarBusy'
+import { withCalendar } from '@/features/calendar/capacity'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
 import { selectToday } from '@/features/tasks/selectors'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
@@ -17,7 +19,7 @@ import { todayISO, isoDateOffset } from '@/lib/date'
 import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
 import { LoadError } from '@/components/common/LoadError'
 import type { Task } from '@/types/database'
-import { computeCapacity, countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
+import { countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
 import type { PlanPick } from './autoPlan'
 import { CapacityMeter } from './CapacityMeter'
@@ -50,6 +52,9 @@ export function TodayPage() {
   const tomorrow = isoDateOffset(1)
   const name = user?.email?.split('@')[0] ?? 'there'
 
+  // Today's calendar busy-minutes (0 when the feature/sources are off or fail).
+  const { busyMinutes, hadError: calendarError } = useCalendarBusy(today)
+
   const todayTasks = selectToday(tasks, today)
   const overdue = selectRolloverTasks(tasks, today)
   // Capacity reflects remaining (incomplete) effort, so a finished day reads as
@@ -57,8 +62,11 @@ export function TodayPage() {
   const movableToday = todayTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress')
   const planned = sumEffort(movableToday)
   const unestimatedCount = countUnestimated(movableToday)
-  const summary = computeCapacity(planned, capacityMinutes)
-  const suggestions = suggestTasksToMoveTomorrow(todayTasks, capacityMinutes)
+  // Calendar-aware: meetings consume capacity alongside task effort (computeCapacity
+  // is unchanged — it's fed tasks + busy). effectiveCapacity = room left for tasks.
+  const cal = withCalendar(planned, capacityMinutes, busyMinutes)
+  const summary = cal.summary
+  const suggestions = suggestTasksToMoveTomorrow(todayTasks, cal.effectiveCapacity)
 
   // capacity_viewed: once per Today mount. over_capacity_hit: once per mount, the
   // first time the day is planned over capacity (the wedge's key "aha" moment).
@@ -122,7 +130,7 @@ export function TodayPage() {
         {FEATURES.autoPlan && (
           <PlanMyDay
             tasks={tasks}
-            capacityMinutes={capacityMinutes}
+            capacityMinutes={cal.effectiveCapacity}
             today={today}
             estimate={estimateCost}
             onApply={applyPlan}
@@ -159,8 +167,16 @@ export function TodayPage() {
       <CapacityMeter
         summary={summary}
         unestimatedCount={unestimatedCount}
+        busyMinutes={cal.busyMinutes}
         onCapacityChange={(m) => updateCapacity.mutate(m)}
       />
+
+      {calendarError && (
+        <p className="-mt-4 text-xs text-text-muted">
+          Couldn&rsquo;t refresh a subscribed calendar (the provider may block browser access) —
+          showing task-only capacity. Uploading the .ics file is more reliable.
+        </p>
+      )}
 
       <OverbookingWarning
         overMinutes={summary.overMinutes}
@@ -198,7 +214,7 @@ export function TodayPage() {
                 FEATURES.autoPlan ? (
                   <PlanMyDay
                     tasks={tasks}
-                    capacityMinutes={capacityMinutes}
+                    capacityMinutes={cal.effectiveCapacity}
                     today={today}
                     estimate={estimateCost}
                     onApply={applyPlan}

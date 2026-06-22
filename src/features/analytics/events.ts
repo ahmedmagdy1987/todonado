@@ -15,6 +15,7 @@ export type AnalyticsEvent =
   | 'focus_completed'
   | 'day_returned'
   | 'auto_planned'
+  | 'calendar_source_added'
 
 export interface TrackOptions {
   /** A single boolean signal the wedge cares about, e.g. has_effort on task_created. */

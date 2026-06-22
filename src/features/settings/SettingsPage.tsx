@@ -11,6 +11,8 @@ import {
   User,
 } from 'lucide-react'
 import { Badge, Button, Card, Input, Modal } from '@/components/ui'
+import { FEATURES } from '@/lib/config'
+import { CalendarSettings } from '@/features/calendar/CalendarSettings'
 import { useAuth } from '@/features/auth/auth-context'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
@@ -338,6 +340,7 @@ export function SettingsPage() {
       <AccountSection />
       <PlanSection />
       <PlanningSection />
+      {FEATURES.calendarImport && <CalendarSettings />}
       <DataSection />
       <DangerSection />
 

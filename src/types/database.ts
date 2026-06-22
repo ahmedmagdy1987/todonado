@@ -265,3 +265,31 @@ export interface WellnessLog {
 export interface NewWellnessLogInput {
   item_id: string
 }
+
+// ---------------------------------------------------------------------------
+//  Calendar busy-import (ICS) — owner-only. A 'url' source stores the .ics URL
+//  (fetched best-effort, often CORS-blocked); a 'file' source stores the raw
+//  uploaded .ics text so today's busy minutes can be recomputed each day.
+// ---------------------------------------------------------------------------
+export type CalendarSourceKind = 'url' | 'file'
+
+export interface CalendarSource {
+  id: string
+  user_id: string
+  kind: CalendarSourceKind
+  /** User-facing label (e.g. filename or "Work calendar"). */
+  label: string
+  /** The .ics URL for a 'url' source; null for a 'file' source. */
+  url: string | null
+  /** Raw .ics text for a 'file' source; null for a 'url' source. */
+  ics_text: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NewCalendarSourceInput {
+  kind: CalendarSourceKind
+  label: string
+  url?: string | null
+  ics_text?: string | null
+}
