@@ -10,4 +10,7 @@ export const qk = {
   sections: (projectId: string) => ['sections', projectId] as const,
   subtasks: (taskId: string) => ['subtasks', taskId] as const,
   focus: (workspaceId: string) => ['focus', workspaceId] as const,
+  // Wellness tracker — user-owned (keyed by user, not workspace).
+  wellnessItems: (userId: string) => ['wellness-items', userId] as const,
+  wellnessLogs: (userId: string) => ['wellness-logs', userId] as const,
 }

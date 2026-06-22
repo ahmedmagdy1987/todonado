@@ -221,3 +221,42 @@ export interface NewFeatureIntentInput {
   user_id?: string | null
   source?: string | null
 }
+
+// ---------------------------------------------------------------------------
+//  Wellness tracking (personal supplement / vitamin / medication LOG — NOT
+//  medical advice; dose/schedule are free text, never a drug/dosing engine)
+// ---------------------------------------------------------------------------
+export interface WellnessItem {
+  id: string
+  user_id: string
+  name: string
+  /** Free text, e.g. "500mg". */
+  dose: string | null
+  /** Free text, e.g. "daily" / "8am". Not a structured schedule. */
+  schedule: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NewWellnessItemInput {
+  name: string
+  dose?: string | null
+  schedule?: string | null
+  notes?: string | null
+}
+
+export type WellnessItemPatch = Partial<Pick<WellnessItem, 'name' | 'dose' | 'schedule' | 'notes'>>
+
+/** Append-only "taken" event for an item. */
+export interface WellnessLog {
+  id: string
+  user_id: string
+  item_id: string
+  taken_at: string
+  created_at: string
+}
+
+export interface NewWellnessLogInput {
+  item_id: string
+}

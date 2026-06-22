@@ -51,7 +51,7 @@ export const WELLNESS_MODULES: WellnessModule[] = [
     title: 'Supplement & medication tracker',
     description: 'A simple personal log of what you take — mark it taken and keep a streak.',
     icon: Pill,
-    status: 'soon',
-    intentKey: 'supplement_tracker',
+    status: 'live',
+    to: '/wellness/tracker',
   },
 ]
