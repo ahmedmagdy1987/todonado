@@ -15,6 +15,8 @@ import { FocusPage } from '@/features/focus/FocusPage'
 import { InsightsPage } from '@/features/insights/InsightsPage'
 import { WellnessPage } from '@/features/wellness/WellnessPage'
 import { BreathePage } from '@/features/wellness/breathwork/BreathePage'
+import { SoundsPage } from '@/features/wellness/audio/SoundsPage'
+import { MeditatePage } from '@/features/wellness/audio/MeditatePage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { PlanPage } from '@/features/settings/PlanPage'
 import { FEATURES } from '@/lib/config'
@@ -44,6 +46,8 @@ export function AppRoutes() {
             <>
               <Route path="wellness" element={<WellnessPage />} />
               <Route path="wellness/breathe" element={<BreathePage />} />
+              <Route path="wellness/sleep" element={<SoundsPage />} />
+              <Route path="wellness/meditate" element={<MeditatePage />} />
             </>
           )}
           <Route path="settings" element={<SettingsPage />} />
