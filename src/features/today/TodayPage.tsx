@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
-import { Undo2, X } from 'lucide-react'
+import { Flame, Undo2, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
 import { track } from '@/features/analytics/track'
@@ -21,6 +21,7 @@ import { LoadError } from '@/components/common/LoadError'
 import type { Task } from '@/types/database'
 import { countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
+import { planningStreak } from './streak'
 import type { PlanPick } from './autoPlan'
 import { CapacityMeter } from './CapacityMeter'
 import { RolloverBanner } from './components/RolloverBanner'
@@ -67,6 +68,12 @@ export function TodayPage() {
   const cal = withCalendar(planned, capacityMinutes, busyMinutes)
   const summary = cal.summary
   const suggestions = suggestTasksToMoveTomorrow(todayTasks, cal.effectiveCapacity)
+
+  // Planning streak — derived from the tasks cache (no new table); non-shaming.
+  const streak = useMemo(
+    () => (FEATURES.streak ? planningStreak(tasks, today) : { count: 0, includesToday: false }),
+    [tasks, today],
+  )
 
   // capacity_viewed: once per Today mount. over_capacity_hit: once per mount, the
   // first time the day is planned over capacity (the wedge's key "aha" moment).
@@ -126,6 +133,24 @@ export function TodayPage() {
           <p className="mt-1 text-text-muted">
             {getGreeting()}, {name}. Here&rsquo;s your day at a glance.
           </p>
+          {FEATURES.streak && streak.count >= 1 && (
+            <span
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning"
+              aria-label={
+                streak.includesToday
+                  ? `${streak.count}-day planning streak`
+                  : `${streak.count}-day planning streak — plan today to keep it going`
+              }
+              title={
+                streak.includesToday
+                  ? 'You planned today — nice.'
+                  : 'Plan something today to keep your streak going.'
+              }
+            >
+              <Flame className="h-3.5 w-3.5" aria-hidden />
+              {streak.count}-day streak
+            </span>
+          )}
         </div>
         {FEATURES.autoPlan && (
           <PlanMyDay

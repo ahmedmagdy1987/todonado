@@ -54,4 +54,12 @@ export const FEATURES = {
    * Settings section and ignore all calendar sources (capacity = tasks only).
    */
   calendarImport: true,
+  /**
+   * Planning streak — a subtle, NON-shaming flame badge in the Today header
+   * counting consecutive local days the user planned/showed up. Derived purely
+   * from the tasks already in cache (no new table); a missed day is never
+   * guilt-tripped (the badge simply doesn't show at 0). Default ON; set to false
+   * to hide the badge (no other behavior changes).
+   */
+  streak: true,
 } as const
