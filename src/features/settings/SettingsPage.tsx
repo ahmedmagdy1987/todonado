@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Badge, Button, Card, Input, Modal } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
+import { supabase } from '@/lib/supabase'
 import { CalendarSettings } from '@/features/calendar/CalendarSettings'
 import { useAuth } from '@/features/auth/auth-context'
 import { useWorkspace } from '@/features/workspace/workspace-context'
@@ -276,7 +277,35 @@ function DataSection() {
 
 function DangerSection() {
   const [confirm, setConfirm] = useState(false)
-  const toast = useToast()
+  const [phrase, setPhrase] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const armed = phrase.trim() === 'DELETE'
+
+  function close() {
+    if (busy) return
+    setConfirm(false)
+    setPhrase('')
+    setError(null)
+  }
+
+  async function deleteAccount() {
+    if (!armed || busy) return
+    setBusy(true)
+    setError(null)
+    const { error: rpcError } = await supabase.rpc('delete_own_account')
+    if (rpcError) {
+      setBusy(false)
+      setError('Could not delete your account — please try again in a moment.')
+      return
+    }
+    // The auth.users row (and, via cascades, all user data) is gone. The local
+    // session is orphaned — clear it locally only (a server sign-out would 403:
+    // the user no longer exists) and hard-navigate so every in-memory cache of
+    // the deleted user's data (TanStack Query, contexts) is dropped with it.
+    await supabase.auth.signOut({ scope: 'local' })
+    window.location.assign('/welcome')
+  }
 
   return (
     <Card className="border-danger/20 p-5">
@@ -293,28 +322,39 @@ function DangerSection() {
         Delete account
       </Button>
 
-      <Modal open={confirm} onClose={() => setConfirm(false)} title="Delete account">
+      <Modal open={confirm} onClose={close} title="Delete account">
         <div className="space-y-4 p-5">
           <p className="text-sm text-text-muted">
-            This will permanently delete your account and all of your tasks, projects, and focus
-            history. This cannot be undone.
+            This permanently deletes your account and everything in it — tasks, projects, focus
+            history, wellness log, and calendar sources. There is no undo. If you want a copy,
+            export your data from the section above first.
           </p>
-          <p className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-xs text-warning">
-            Automated account deletion isn&rsquo;t enabled yet — it&rsquo;s coming soon. Until then
-            your data stays private to you, and you can export everything from the section above.
-          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-text-muted">
+              Type <span className="font-mono font-semibold text-danger">DELETE</span> to confirm
+            </span>
+            <Input
+              value={phrase}
+              onChange={(e) => setPhrase(e.target.value)}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              disabled={busy}
+            />
+          </label>
+          {error && <p className="text-xs text-danger">{error}</p>}
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConfirm(false)}>
+            <Button variant="ghost" onClick={close} disabled={busy}>
               Keep my account
             </Button>
             <Button
               className="bg-danger text-white hover:bg-danger/90"
-              onClick={() => {
-                setConfirm(false)
-                toast.show('Noted — automated account deletion is coming soon. Your data is untouched.')
-              }}
+              disabled={!armed || busy}
+              loading={busy}
+              onClick={deleteAccount}
             >
-              I understand
+              Delete my account
             </Button>
           </div>
         </div>

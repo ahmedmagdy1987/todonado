@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { LEGAL_CONTACT } from '@/lib/config'
 import { MarketingHeader } from '@/features/marketing/components/MarketingHeader'
 import { MarketingFooter } from '@/features/marketing/components/MarketingFooter'
 
@@ -7,12 +8,12 @@ import { MarketingFooter } from '@/features/marketing/components/MarketingFooter
  * Shared scaffold for the static legal pages (Privacy, Terms). Keeps the public
  * chrome consistent and the prose readable.
  *
- * Editable placeholders live here so there is a single place to update:
- *   - LEGAL_LAST_UPDATED: the date shown at the top of each document.
- *   - LEGAL_CONTACT: replace with your real support / privacy contact address.
+ * LEGAL_CONTACT lives in src/lib/config.ts (single source of truth) and is
+ * re-exported here for the legal pages. LEGAL_LAST_UPDATED stays local: the
+ * date shown at the top of each document.
  */
 export const LEGAL_LAST_UPDATED = 'June 16, 2026'
-export const LEGAL_CONTACT = '[your contact email]'
+export { LEGAL_CONTACT }
 
 interface LegalLayoutProps {
   title: string

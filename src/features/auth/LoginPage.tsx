@@ -7,18 +7,18 @@ import { Logo } from '@/components/brand/Logo'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { isValidEmail, usernameError } from './identifier'
-import { isNoAccountOtpError } from './authErrors'
+import { isNoAccountOtpError, isNoAccountResetError } from './authErrors'
 import { checkUsernameAvailable } from './api/accounts'
 
-type Mode = 'signin' | 'signup'
+type Mode = 'signin' | 'signup' | 'forgot'
 type Feedback = { type: 'error' | 'info'; text: string } | null
 type UStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
 
 export function LoginPage() {
   const { session, isConfigured } = useAuth()
   const location = useLocation()
-  const initialMode: Mode =
-    (location.state as { mode?: Mode } | null)?.mode === 'signup' ? 'signup' : 'signin'
+  const stateMode = (location.state as { mode?: Mode } | null)?.mode
+  const initialMode: Mode = stateMode === 'signup' || stateMode === 'forgot' ? stateMode : 'signin'
   const [mode, setMode] = useState<Mode>(initialMode)
 
   const [email, setEmail] = useState('') // login email (sign in + sign up)
@@ -136,6 +136,37 @@ export function LoginPage() {
     }
   }
 
+  async function handleForgotSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (!isConfigured) return
+    const value = email.trim()
+    if (!isValidEmail(value)) {
+      setFeedback({ type: 'error', text: 'Enter the email you signed up with.' })
+      return
+    }
+    setSubmitting(true)
+    setFeedback(null)
+    // Neutral confirmation shown whether or not the address has an account, so the
+    // reset form can't be used to probe who's registered (non-enumerating).
+    const neutral = 'If an account exists for that email, a password reset link is on its way.'
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(value, {
+        // window.location.origin: correct on localhost AND on the live domain
+        // (covered by the https://www.todonado.com/** redirect wildcard).
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error && !isNoAccountResetError(error)) throw error
+      setFeedback({ type: 'info', text: neutral })
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Could not send the reset email.',
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function handleMagicLink() {
     if (!isConfigured) return
     const value = email.trim()
@@ -171,6 +202,22 @@ export function LoginPage() {
   }
 
   const disabled = submitting || !isConfigured
+
+  const feedbackEl = feedback && (
+    <div
+      className={cn(
+        'flex items-start gap-2 rounded-lg p-2.5 text-xs',
+        feedback.type === 'error' ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-accent',
+      )}
+    >
+      {feedback.type === 'error' ? (
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      ) : (
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      )}
+      <span>{feedback.text}</span>
+    </div>
+  )
 
   const uHint =
     mode === 'signup' && username.trim() !== ''
@@ -237,7 +284,7 @@ export function LoginPage() {
                   }}
                   className={cn(
                     'focus-ring rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                    mode === m
+                    mode === m || (m === 'signin' && mode === 'forgot')
                       ? 'bg-surface text-text-primary shadow-elevation'
                       : 'text-text-muted hover:text-text-primary',
                   )}
@@ -247,6 +294,43 @@ export function LoginPage() {
               ))}
             </div>
 
+            {mode === 'forgot' ? (
+              <form onSubmit={handleForgotSubmit} className="flex flex-col gap-3">
+                <p className="text-sm text-text-muted">
+                  Enter the email you signed up with and we&rsquo;ll send you a link to set a new
+                  password.
+                </p>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-text-muted">Email</span>
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={disabled}
+                  />
+                </label>
+                {feedbackEl}
+                <Button type="submit" loading={submitting} disabled={disabled} className="mt-1">
+                  Send reset link
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signin')
+                    setFeedback(null)
+                  }}
+                  className="focus-ring self-center rounded text-xs text-text-muted hover:text-text-primary"
+                >
+                  Back to sign in
+                </button>
+              </form>
+            ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               {mode === 'signup' ? (
                 <>
@@ -328,43 +412,47 @@ export function LoginPage() {
                 />
               </label>
 
-              {feedback && (
-                <div
-                  className={cn(
-                    'flex items-start gap-2 rounded-lg p-2.5 text-xs',
-                    feedback.type === 'error' ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-accent',
-                  )}
+              {mode === 'signin' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('forgot')
+                    setFeedback(null)
+                  }}
+                  className="focus-ring -mt-1 self-end rounded text-xs text-accent hover:underline"
                 >
-                  {feedback.type === 'error' ? (
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  ) : (
-                    <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                  )}
-                  <span>{feedback.text}</span>
-                </div>
+                  Forgot password?
+                </button>
               )}
+
+              {feedbackEl}
 
               <Button type="submit" loading={submitting} disabled={disabled} className="mt-1">
                 {mode === 'signin' ? 'Sign in' : 'Create account'}
               </Button>
             </form>
+            )}
 
-            <div className="my-4 flex items-center gap-3 text-xs text-text-muted">
-              <span className="h-px flex-1 bg-white/10" />
-              or
-              <span className="h-px flex-1 bg-white/10" />
-            </div>
+            {mode !== 'forgot' && (
+              <>
+                <div className="my-4 flex items-center gap-3 text-xs text-text-muted">
+                  <span className="h-px flex-1 bg-white/10" />
+                  or
+                  <span className="h-px flex-1 bg-white/10" />
+                </div>
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleMagicLink}
-              disabled={disabled}
-              className="w-full"
-            >
-              <Mail className="h-4 w-4" aria-hidden />
-              Email me a magic link
-            </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleMagicLink}
+                  disabled={disabled}
+                  className="w-full"
+                >
+                  <Mail className="h-4 w-4" aria-hidden />
+                  Email me a magic link
+                </Button>
+              </>
+            )}
 
             <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">
               <Sparkles className="h-3 w-3 text-brand" aria-hidden />

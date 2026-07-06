@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { ResetPasswordPage } from '@/features/auth/ResetPasswordPage'
 import { LandingPage } from '@/features/marketing/LandingPage'
 import { PricingPage } from '@/features/marketing/PricingPage'
 import { AboutPage } from '@/features/marketing/AboutPage'
@@ -34,6 +35,7 @@ export function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Authenticated app shell */}
       <Route element={<ProtectedRoute />}>

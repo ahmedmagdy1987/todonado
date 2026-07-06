@@ -23,3 +23,15 @@ export function usernameError(value: string): string | null {
   if (!USERNAME_RE.test(v)) return 'Letters, numbers, and underscores only.'
   return null
 }
+
+/**
+ * Inline validation message for the new-password form (reset flow), or null
+ * when it is valid. The 6-char minimum mirrors the signup form and GoTrue's
+ * default minimum password length.
+ */
+export function newPasswordError(password: string, confirm: string): string | null {
+  if (password.length === 0) return 'Enter a new password.'
+  if (password.length < 6) return 'Use at least 6 characters.'
+  if (password !== confirm) return 'Passwords don’t match.'
+  return null
+}

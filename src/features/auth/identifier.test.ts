@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isValidEmail, isValidUsername, usernameError } from './identifier'
+import { isValidEmail, isValidUsername, newPasswordError, usernameError } from './identifier'
 
 describe('isValidEmail', () => {
   it('accepts well-formed emails and rejects junk', () => {
@@ -23,5 +23,16 @@ describe('isValidUsername / usernameError', () => {
     expect(usernameError('has space')).toMatch(/Letters/)
     expect(usernameError('bad-dash')).toMatch(/Letters/)
     expect(usernameError('')).toMatch(/Pick a username/)
+  })
+})
+
+describe('newPasswordError', () => {
+  it('accepts a matching pair of 6+ characters', () => {
+    expect(newPasswordError('secret1', 'secret1')).toBeNull()
+  })
+  it('rejects empty, short, and mismatched passwords with a message', () => {
+    expect(newPasswordError('', '')).toMatch(/Enter a new password/)
+    expect(newPasswordError('12345', '12345')).toMatch(/6 characters/)
+    expect(newPasswordError('secret1', 'secret2')).toMatch(/match/)
   })
 })
