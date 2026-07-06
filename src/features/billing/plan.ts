@@ -31,6 +31,9 @@ export function isFoundingEmail(
  * Resolve the effective plan. Pure and testable: an explicit `override` (from a
  * local preview toggle) always wins; otherwise founding emails are Pro and
  * everyone else is Free.
+ *
+ * NOTE: this is the pre-billing resolver (override-first). Real billing uses
+ * `resolveEffectivePlan` below, whose precedence puts a paid subscription first.
  */
 export function resolvePlan(
   email: string | null | undefined,
@@ -39,6 +42,27 @@ export function resolvePlan(
 ): Plan {
   if (override === 'pro' || override === 'free') return override
   return isFoundingEmail(email, list) ? 'pro' : 'free'
+}
+
+/**
+ * The effective plan once real billing exists. Precedence (highest first):
+ *   1. `billingPlan === 'pro'`  — a real, paid Stripe subscription (source of truth).
+ *   2. FOUNDING_EMAILS          — owner/dogfooding access (kept).
+ *   3. `override`               — the dev-only localStorage preview (kept, documented).
+ *   4. Free.
+ * Pure + unit-tested. Everything else in the app depends only on `usePlan`.
+ */
+export function resolveEffectivePlan(args: {
+  billingPlan?: Plan | null
+  email?: string | null
+  override?: Plan | null
+  foundingList?: readonly string[]
+}): Plan {
+  const { billingPlan, email, override, foundingList = FOUNDING_EMAILS } = args
+  if (billingPlan === 'pro') return 'pro'
+  if (isFoundingEmail(email, foundingList)) return 'pro'
+  if (override === 'pro' || override === 'free') return override
+  return 'free'
 }
 
 /**

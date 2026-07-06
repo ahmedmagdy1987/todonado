@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isFoundingEmail, resolvePlan } from './plan'
+import { isFoundingEmail, resolveEffectivePlan, resolvePlan } from './plan'
 
 describe('isFoundingEmail', () => {
   const list = ['founder@todonado.app']
@@ -24,5 +24,26 @@ describe('resolvePlan', () => {
     expect(resolvePlan('free.user@example.com', 'pro', list)).toBe('pro')
     // a founder previewing the free experience
     expect(resolvePlan('founder@todonado.app', 'free', list)).toBe('free')
+  })
+})
+
+describe('resolveEffectivePlan (billing precedence)', () => {
+  const foundingList = ['founder@todonado.app']
+
+  it('a paid subscription (billingPlan pro) wins over everything', () => {
+    expect(resolveEffectivePlan({ billingPlan: 'pro', email: 'x@y.com', override: 'free', foundingList })).toBe('pro')
+  })
+  it('founding email is Pro when there is no paid subscription', () => {
+    expect(resolveEffectivePlan({ billingPlan: null, email: 'founder@todonado.app', override: null, foundingList })).toBe('pro')
+    // billingPlan 'free' does not block the founding grant
+    expect(resolveEffectivePlan({ billingPlan: 'free', email: 'founder@todonado.app', foundingList })).toBe('pro')
+  })
+  it('the dev-only override applies below billing + founding', () => {
+    expect(resolveEffectivePlan({ billingPlan: null, email: 'x@y.com', override: 'pro', foundingList })).toBe('pro')
+    expect(resolveEffectivePlan({ billingPlan: null, email: 'x@y.com', override: 'free', foundingList })).toBe('free')
+  })
+  it('defaults to free with no signals', () => {
+    expect(resolveEffectivePlan({ billingPlan: null, email: 'x@y.com', override: null, foundingList })).toBe('free')
+    expect(resolveEffectivePlan({ email: null, foundingList })).toBe('free')
   })
 })

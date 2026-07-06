@@ -16,4 +16,6 @@ export const qk = {
   // Calendar busy-import — user-owned sources + derived today busy-minutes.
   calendarSources: (userId: string) => ['calendar-sources', userId] as const,
   calendarBusy: (userId: string, day: string) => ['calendar-busy', userId, day] as const,
+  // Billing — the user's own subscription row (SELECT own).
+  billing: (userId: string) => ['billing', userId] as const,
 }

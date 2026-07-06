@@ -25,9 +25,9 @@ export default tseslint.config(
       ],
     },
   },
-  // E2E (Playwright) + config files run in Node, not the browser.
+  // E2E (Playwright), serverless (/api), and config files run in Node.
   {
-    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    files: ['e2e/**/*.ts', 'api/**/*.ts', 'playwright.config.ts'],
     languageOptions: {
       globals: { ...globals.node },
     },

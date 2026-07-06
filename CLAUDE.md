@@ -244,10 +244,13 @@ item delete). See `supabase/migrations/`.
   (`resolve_login_email` → 404), and **`20260622160000_lock_complete_task_to_authenticated`
   (audit F1) IS NOW APPLIED** (anon `complete_task` → `42501 permission denied`, no longer the
   old `500 P0002`). See `docs/AUDIT_2026-06-22_followup.md` for the F1 rationale.
+- `20260706120000_delete_own_account.sql` (SECURITY DEFINER self-deletion RPC) **IS NOW APPLIED**
+  (live-verified: anon `delete_own_account` → `42501 permission denied`, no longer 404).
 - **PENDING (committed, NOT yet applied — one migration):**
-  `20260706120000_delete_own_account.sql` — the SECURITY DEFINER self-deletion RPC behind the
-  Settings "Delete account" button (also scrubs `upgrade_intents.email`). Until pushed, the RPC is
-  404 and the delete button errors. Apply with `supabase db push`. See `docs/LAUNCH_CHECKLIST.md`.
+  `20260706130000_billing.sql` — the `billing` table for Stripe subscriptions (plan gate,
+  SELECT-own RLS, no client writes; the webhook writes via service-role). The app runs fine without
+  it (`usePlan` degrades gracefully; My Plan uses the fake-door until Stripe keys are set). Apply
+  with `supabase db push`. Full turn-on runbook: `docs/BILLING_SETUP.md`.
 - Historical additions (all applied):
   - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
     profile **display identity**; usernames are not shown publicly) plus two pre-auth

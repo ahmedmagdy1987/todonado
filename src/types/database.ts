@@ -14,6 +14,22 @@ export type TaskPriority = 0 | 1 | 2 | 3
 export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly' | 'yearly'
 /** Fake-door demand-capture keys for unbuilt "Focus & Calm" wellness concepts. */
 export type FeatureKey = 'meditation' | 'sleep_sounds' | 'supplement_tracker'
+/** Subscription tier gate (see supabase/migrations/20260706130000_billing.sql). */
+export type BillingPlan = 'free' | 'pro'
+
+/**
+ * A user's Stripe subscription state. Written ONLY by the webhook (service-role);
+ * the client can SELECT its own row but never write it (RLS SELECT-own only).
+ */
+export interface BillingRow {
+  user_id: string
+  plan: BillingPlan
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  subscription_status: string | null
+  current_period_end: string | null
+  updated_at: string
+}
 
 export interface Profile {
   id: string
