@@ -5,9 +5,11 @@
  * the user. Guarded against reload loops (won't reload again within a short
  * window), so a genuinely broken build can't trap the tab in a refresh cycle.
  *
- * NOTE: there is no service worker in this app, so there is no precached shell to
- * go stale — the server-side SPA rewrite (vercel.json) is the navigation
- * fallback. This is purely belt-and-suspenders for failed chunk fetches.
+ * NOTE: the PWA service worker (vite-plugin-pwa) uses NETWORK-FIRST navigation and
+ * auto-updates, so the precached shell can't go stale "forever"; the server-side
+ * SPA rewrite (vercel.json) is the navigation fallback when online. This stays as
+ * belt-and-suspenders for a failed chunk fetch (e.g. a redeploy mid-session before
+ * the SW refreshes its precache).
  */
 
 const RELOAD_TS_KEY = 'todonado:chunk-reload-at'

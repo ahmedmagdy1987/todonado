@@ -182,6 +182,32 @@ test('landing shows How-it-works + FAQ with real screenshots that load', async (
     .toBeGreaterThan(0)
 })
 
+test('registers a service worker (installable PWA) and deep routes still load', async ({ page }) => {
+  await page.goto('/welcome')
+  // The SW registers on load (vite-plugin-pwa, enabled in dev).
+  await expect
+    .poll(async () => page.evaluate(async () => !!(await navigator.serviceWorker?.getRegistration())), {
+      timeout: 15_000,
+    })
+    .toBe(true)
+
+  // The manifest is linked + served (installability).
+  const manifest = await page.request.get('/manifest.webmanifest')
+  expect(manifest.ok()).toBeTruthy()
+  const mf = (await manifest.json()) as { name?: string; icons?: unknown[]; display?: string }
+  expect(mf.name).toBeTruthy()
+  expect(mf.display).toBe('standalone')
+  expect(Array.isArray(mf.icons) && mf.icons.length).toBeTruthy()
+
+  // A deep route still direct-loads with the SW active (network-first navigation).
+  await page.goto('/reset-password')
+  await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+
+  // OG tags remain static in the raw HTML (crawlers, not JS).
+  const html = await (await page.request.get('/')).text()
+  expect(html).toContain('property="og:image"')
+})
+
 test.afterAll(async () => {
   if (!created) return
   // Safety net: if the journey failed before the UI delete ran, remove the
