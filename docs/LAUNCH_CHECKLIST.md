@@ -8,12 +8,13 @@
 
 ---
 
-## 0. THE ONE HARD BLOCKER (do this first)
+## 0. DEPLOY PREREQUISITE (part of shipping — do it with the deploy)
 
-**Apply the pending migration.** The Settings → "Delete account" button calls
-`delete_own_account()`, which does **not exist on the cloud DB yet** (verified:
-the RPC returns 404 `PGRST202`). Until you apply it, clicking Delete account
-errors for every user.
+**Apply the one committed migration.** The code is written, committed, and gates
+green — it just needs pushing to the cloud DB (your standard `db push` deploy
+step). The Settings → "Delete account" button calls `delete_own_account()`, which
+is **not on the cloud DB yet** (verified: RPC returns 404 `PGRST202`); until you
+push it, clicking Delete account errors.
 
 ```
 supabase link --project-ref lplsbfduankkpglyusjp   # you link via SUPABASE_ACCESS_TOKEN
@@ -22,6 +23,8 @@ supabase db push                                    # applies 20260706120000_del
 
 **Migrations still to apply: exactly ONE — `20260706120000_delete_own_account.sql`.**
 Everything else is already live (see §4). After pushing, re-run the smoke check in §5.
+This is a deploy step, not an open code item — the two owner *decisions* that
+remain are SMTP and Stripe (§3).
 
 ---
 
@@ -86,69 +89,65 @@ fixed with tests. Gates green: **typecheck · lint · 277 tests · build**.
 
 ## 3. OWNER ACTIONS (non-code — only you can do these)
 
-Ordered roughly by launch-blocking severity.
+### THE TWO REMAINING OWNER ACTIONS
 
-1. **Custom SMTP — REQUIRED before sharing signup/reset links.** Supabase's
-   built-in mailer is rate-limited to a few emails per hour and is not meant for
-   production. Signup-confirmation, password-reset, and magic-link emails will
-   silently fail to deliver under any real volume. Wire a real provider (Resend,
-   Postmark, or SES) in **Supabase → Project → Authentication → Emails → SMTP**
-   before you share the app. Without this, the password-reset feature you just
-   built effectively doesn't reach users.
+1. **Custom SMTP (Resend) — REQUIRED before sharing signup/reset links.**
+   Supabase's built-in mailer is rate-limited to a few emails per hour and is not
+   meant for production. Signup-confirmation, password-reset, and magic-link emails
+   will silently fail to deliver under any real volume. Wire Resend (or Postmark /
+   SES) in **Supabase → Project → Authentication → Emails → SMTP** before you share
+   the app. Without this, the password-reset flow doesn't actually reach users —
+   smoke-script step #7 is the true go/no-go.
 
-2. **Confirm the SPA deep-link rewrite on the host, then TEST `/reset-password`
-   directly.** The app uses `BrowserRouter`, so the host (Vercel/Netlify/etc.)
-   must rewrite all unknown paths to `index.html`. The reset email links straight
-   to `https://www.todonado.com/reset-password` — if the host isn't configured
-   for SPA fallback, that URL 404s and reset is dead. This is in the smoke script
-   (§5, "deep-route refresh") — actually click it.
+2. **Stripe keys / billing — only before you CHARGE (not before launch).** There
+   is no real subscription state today: "Pro" is a founding-email allowlist + a
+   local preview override (`src/features/billing/plan.ts`), and the pricing CTAs
+   record `upgrade_intents` (a fake door to measure willingness-to-pay). You can
+   launch the free product as-is. Before taking payment: build Stripe checkout
+   (start in test mode) **and** have the legal pages reviewed (they're solid
+   AI-drafted scaffolds in `PrivacyPage.tsx` / `TermsPage.tsx`, not a lawyer's
+   work; set an accurate `LEGAL_LAST_UPDATED` in `legal/LegalLayout.tsx`).
 
-3. **Supabase redirect allowlist.** In **Authentication → URL Configuration**, set
-   the **Site URL** to your production origin and add **Redirect URLs** covering
-   the reset landing page: `https://www.todonado.com/**`, `https://todonado.com/**`,
-   and `http://localhost:5173/**` (for local testing). The reset `redirectTo` is
-   `<origin>/reset-password`, so these wildcards cover it — but verify they're
-   present; a missing entry makes Supabase reject the redirect.
+> Everything else below is either a one-time deploy config to confirm during the
+> smoke test, or optional/post-launch. Neither blocks launching the free product
+> once SMTP is live.
 
-4. **Real support/legal email.** Replace the placeholder in **one** place:
-   `src/lib/config.ts`, the line `export const LEGAL_CONTACT = '[your contact
-   email]'`. Every legal page reads from it.
+### Deploy config to confirm (one-time; verify during the §5 smoke test)
 
-5. **Legal pages are AI-drafted placeholders — get them reviewed before you
-   charge money.** `PrivacyPage.tsx` / `TermsPage.tsx` are reasonable scaffolds,
-   not a lawyer's work. Before taking payment, have them reviewed and set an
-   accurate "Last updated" (`LEGAL_LAST_UPDATED` in `legal/LegalLayout.tsx`).
+- ✅ **SPA deep-link rewrite — already handled in code.** `vercel.json` rewrites
+  `/(.*)` → `/index.html`, so `/reset-password` and every client route serve the
+  app instead of 404ing on a direct hit / refresh. Nothing to do (smoke step #6
+  still exercises it as a sanity check).
+- **Supabase redirect allowlist — the one dashboard setting to confirm.** In
+  **Authentication → URL Configuration** set **Site URL** to your production origin
+  and add **Redirect URLs** `https://www.todonado.com/**`, `https://todonado.com/**`,
+  and `http://localhost:5173/**`. The reset `redirectTo` is `<origin>/reset-password`,
+  so these wildcards cover it — a missing entry makes Supabase reject the redirect.
 
-6. **Supabase free-tier PAUSING.** The free-tier project sleeps after ~1 week of
-   inactivity (this happened between our sessions — the DB was paused and had to be
-   restored). Before you share links publicly, confirm the project is active; move
-   to a paid plan once real users arrive so it never pauses mid-launch.
+### Optional / post-launch (non-blocking)
 
-7. **Wellness audio files.** Every track ships with an empty `src` and shows
-   "Audio coming soon" (no copyrighted audio is bundled, by design). If you're
-   launching the Focus & Calm suite (`FEATURES.wellness` is ON), drop licensed/CC0
-   files into `public/audio/` (see `public/audio/README.md`) or flip the flag off
-   so users don't hit empty players.
+- **Supabase free-tier pausing (ops).** The free tier sleeps after ~1 week idle
+  (it happened between sessions and had to be restored). Confirm it's active before
+  sharing links; move to a paid plan once real users arrive so it never pauses
+  mid-launch.
+- **Wellness audio.** Every track ships with an empty `src` / "Audio coming soon"
+  (no copyrighted audio bundled, by design). Drop licensed/CC0 files into
+  `public/audio/` (see `public/audio/README.md`) or flip `FEATURES.wellness` off if
+  you'd rather not show empty players.
+- **Error tracking (Sentry), ~30 min.** `npm i @sentry/react`, then in
+  `src/main.tsx` `Sentry.init({ dsn, integrations:
+  [Sentry.browserTracingIntegration()], tracesSampleRate: 0.1 })` before render, and
+  optionally swap `ErrorBoundary` for `Sentry.ErrorBoundary`. DSN goes in `.env` as
+  a `VITE_` var (public client key).
+- **Clear analytics test rows.** The audit left a few anonymous probe rows
+  (`events`: 1 `day_returned`; `feature_intents`: 2–3; all `user_id = null`, no
+  PII). Delete them for a clean baseline or ignore the tiny count.
 
-8. **Billing is demand-capture only — no Stripe yet.** There is no real
-   subscription state: "Pro" is a founding-email allowlist + a local preview
-   override (`src/features/billing/plan.ts`), and the pricing CTAs record
-   `upgrade_intents` (a fake door). This is fine for launch, but do **not** imply
-   users can pay until you build Stripe checkout. When you do, start in test mode.
+### Done
 
-9. **Clear analytics test rows (optional).** During the audit I inserted a handful
-   of anonymous probe rows (`events`: 1 `day_returned`; `feature_intents`: 2–3),
-   all `user_id = null`, no PII. Delete them in the SQL editor before you read real
-   launch numbers if you want a clean baseline:
-   `delete from events where user_id is null and created_at < now();` (scope as you
-   like) — or just ignore the tiny anonymous count.
-
-10. **Error tracking (Sentry) — recommended, ~30 min.** To add it: `npm i
-    @sentry/react`, then in `src/main.tsx` call `Sentry.init({ dsn, integrations:
-    [Sentry.browserTracingIntegration()], tracesSampleRate: 0.1 })` before render,
-    and optionally swap `src/components/common/ErrorBoundary.tsx` for
-    `Sentry.ErrorBoundary`. Put the DSN in `.env` as a `VITE_` var (it's a public
-    client key). Without it you're blind to client-side errors in production.
+- ✅ **Support / legal email set** — `LEGAL_CONTACT = 'support@todonado.com'` in
+  `src/lib/config.ts` (2026-07-06). Verified baked into the production bundle and
+  rendered on `/privacy` (2×), `/terms`, and the shared legal footer.
 
 ---
 

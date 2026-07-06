@@ -2,12 +2,10 @@
 
 /**
  * Support / legal contact shown on the Privacy and Terms pages (and anywhere
- * else the product needs a human contact address).
- *
- * OWNER ACTION — replace the placeholder below with the real support email
- * before launch. This is the ONLY place it needs to change.
+ * else the product needs a human contact address). Single source of truth —
+ * change it here and it updates everywhere.
  */
-export const LEGAL_CONTACT = '[your contact email]'
+export const LEGAL_CONTACT = 'support@todonado.com'
 
 /** Default daily planning capacity (minutes) when a profile has none. */
 export const DEFAULT_DAILY_CAPACITY_MINUTES = 360
