@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { WorkspaceProvider } from '@/features/workspace/WorkspaceProvider'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useRealtimeSync } from '@/features/tasks/api/useRealtimeSync'
@@ -29,7 +30,17 @@ function ShellBody() {
               to ~1024px viewport), so tablet/mobile are unchanged. Extra bottom
               padding on mobile clears the fixed bottom nav + home-indicator. */}
           <div className="mx-auto w-full max-w-6xl px-6 pb-[calc(6rem_+_env(safe-area-inset-bottom))] pt-10 md:px-8 md:pb-16 md:pt-12">
-            <Outlet />
+            {/* Content-area Suspense so switching between lazy-loaded app pages
+                keeps the shell (sidebar/topbar) instead of a full-screen loader. */}
+            <Suspense
+              fallback={
+                <div className="flex justify-center py-24" role="status" aria-label="Loading">
+                  <Loader2 className="h-6 w-6 animate-spin text-brand" aria-hidden />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>

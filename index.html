@@ -45,7 +45,11 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
 
-    <!-- Fonts: Inter (UI), Poppins (display), IBM Plex Mono (metrics) -->
+    <!-- Warm up the API origin so the first Supabase call (auth/session) is faster -->
+    <link rel="preconnect" href="https://lplsbfduankkpglyusjp.supabase.co" crossorigin />
+
+    <!-- Fonts: Inter (UI), Poppins (display), IBM Plex Mono (metrics). display=swap
+         (in the CSS URL) renders text immediately with a fallback, no blocking. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
