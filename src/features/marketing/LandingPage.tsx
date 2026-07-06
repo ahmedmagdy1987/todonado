@@ -15,6 +15,8 @@ import { useAuth } from '@/features/auth/auth-context'
 import { FocusCalmCards } from '@/features/wellness/components/FocusCalmCards'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
+import { HowItWorks } from './components/HowItWorks'
+import { LandingFaq } from './components/LandingFaq'
 
 interface Feature {
   icon: LucideIcon
@@ -190,6 +192,9 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* How it works — real product screenshots */}
+        <HowItWorks />
+
         {/* Who it's for */}
         <section className="border-y border-white/5 bg-surface/40">
           <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
@@ -245,6 +250,9 @@ export function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* FAQ — honest answers */}
+        <LandingFaq />
 
         {/* Closing CTA */}
         <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">

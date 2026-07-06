@@ -167,6 +167,21 @@ test('landing serves static share meta (OG/Twitter tags in the raw HTML — no J
   expect(img.headers()['content-type']).toContain('image')
 })
 
+test('landing shows How-it-works + FAQ with real screenshots that load', async ({ page }) => {
+  await page.goto('/welcome')
+  await expect(page.getByRole('heading', { name: 'How Todonado works' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Questions, answered' })).toBeVisible()
+  await expect(page.getByText('Is Todonado free?')).toBeVisible()
+
+  // A real product screenshot actually loads (not a broken image).
+  const shot = page.locator('img[src="/shots/today-desktop.png"]')
+  await shot.scrollIntoViewIfNeeded()
+  await expect(shot).toBeVisible()
+  await expect
+    .poll(() => shot.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0)
+})
+
 test.afterAll(async () => {
   if (!created) return
   // Safety net: if the journey failed before the UI delete ran, remove the
