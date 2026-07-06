@@ -120,7 +120,9 @@ Group by **feature**, not by file-type. A feature owns its components, hooks, an
 ### Verify before you commit
 `npm run typecheck` · `npm run lint` · `npm run test` · `npm run build` must all pass. Pure
 logic (capacity, roll-over selection, selectors, reorder) is unit-tested with Vitest — keep
-it that way. Commit in small, logical commits.
+it that way. `npm run e2e` runs the Playwright browser smoke (a real browser against the live
+cloud DB — see §7). Commit in small, logical commits. **Every push to `main` is also verified in
+GitHub Actions CI** (§7), so a green push is validated even when local gates are skipped.
 
 ### What's built (state)
 Phase 0 (foundation) and the **MVP task engine** are done: workspace context, full task CRUD
@@ -303,6 +305,21 @@ item delete). See `supabase/migrations/`.
   The browser step of `gh auth login` is the same — real TTY or `--with-token`.
 - **Applying a migration:** in a real terminal → `supabase login` → `supabase link --project-ref
   lplsbfduankkpglyusjp` → `supabase db push` (prompts `[Y/n]`; add `--yes` to auto-confirm).
+
+### CI — pushes are cloud-verified (protects the wipe-prone machine)
+Every push / PR to `main` runs **GitHub Actions** (`.github/workflows/ci.yml`), so work is
+validated in the cloud even when this machine's local gates are skipped or it gets wiped:
+- **`verify` job:** `npm ci` → typecheck → lint → unit tests → build.
+- **`e2e` job:** a **Playwright** (chromium) browser smoke (`npm run e2e`, config
+  `playwright.config.ts`, specs in `e2e/`) driving the Vite dev server against the **real cloud
+  Supabase** (the fresh-user journey: landing → signup → onboarding → template → auto-plan → deep
+  routes; plus reset-password/forgot non-enumeration). It signs up a unique throwaway account and
+  **self-deletes** it via the `delete_own_account` RPC (with a best-effort `afterAll` safety net),
+  so runs never pollute the DB.
+- **No CI secrets are required** — the Supabase URL + public anon key are baked into the app
+  (RLS-protected). The E2E depends on **mailer autoconfirm being ON** (signup returns a session,
+  no email step) and on `20260706120000_delete_own_account` being applied (it is, live-verified).
+  Out of scope by design: email receipt, Stripe, ICS URL/file fetch.
 
 ### Repo
 `ahmedmagdy1987/todonado` (private), default branch `main`.
