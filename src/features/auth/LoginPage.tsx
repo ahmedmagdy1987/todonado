@@ -7,7 +7,7 @@ import { Logo } from '@/components/brand/Logo'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { isValidEmail, usernameError } from './identifier'
-import { isNoAccountOtpError, isNoAccountResetError } from './authErrors'
+import { isEmailRateLimitError, isNoAccountOtpError, isNoAccountResetError } from './authErrors'
 import { checkUsernameAvailable } from './api/accounts'
 
 type Mode = 'signin' | 'signup' | 'forgot'
@@ -155,7 +155,9 @@ export function LoginPage() {
         // (covered by the https://www.todonado.com/** redirect wildcard).
         redirectTo: `${window.location.origin}/reset-password`,
       })
-      if (error && !isNoAccountResetError(error)) throw error
+      // Swallow both the no-account AND the per-email rate-limit errors into the
+      // neutral confirmation — either one, surfaced, would reveal the email exists.
+      if (error && !isNoAccountResetError(error) && !isEmailRateLimitError(error)) throw error
       setFeedback({ type: 'info', text: neutral })
     } catch (err) {
       setFeedback({
@@ -188,8 +190,10 @@ export function LoginPage() {
       })
       // With shouldCreateUser:false GoTrue rejects an unknown email ("otp_disabled").
       // Treat that as the SAME neutral confirmation so the response never reveals
-      // whether the address exists; only surface genuine (e.g. rate-limit) errors.
-      if (error && !isNoAccountOtpError(error)) throw error
+      // whether the address exists. Also swallow the per-email rate-limit error,
+      // which only fires for an existing address (an enumeration oracle); genuine
+      // errors (network, IP-based rate limit, config) still surface.
+      if (error && !isNoAccountOtpError(error) && !isEmailRateLimitError(error)) throw error
       setFeedback({ type: 'info', text: neutral })
     } catch (err) {
       setFeedback({

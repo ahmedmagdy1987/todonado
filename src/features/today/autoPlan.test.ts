@@ -99,4 +99,27 @@ describe('planDay', () => {
     expect(plan.skipped).toBe(1)
     expect(plan.totalMinutes).toBe(0)
   })
+
+  it('charges estimated picks so a second run never overcommits (never-over holds across apply)', () => {
+    const backlog = [
+      makeTask({ id: 'a', project_id: null, effort_minutes: null }),
+      makeTask({ id: 'b', project_id: null, effort_minutes: null }),
+      makeTask({ id: 'c', project_id: null, effort_minutes: null }),
+      makeTask({ id: 'd', project_id: null, effort_minutes: null }),
+    ]
+    const est = () => 30
+    const run1 = planDay(backlog, 60, TODAY, est)
+    expect(run1.picks).toHaveLength(2) // 2 × 30 fills the 60-minute capacity
+
+    // Simulate apply: the picked tasks get scheduled_for=today, effort stays null.
+    const applied = backlog.map((t) =>
+      run1.picks.some((p) => p.task.id === t.id) ? { ...t, scheduled_for: TODAY } : t,
+    )
+    const run2 = planDay(applied, 60, TODAY, est)
+    // The two applied-but-unestimated tasks are charged their estimate (60 total),
+    // so the day is full — the second run adds nothing (previously it re-filled).
+    expect(run2.remainingCapacity).toBe(0)
+    expect(run2.capacityFull).toBe(true)
+    expect(run2.picks).toHaveLength(0)
+  })
 })

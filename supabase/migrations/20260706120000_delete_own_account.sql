@@ -19,9 +19,15 @@
 --                ├─ wellness_logs.user_id       on delete cascade
 --                ├─ calendar_sources.user_id    on delete cascade
 --                ├─ events.user_id              on delete SET NULL  (by design:
---                │      anonymous usage counts survive; no PII in events)
---                ├─ upgrade_intents.user_id     on delete SET NULL  (by design)
---                └─ feature_intents.user_id     on delete SET NULL  (by design)
+--                │      anonymous usage counts survive; no PII in events —
+--                │      event name + boolean flag + short UI-source only)
+--                ├─ upgrade_intents.user_id     on delete SET NULL  (anonymous
+--                │      willingness-to-pay count survives) — BUT this table also
+--                │      has a free-text `email` column the user typed, which the
+--                │      FK would leave behind; we NULL it explicitly below so the
+--                │      erasure is complete (no identifying PII retained).
+--                └─ feature_intents.user_id     on delete SET NULL  (by design;
+--                       no email/PII column)
 --
 --  auth-schema children (identities, sessions, refresh_tokens, mfa_*) cascade
 --  from auth.users internally — GoTrue ships those FKs as ON DELETE CASCADE.
@@ -45,6 +51,18 @@ begin
   if uid is null then
     raise exception 'not authenticated' using errcode = '42501';
   end if;
+
+  -- Complete the erasure of identifying PII the FK graph would otherwise leave
+  -- behind: upgrade_intents keeps its row for the anonymous willingness-to-pay
+  -- count (user_id -> null on delete), but its free-text `email` column holds the
+  -- address the user typed. Scrub it BEFORE the delete fires the FK (rows are
+  -- still attributable by user_id), and also clear any rows the user filed while
+  -- signed out with this same email. Runs as the definer/owner, so the table's
+  -- insert-only RLS does not block this UPDATE.
+  update public.upgrade_intents
+     set email = null
+   where user_id = uid
+      or lower(email) = (select lower(u.email) from auth.users u where u.id = uid);
 
   delete from auth.users where id = uid;
 end;

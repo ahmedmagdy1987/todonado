@@ -231,7 +231,7 @@ export function dailyEffortSeries(
 /** Focus aggregates + per-day focus minutes over the window. */
 export function focusStats(sessions: FocusSession[], dayList: string[]): FocusStats {
   const windowSet = new Set(dayList)
-  const minutesByDay = new Map<string, number>()
+  const secondsByDay = new Map<string, number>()
   let focusSeconds = 0
   let interruptions = 0
   let completedSessions = 0
@@ -244,7 +244,10 @@ export function focusStats(sessions: FocusSession[], dayList: string[]): FocusSt
     interruptions += s.interruptions
     if (s.status === 'completed') completedSessions += 1
     else if (s.status === 'abandoned') abandonedSessions += 1
-    minutesByDay.set(day, (minutesByDay.get(day) ?? 0) + Math.round(s.actual_seconds / 60))
+    // Accumulate raw seconds and round ONCE per day (below), not per session — else
+    // many sub-minute sessions each round to 0 and the daily chart diverges from the
+    // exact focusSeconds total (matches this file's single-round convention elsewhere).
+    secondsByDay.set(day, (secondsByDay.get(day) ?? 0) + s.actual_seconds)
   }
   const sessionCount = completedSessions + abandonedSessions
   return {
@@ -254,7 +257,7 @@ export function focusStats(sessions: FocusSession[], dayList: string[]): FocusSt
     completedSessions,
     abandonedSessions,
     completionRate: sessionCount > 0 ? completedSessions / sessionCount : null,
-    daily: dayList.map((date) => ({ date, minutes: minutesByDay.get(date) ?? 0 })),
+    daily: dayList.map((date) => ({ date, minutes: Math.round((secondsByDay.get(date) ?? 0) / 60) })),
   }
 }
 
@@ -328,7 +331,13 @@ export function computeInsights(
 ): InsightsData {
   const windowDays = opts.windowDays ?? INSIGHTS_WINDOW_DAYS
   const summaryDays = opts.summaryDays ?? INSIGHTS_SUMMARY_DAYS
-  const capacity = capacityMinutes > 0 ? capacityMinutes : DEFAULT_DAILY_CAPACITY_MINUTES
+  // Mirror computeCapacity/planDay: reject non-finite (Infinity/NaN) as well as
+  // <= 0, so every derived figure (per-day pct, avg, over-count) is computed
+  // against the same capacity rather than a mix of Infinity and the DEFAULT.
+  const capacity =
+    Number.isFinite(capacityMinutes) && capacityMinutes > 0
+      ? capacityMinutes
+      : DEFAULT_DAILY_CAPACITY_MINUTES
   const dayList = lastNDays(windowDays, todayStr)
   const daily = dailyEffortSeries(tasks, dayList, capacity)
   const planning = daily.filter((d) => d.plannedMinutes > 0)

@@ -70,6 +70,16 @@ describe('focusStats', () => {
     expect(stats.daily.find((d) => d.date === '2026-06-16')!.minutes).toBe(25)
     expect(stats.daily.find((d) => d.date === '2026-06-15')!.minutes).toBe(10)
   })
+  it('sums raw seconds per day and rounds once (no per-session rounding drift)', () => {
+    // 20 abandoned sessions of 20s on one day = 400s ≈ 7 min. Per-session rounding
+    // would floor each to 0 and show 0m; round-once shows the true 7.
+    const many = Array.from({ length: 20 }, () =>
+      makeFocusSession({ started_at: '2026-06-16T09:00:00', actual_seconds: 20, status: 'abandoned' }),
+    )
+    const s = focusStats(many, lastNDays(7, TODAY))
+    expect(s.focusSeconds).toBe(400)
+    expect(s.daily.find((d) => d.date === '2026-06-16')!.minutes).toBe(7) // round(400/60)
+  })
   it('returns a null completion rate with no finished sessions', () => {
     expect(focusStats([], lastNDays(7, TODAY)).completionRate).toBeNull()
   })
@@ -135,5 +145,14 @@ describe('computeInsights', () => {
     expect(data.planningDays).toBe(2)
     expect(data.daysOverCapacity).toBe(1)
     expect(data.capacityAvgPct).toBe(Math.round((111 + 50) / 2)) // 81
+  })
+
+  it('treats a non-finite capacity like any other invalid value (uses the default, consistently)', () => {
+    const tasks = [makeTask({ scheduled_for: TODAY, effort_minutes: 400, status: 'todo' })]
+    const data = computeInsights(tasks, [], Infinity, TODAY)
+    // Everything computed against DEFAULT_DAILY_CAPACITY_MINUTES (360), not Infinity:
+    expect(data.capacityMinutes).toBe(360)
+    expect(data.daysOverCapacity).toBe(1) // 400 > 360
+    expect(data.capacityAvgPct).toBe(Math.round((400 / 360) * 100)) // 111, not 0
   })
 })

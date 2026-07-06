@@ -120,4 +120,11 @@ describe('suggestEffort', () => {
     const s = suggestEffort({ title: 'Write report' }, [open, oneDone.task], [oneDone.session])
     expect(s?.basis).toBe('heuristic')
   })
+
+  it('never returns NaN when minSamples <= 0 with no history matches', () => {
+    // minSamples 0 must not admit an empty match set (median([]) = NaN); fall through.
+    const s = suggestEffort({ title: 'brand new task' }, [], [], { minSamples: 0 })
+    expect(s?.basis).toBe('heuristic')
+    expect(Number.isFinite(s?.minutes)).toBe(true)
+  })
 })

@@ -49,9 +49,15 @@ export function ResetPasswordPage() {
       setStage('ready')
       return
     }
+    // The link already carried an explicit error (expired / already used) — there
+    // is nothing to wait for, so skip the grace window and show it immediately.
+    if (linkError) {
+      setStage((s) => (s === 'checking' ? 'invalid' : s))
+      return
+    }
     const t = setTimeout(() => setStage((s) => (s === 'checking' ? 'invalid' : s)), 2500)
     return () => clearTimeout(t)
-  }, [loading, session, stage])
+  }, [loading, session, stage, linkError])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()

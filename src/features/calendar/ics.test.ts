@@ -129,4 +129,14 @@ describe('busyMinutesForDay', () => {
     expect(busyMinutesFromIcs('totally not ical', TODAY)).toBe(0)
     expect(busyMinutesForDay(parseIcsEvents('garbage'), 'not-a-date')).toBe(0)
   })
+
+  it('parses an all-lowercase (RFC-legal) calendar (case-insensitive)', () => {
+    const text = 'begin:vevent\r\ndtstart:20260623T090000\r\ndtend:20260623T100000\r\nend:vevent'
+    expect(busyMinutesFromIcs(text, TODAY)).toBe(60)
+  })
+
+  it('returns 0 (never NaN) for an event with non-finite start/end', () => {
+    const bad = [{ summary: null, allDay: false, startMs: NaN, endMs: NaN, rrule: null, exdates: [] }]
+    expect(busyMinutesForDay(bad, TODAY)).toBe(0)
+  })
 })

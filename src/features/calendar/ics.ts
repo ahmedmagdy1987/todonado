@@ -141,7 +141,10 @@ function parseRRule(value: string): RRule {
 
 /** Parse all VEVENTs from ICS text. Never throws; ignores anything it can't read. */
 export function parseIcsEvents(text: string): IcsEvent[] {
-  if (typeof text !== 'string' || !text.includes('BEGIN:VEVENT')) return []
+  // Case-insensitive precheck: RFC5545 property names are case-insensitive and
+  // the parse loop below already upper-cases every line, so an all-lowercase
+  // (but valid) calendar must not be dropped here. Linear, allocation-free scan.
+  if (typeof text !== 'string' || !/begin:vevent/i.test(text)) return []
   const events: IcsEvent[] = []
   let cur:
     | { summary?: string; start?: ParsedDate; end?: ParsedDate; durationMs?: number; rrule?: RRule; exdates: string[] }
@@ -265,7 +268,12 @@ export function busyMinutesForDay(events: IcsEvent[], todayStr: string): number 
       totalMs += overlapMs(occStart, occStart + duration, dayStartMs, dayEndMs)
     }
   }
-  return Math.min(24 * 60, Math.round(totalMs / 60000))
+  // Total-function guarantee ("safe on any input"): a non-finite endMs/startMs on
+  // a hand-constructed IcsEvent could make totalMs NaN — clamp it back to 0 so the
+  // meter never receives NaN. (Parser-emitted events are always finite; this guards
+  // the exported API for any future caller.)
+  const mins = Math.round(totalMs / 60000)
+  return Number.isFinite(mins) ? Math.min(24 * 60, Math.max(0, mins)) : 0
 }
 
 /** Convenience: parse text and sum today's busy minutes. Never throws. */

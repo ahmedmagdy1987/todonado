@@ -138,7 +138,7 @@ export function suggestEffort(
     matches.push({ value, score, createdAt: t.created_at })
   }
 
-  if (matches.length >= minSamples) {
+  if (matches.length > 0 && matches.length >= minSamples) {
     // Closest first (most shared keywords / same project), then most recent.
     matches.sort((a, b) => b.score - a.score || b.createdAt.localeCompare(a.createdAt))
     const top = matches.slice(0, MAX_MATCHES)

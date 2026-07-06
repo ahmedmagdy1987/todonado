@@ -1,6 +1,5 @@
 import type { Task } from '@/types/database'
 import { DEFAULT_DAILY_CAPACITY_MINUTES } from '@/lib/config'
-import { sumEffort } from './capacity'
 
 /**
  * Deterministic auto-plan-my-day. Pure, no React, no I/O — fully unit-tested.
@@ -70,9 +69,20 @@ export function planDay(
       ? capacityMinutes
       : DEFAULT_DAILY_CAPACITY_MINUTES
 
-  // Already planned today = remaining (open) effort scheduled for today — matches
-  // the capacity meter (counts incomplete effort; treats null as 0).
-  const plannedToday = sumEffort(tasks.filter((t) => t.scheduled_for === todayStr && isOpen(t)))
+  // Already planned today = remaining (open) effort scheduled for today. We charge
+  // an unestimated open task the SAME assumed cost the planner uses for candidates
+  // (max(1, round(estimate))), not 0 — otherwise a picked-but-unestimated task
+  // (apply writes only scheduled_for, never the estimate) would vanish from the
+  // ledger, and a second "Plan my day" run would re-fill the day and overcommit.
+  // NOTE: this intentionally diverges from the capacity meter (which treats null
+  // effort as 0 and surfaces its own "N unestimated" caveat) so the planner's
+  // "never over" promise holds across repeated apply.
+  const plannedToday = tasks
+    .filter((t) => t.scheduled_for === todayStr && isOpen(t))
+    .reduce((sum, t) => {
+      const real = t.effort_minutes
+      return sum + (real == null ? Math.max(1, Math.round(estimate(t))) : Math.max(0, Math.round(real)))
+    }, 0)
   const remainingCapacity = Math.max(0, capacity - plannedToday)
 
   if (remainingCapacity <= 0) {
