@@ -48,6 +48,29 @@
   }
 
   /* Brand focus ring helper applied via .focus-ring */
+
+  /* Mobile: 16px form controls stop iOS Safari from zooming in on focus.
+     !important beats Tailwind's text-sm/text-xs on the specific inputs. */
+  @media (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Respect a reduced-motion preference across the app (the breathwork pacer
+     also gates its own rAF animation on this in JS). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {

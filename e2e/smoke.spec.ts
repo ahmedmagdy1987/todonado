@@ -208,6 +208,15 @@ test('registers a service worker (installable PWA) and deep routes still load', 
   expect(html).toContain('property="og:image"')
 })
 
+test('mobile: form inputs render at ≥16px so iOS Safari does not zoom on focus', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/login')
+  const email = page.getByLabel('Email', { exact: true })
+  await expect(email).toBeVisible()
+  const fontSize = await email.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+  expect(fontSize).toBeGreaterThanOrEqual(16)
+})
+
 test.afterAll(async () => {
   if (!created) return
   // Safety net: if the journey failed before the UI delete ran, remove the

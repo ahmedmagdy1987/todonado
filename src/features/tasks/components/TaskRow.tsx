@@ -58,7 +58,8 @@ function IconButton({
       aria-label={title}
       onClick={onClick}
       className={cn(
-        'focus-ring rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-2/60',
+        // ≥44px touch target on mobile (row actions are tap targets); compact on desktop.
+        'focus-ring inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-2/60 md:min-h-0 md:min-w-0 md:p-1.5',
         danger ? 'hover:text-danger' : 'hover:text-text-primary',
       )}
     >

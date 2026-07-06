@@ -39,3 +39,6 @@ test-results
 playwright-report
 blob-report
 .playwright
+
+# Mobile/a11y audit screenshots (diagnostic, not committed)
+.mobile-audit

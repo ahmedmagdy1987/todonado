@@ -25,7 +25,8 @@ interface QuickAddProps {
 
 const chipClass = (active: boolean) =>
   cn(
-    'focus-ring rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+    // ≥44px tap target on mobile (effort chips are frequent taps); compact on desktop.
+    'focus-ring inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-1 text-xs font-medium transition-colors md:min-h-0',
     active
       ? 'bg-brand-gradient text-white'
       : 'bg-surface-2/60 text-text-muted hover:text-text-primary',
