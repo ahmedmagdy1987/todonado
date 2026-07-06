@@ -147,6 +147,26 @@ test('reset-password renders and forgot-password is non-enumerating (logged out)
   // NOTE: we deliberately do NOT verify email receipt — out of scope (no inbox in CI).
 })
 
+test('landing serves static share meta (OG/Twitter tags in the raw HTML — no JS)', async ({ page }) => {
+  // Fetch the RAW document a crawler gets (no JS run) — the share tags must be
+  // static in index.html, not injected client-side.
+  const res = await page.request.get('/')
+  expect(res.ok()).toBeTruthy()
+  const html = await res.text()
+  expect(html).toContain('property="og:title"')
+  expect(html).toContain('property="og:description"')
+  expect(html).toContain('property="og:image"')
+  expect(html).toContain('https://www.todonado.com/og-image.png')
+  expect(html).toContain('name="twitter:card"')
+  expect(html).toContain('summary_large_image')
+  expect(html).toContain('rel="canonical"')
+
+  // The og:image asset itself is served.
+  const img = await page.request.get('/og-image.png')
+  expect(img.ok()).toBeTruthy()
+  expect(img.headers()['content-type']).toContain('image')
+})
+
 test.afterAll(async () => {
   if (!created) return
   // Safety net: if the journey failed before the UI delete ran, remove the

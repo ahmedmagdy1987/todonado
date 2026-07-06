@@ -1,0 +1,21 @@
+# Todonado — crawler rules
+# Public marketing/legal pages are indexable; the authenticated app is not.
+User-agent: *
+Allow: /$
+Allow: /welcome
+Allow: /pricing
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Disallow: /login
+Disallow: /reset-password
+Disallow: /inbox
+Disallow: /projects
+Disallow: /focus
+Disallow: /insights
+Disallow: /wellness
+Disallow: /templates
+Disallow: /settings
+Disallow: /api/
+
+Sitemap: https://www.todonado.com/sitemap.xml
