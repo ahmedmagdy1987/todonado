@@ -235,22 +235,18 @@ item delete). See `supabase/migrations/`.
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **Migrations applied through `20260622150000`** — RLS verified enforcing on every table (anon
-  reads return `[]`; anon writes rejected with `42501`). Live-probe verified on 2026-06-22
-  (audit follow-up): `20260622150000_drop_resolve_login_email` IS applied (`resolve_login_email`
-  → 404 PGRST202) and `20260622140000`'s DDL IS applied (`tasks.recurrence_anchor` present;
-  `complete_task` executes). **PENDING (committed, NOT yet applied — run the SQL in the Supabase
-  editor):** `20260622160000_lock_complete_task_to_authenticated` (audit **F1**). The
-  `revoke/grant` block in `20260622140000` never took effect, so anon could still EXECUTE
-  `complete_task` (returns `500 P0002` from the body, not `42501`) — RLS-contained (SECURITY
-  INVOKER ⇒ anon's null `auth.uid()` sees zero rows; no read/write/oracle), a defense-in-depth gap,
-  not exploitable. `20260622160000` re-asserts least privilege idempotently:
-  `revoke all on function public.complete_task(uuid, jsonb) from public;`
-  `revoke all on function public.complete_task(uuid, jsonb) from anon;`
-  `grant execute on function public.complete_task(uuid, jsonb) to authenticated;`
-  It changes only the grant (not the body/RLS); `authenticated` keeps EXECUTE so the client RPC is
-  unaffected. After it runs, anon should get `42501`, not `500`. See
-  `docs/AUDIT_2026-06-22_followup.md`. Recent additions:
+- **Migrations applied through `20260623140000_calendar_sources`** — re-verified live 2026-07-06
+  via anon-key probes (RLS enforcing on every table: anon reads `[]`, anon writes `42501`).
+  Confirmed applied: the events suite (`20260623120000_events` / `130000_events_auto_planned` /
+  `140000_calendar_sources` — their columns resolve), `20260622150000_drop_resolve_login_email`
+  (`resolve_login_email` → 404), and **`20260622160000_lock_complete_task_to_authenticated`
+  (audit F1) IS NOW APPLIED** (anon `complete_task` → `42501 permission denied`, no longer the
+  old `500 P0002`). See `docs/AUDIT_2026-06-22_followup.md` for the F1 rationale.
+- **PENDING (committed, NOT yet applied — one migration):**
+  `20260706120000_delete_own_account.sql` — the SECURITY DEFINER self-deletion RPC behind the
+  Settings "Delete account" button (also scrubs `upgrade_intents.email`). Until pushed, the RPC is
+  404 and the delete button errors. Apply with `supabase db push`. See `docs/LAUNCH_CHECKLIST.md`.
+- Historical additions (all applied):
   - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
     profile **display identity**; usernames are not shown publicly) plus two pre-auth
     `SECURITY DEFINER` RPCs granted to `anon, authenticated` (`revoke … from public`):
