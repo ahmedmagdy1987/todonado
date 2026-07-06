@@ -7,6 +7,7 @@ import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
 import { usePlan } from '@/features/billing/usePlan'
 import { todayISO } from '@/lib/date'
 import { computeInsights } from './insights'
+import { computeWeeklyReview } from './weeklyReview'
 import { InsightsDashboard } from './components/InsightsDashboard'
 import { InsightsTeaser } from './components/InsightsTeaser'
 
@@ -74,6 +75,10 @@ export function InsightsPage() {
     () => computeInsights(tasks, sessions, capacityMinutes, today),
     [tasks, sessions, capacityMinutes, today],
   )
+  const weekly = useMemo(
+    () => computeWeeklyReview(tasks, sessions, capacityMinutes, today),
+    [tasks, sessions, capacityMinutes, today],
+  )
 
   const loading = tasksPending || focusPending
 
@@ -85,7 +90,7 @@ export function InsightsPage() {
       ) : loading ? (
         <InsightsSkeleton />
       ) : data.hasData ? (
-        <InsightsDashboard data={data} />
+        <InsightsDashboard data={data} weekly={weekly} />
       ) : (
         <InsightsEmpty windowDays={data.windowDays} />
       )}

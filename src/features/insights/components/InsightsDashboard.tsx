@@ -14,9 +14,11 @@ import { Card } from '@/components/ui'
 import { formatDateShort, formatMinutes } from '@/lib/format'
 import type { CapacityStatus } from '@/features/today/capacity'
 import type { EstimationBias, InsightsData } from '../insights'
+import type { WeeklyReview as WeeklyReviewData } from '../weeklyReview'
 import { InsightBarChart } from './InsightBarChart'
 import { TONE, type ChartTone } from './chartTones'
 import { StatTile } from './StatTile'
+import { WeeklyReview } from './WeeklyReview'
 
 const STATUS_TONE: Record<CapacityStatus, ChartTone> = {
   empty: 'success',
@@ -155,7 +157,7 @@ function EstimationPanel({ data }: { data: EstimationBias }) {
   )
 }
 
-export function InsightsDashboard({ data }: { data: InsightsData }) {
+export function InsightsDashboard({ data, weekly }: { data: InsightsData; weekly: WeeklyReviewData }) {
   const { daily, focus, rollover, summary } = data
   const hasPlanned = data.planningDays > 0
   const range =
@@ -212,6 +214,9 @@ export function InsightsDashboard({ data }: { data: InsightsData }) {
           />
         </div>
       </div>
+
+      {/* Your week — this-week-vs-last review (the Pro headline) */}
+      <WeeklyReview weekly={weekly} />
 
       {/* Estimation accuracy — the estimate→actual flywheel (sharpens the wedge) */}
       <EstimationPanel data={data.estimation} />
