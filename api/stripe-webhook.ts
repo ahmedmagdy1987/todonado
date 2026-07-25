@@ -3,6 +3,7 @@ import { serverEnv, missingWebhookVars } from './_lib/config.js'
 import { getStripe } from './_lib/stripe.js'
 import { getSupabaseAdmin } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
+import { toNodeHandler } from './_lib/nodeAdapter.js'
 // Leaf module from src/ (no `@/` imports) — safe for Vercel to bundle here.
 import {
   mapStripeEventToBilling,
@@ -60,4 +61,7 @@ async function webhook(req: Request): Promise<Response> {
   return json(200, { received: true })
 }
 
-export default withErrorBoundary(webhook)
+/** Web-shaped handler — exported for unit tests. */
+export const webHandler = withErrorBoundary(webhook)
+/** Vercel invokes the legacy (req, res) contract — see _lib/nodeAdapter.ts. */
+export default toNodeHandler(webHandler)

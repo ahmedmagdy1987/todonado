@@ -3,6 +3,7 @@ import { serverEnv, missingServerBillingVars } from './_lib/config.js'
 import { getStripe } from './_lib/stripe.js'
 import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
+import { toNodeHandler } from './_lib/nodeAdapter.js'
 
 /**
  * POST /api/create-portal-session
@@ -54,4 +55,7 @@ async function portal(req: Request): Promise<Response> {
   }
 }
 
-export default withErrorBoundary(portal)
+/** Web-shaped handler — exported for unit tests. */
+export const webHandler = withErrorBoundary(portal)
+/** Vercel invokes the legacy (req, res) contract — see _lib/nodeAdapter.ts. */
+export default toNodeHandler(webHandler)

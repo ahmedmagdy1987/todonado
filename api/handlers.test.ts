@@ -13,9 +13,14 @@ vi.mock('./_lib/supabase.js', () => ({
   getSupabaseAdmin: (...a: unknown[]) => getSupabaseAdmin(...a),
 }))
 
-const { default: checkout } = await import('./create-checkout-session.js')
-const { default: portal } = await import('./create-portal-session.js')
-const { default: webhook } = await import('./stripe-webhook.js')
+// The DEFAULT export is the Node-contract adapter Vercel invokes; the Web-shaped
+// handler is exported separately so the logic can be tested with plain Requests.
+const checkoutMod = await import('./create-checkout-session.js')
+const portalMod = await import('./create-portal-session.js')
+const webhookMod = await import('./stripe-webhook.js')
+const checkout = checkoutMod.webHandler
+const portal = portalMod.webHandler
+const webhook = webhookMod.webHandler
 
 const ENV_KEYS = [
   'STRIPE_SECRET_KEY',
@@ -45,6 +50,27 @@ beforeEach(() => {
 })
 afterEach(() => {
   for (const k of ENV_KEYS) delete process.env[k]
+})
+
+describe.each([
+  ['create-checkout-session', checkoutMod],
+  ['create-portal-session', portalMod],
+  ['stripe-webhook', webhookMod],
+])('%s default export (the contract Vercel invokes)', (_name, mod) => {
+  /**
+   * REGRESSION GUARD. Vercel calls these with the legacy `(req, res)` signature.
+   * A default export that takes ONE arg and returns a Response has its return
+   * value discarded — nothing is written to `res` and the request HANGS with no
+   * error and no log. Production symptom: connection opens, zero bytes, forever.
+   */
+  it('is a 2-argument (req, res) Node handler, not a 1-arg Web handler', () => {
+    expect(typeof mod.default).toBe('function')
+    expect(mod.default.length).toBe(2)
+  })
+
+  it('also exposes the Web-shaped handler for testing', () => {
+    expect(typeof mod.webHandler).toBe('function')
+  })
 })
 
 describe.each([

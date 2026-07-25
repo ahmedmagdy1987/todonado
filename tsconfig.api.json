@@ -15,7 +15,10 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.tsbuildinfo",
     "target": "ES2023",
-    "lib": ["ES2023", "DOM"],
+    /* NO "DOM": these run on Node. Request/Response/Headers come from
+       @types/node (undici), which is what the runtime actually provides —
+       mixing in DOM produces a conflicting BodyInit and false errors. */
+    "lib": ["ES2023"],
     "types": ["node"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

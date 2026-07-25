@@ -1,52 +1,51 @@
+import type { IncomingMessage, ServerResponse } from 'node:http'
+
 /**
- * TEMPORARY DIAGNOSTIC — remove once the handler contract is settled.
+ * TEMPORARY DIAGNOSTIC — removed in the follow-up commit.
  *
- * Answers correctly under BOTH invocation contracts and reports which one this
- * project's Vercel runtime actually uses:
- *   - "node" → invoked as (req: IncomingMessage, res: ServerResponse)
- *   - "web"  → invoked as (req: Request) and expected to RETURN a Response
+ * Reports (a) which invocation contract this project's Vercel runtime uses and
+ * (b) whether the request body stream is still READABLE by the time the handler
+ * runs. (b) is the security-critical one: Stripe's webhook signature is computed
+ * over the exact bytes, so if the platform had already consumed and parsed the
+ * body we could only re-serialise it, and verification would always fail.
  *
- * Exposes nothing sensitive: no env values, no secrets — just the contract, the
- * Node version, and the first argument's constructor name.
+ * Exposes nothing sensitive — no env values, no secrets, no body contents.
  */
-interface NodeResLike {
-  statusCode: number
-  setHeader(name: string, value: string): void
-  end(chunk: string): void
-}
+export default async function handler(
+  req: IncomingMessage & { body?: unknown },
+  res: ServerResponse,
+): Promise<void> {
+  const readableBefore = req.readable
 
-function isNodeRes(value: unknown): value is NodeResLike {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as NodeResLike).end === 'function' &&
-    typeof (value as NodeResLike).setHeader === 'function'
-  )
-}
+  let bytesRead = 0
+  if (req.method === 'POST') {
+    try {
+      for await (const chunk of req) bytesRead += (chunk as Buffer).length
+    } catch {
+      bytesRead = -1
+    }
+  }
 
-export default function handler(...args: unknown[]): Response | undefined {
-  const [first, second] = args
-  const contract = isNodeRes(second) ? 'node' : 'web'
+  const contentLength = req.headers['content-length'] ?? null
+
   const info = {
-    contract,
-    argc: args.length,
+    contract: 'node',
     nodeVersion: process.version,
-    firstArgCtor:
-      typeof first === 'object' && first !== null ? first.constructor?.name ?? null : typeof first,
-    hasRequestGlobal: typeof Request !== 'undefined',
-    hasResponseGlobal: typeof Response !== 'undefined',
+    method: req.method,
+    // Was the stream untouched when the handler was entered?
+    streamReadableOnEntry: readableBefore,
+    // Bytes we could read ourselves.
+    rawBytesRead: bytesRead,
+    // What the platform claims was sent.
+    contentLength,
+    // Did the platform pre-parse a body for us? (type only, never contents)
+    platformParsedBodyType: req.body === undefined ? 'undefined' : typeof req.body,
+    // The verdict that matters for Stripe signature verification:
+    rawBodyIsByteExact:
+      req.method !== 'POST' ? null : bytesRead > 0 && String(bytesRead) === String(contentLength),
   }
-  const payload = JSON.stringify(info)
 
-  if (isNodeRes(second)) {
-    second.statusCode = 200
-    second.setHeader('content-type', 'application/json')
-    second.end(payload)
-    return undefined
-  }
-
-  return new Response(payload, {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  })
+  res.statusCode = 200
+  res.setHeader('content-type', 'application/json')
+  res.end(JSON.stringify(info))
 }

@@ -7,6 +7,7 @@ import { serverEnv, missingServerBillingVars, isValidPriceId } from './_lib/conf
 import { getStripe } from './_lib/stripe.js'
 import { getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
+import { toNodeHandler } from './_lib/nodeAdapter.js'
 
 /**
  * POST /api/create-checkout-session
@@ -66,4 +67,7 @@ async function checkout(req: Request): Promise<Response> {
   }
 }
 
-export default withErrorBoundary(checkout)
+/** Web-shaped handler — exported for unit tests. */
+export const webHandler = withErrorBoundary(checkout)
+/** Vercel invokes the legacy (req, res) contract — see _lib/nodeAdapter.ts. */
+export default toNodeHandler(webHandler)
