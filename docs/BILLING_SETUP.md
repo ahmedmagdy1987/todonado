@@ -170,3 +170,31 @@ guessing** — an extensionless relative import (`./_lib/config`) throws
 `./_lib/config.js` → `_lib/config.ts`). This is now enforced two ways:
 `tsconfig.api.json` (`moduleResolution: NodeNext`) makes it a compile error, and
 `api/moduleContract.test.ts` asserts it. Both run in CI.
+
+### If a request HANGS (connects, then zero bytes, no error, no log)
+
+Different bug, same day — and nastier, because nothing is logged anywhere.
+
+This project's Vercel Node runtime invokes functions with the **legacy
+signature** `(req: IncomingMessage, res: ServerResponse)` — confirmed in
+production, which reported `contract: "node", argc: 2,
+firstArgCtor: "IncomingMessage"`. A handler written Web-style
+(`(req: Request) => Response`) therefore has its **return value discarded**:
+nothing is ever written to `res`, so the connection stays open until it dies.
+
+The handlers stay Web-shaped (runtime-agnostic and easy to unit-test) and
+`api/_lib/nodeAdapter.ts` bridges them:
+
+```ts
+export const webHandler = withErrorBoundary(myHandler)  // testable with Requests
+export default toNodeHandler(webHandler)                // what Vercel invokes
+```
+
+`handlers.test.ts` asserts every default export has **arity 2**, so reverting to
+a 1-arg Web handler fails CI.
+
+**Raw body:** the adapter reads the untouched request stream, which production
+confirmed is still readable on entry (`rawBytesRead === content-length`). That
+matters because Stripe signs the exact bytes — the platform *also* pre-parses a
+body, and reconstructing from that parsed object would break signature
+verification on every webhook.
