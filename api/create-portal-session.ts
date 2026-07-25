@@ -1,7 +1,8 @@
-import { serverEnv, isServerBillingConfigured } from './_lib/config'
-import { getStripe } from './_lib/stripe'
-import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase'
-import { json } from './_lib/http'
+// Relative imports MUST carry .js — see the note in create-checkout-session.ts.
+import { serverEnv, missingServerBillingVars } from './_lib/config.js'
+import { getStripe } from './_lib/stripe.js'
+import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
+import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
 
 /**
  * POST /api/create-portal-session
@@ -10,18 +11,19 @@ import { json } from './_lib/http'
  * billing row (service-role read), and opens a Stripe Customer Portal session so
  * they can manage / cancel. Returns { url }.
  */
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'POST') return json(405, { error: 'Method not allowed' })
+async function portal(req: Request): Promise<Response> {
+  if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
 
   const env = serverEnv()
-  if (!isServerBillingConfigured(env)) return json(503, { error: 'Billing is not configured' })
+  const missing = missingServerBillingVars(env)
+  if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
 
   const user = await getUserFromAuthHeader(
     req.headers.get('authorization'),
     env.supabaseUrl,
     env.supabaseServiceRoleKey,
   )
-  if (!user) return json(401, { error: 'Unauthorized' })
+  if (!user) return apiError(401, 'unauthorized')
 
   const admin = getSupabaseAdmin(env.supabaseUrl, env.supabaseServiceRoleKey)
   const { data, error } = await admin
@@ -30,9 +32,12 @@ export default async function handler(req: Request): Promise<Response> {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (error) return json(500, { error: 'Could not load billing' })
+  if (error) {
+    console.error('[api/create-portal-session] billing lookup failed:', redactSecrets(error.message))
+    return apiError(500, 'billing_lookup_failed')
+  }
   const customerId = data?.stripe_customer_id
-  if (!customerId) return json(400, { error: 'No subscription to manage' })
+  if (!customerId) return apiError(400, 'no_subscription')
 
   const origin = req.headers.get('origin') ?? 'https://www.todonado.com'
   try {
@@ -43,7 +48,10 @@ export default async function handler(req: Request): Promise<Response> {
     })
     return json(200, { url: session.url })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Portal failed'
-    return json(502, { error: message })
+    const message = redactSecrets(err instanceof Error ? err.message : 'Portal failed')
+    console.error('[api/create-portal-session] stripe error:', message)
+    return apiError(502, 'stripe_error', { message })
   }
 }
+
+export default withErrorBoundary(portal)

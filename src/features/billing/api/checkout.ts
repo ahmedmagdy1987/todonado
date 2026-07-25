@@ -5,6 +5,31 @@ import { supabase } from '@/lib/supabase'
  * page), so no Stripe.js and no card UI ship in the client bundle — we just POST
  * with the user's access token and follow the returned URL.
  */
+
+/**
+ * The API answers with stable machine codes (see api/_lib/http.ts). Map them to
+ * copy a human can act on — never show the raw code, and never surface a Stripe
+ * message verbatim for the config cases.
+ */
+const ERROR_COPY: Record<string, string> = {
+  billing_not_configured:
+    'Payments aren’t switched on yet. Please try again shortly — we’ve been notified.',
+  unauthorized: 'Your session expired. Please sign in again and retry.',
+  missing_price_id: 'That plan is unavailable right now. Please try again shortly.',
+  invalid_price: 'That plan is unavailable right now. Please try again shortly.',
+  no_subscription: 'You don’t have an active subscription to manage yet.',
+  stripe_error: 'Stripe couldn’t start the checkout. Please try again.',
+  billing_lookup_failed: 'We couldn’t load your billing details. Please try again.',
+  internal_error: 'Something went wrong on our side. Please try again.',
+  method_not_allowed: 'Something went wrong on our side. Please try again.',
+}
+
+/** Human-readable message for an API error code (falls back to a safe default). */
+export function checkoutErrorMessage(code: string | undefined, status: number): string {
+  if (code && ERROR_COPY[code]) return ERROR_COPY[code]
+  return `Something went wrong (${status}). Please try again.`
+}
+
 async function authedPost(path: string, body: unknown): Promise<{ url?: string }> {
   const {
     data: { session },
@@ -19,7 +44,7 @@ async function authedPost(path: string, body: unknown): Promise<{ url?: string }
     body: JSON.stringify(body),
   })
   const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string }
-  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`)
+  if (!res.ok) throw new Error(checkoutErrorMessage(data.error, res.status))
   return data
 }
 

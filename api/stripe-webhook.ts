@@ -1,9 +1,13 @@
-import { serverEnv, isServerBillingConfigured } from './_lib/config'
-import { getStripe } from './_lib/stripe'
-import { getSupabaseAdmin } from './_lib/supabase'
-import { json } from './_lib/http'
+// Relative imports MUST carry .js — see the note in create-checkout-session.ts.
+import { serverEnv, missingWebhookVars } from './_lib/config.js'
+import { getStripe } from './_lib/stripe.js'
+import { getSupabaseAdmin } from './_lib/supabase.js'
+import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
 // Leaf module from src/ (no `@/` imports) — safe for Vercel to bundle here.
-import { mapStripeEventToBilling, type MinimalStripeEvent } from '../src/features/billing/webhookMapping'
+import {
+  mapStripeEventToBilling,
+  type MinimalStripeEvent,
+} from '../src/features/billing/webhookMapping.js'
 
 /**
  * POST /api/stripe-webhook
@@ -17,16 +21,15 @@ import { mapStripeEventToBilling, type MinimalStripeEvent } from '../src/feature
  * no-op. The Web-signature handler gives us the exact raw body via req.text(),
  * which is what constructEvent needs to verify the signature.
  */
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'POST') return json(405, { error: 'Method not allowed' })
+async function webhook(req: Request): Promise<Response> {
+  if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
 
   const env = serverEnv()
-  if (!isServerBillingConfigured(env) || !env.stripeWebhookSecret) {
-    return json(503, { error: 'Billing is not configured' })
-  }
+  const missing = missingWebhookVars(env)
+  if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
 
   const signature = req.headers.get('stripe-signature')
-  if (!signature) return json(400, { error: 'Missing stripe-signature' })
+  if (!signature) return apiError(400, 'missing_signature')
 
   const rawBody = await req.text()
   const stripe = getStripe(env.stripeSecretKey)
@@ -39,8 +42,9 @@ export default async function handler(req: Request): Promise<Response> {
       env.stripeWebhookSecret,
     ) as unknown as MinimalStripeEvent
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Invalid signature'
-    return json(400, { error: `Webhook signature verification failed: ${message}` })
+    const message = redactSecrets(err instanceof Error ? err.message : 'Invalid signature')
+    console.error('[api/stripe-webhook] signature verification failed:', message)
+    return apiError(400, 'invalid_signature')
   }
 
   const upsert = mapStripeEventToBilling(event)
@@ -48,7 +52,12 @@ export default async function handler(req: Request): Promise<Response> {
 
   const admin = getSupabaseAdmin(env.supabaseUrl, env.supabaseServiceRoleKey)
   const { error } = await admin.from('billing').upsert(upsert, { onConflict: 'user_id' })
-  if (error) return json(500, { error: 'Billing upsert failed' })
+  if (error) {
+    console.error('[api/stripe-webhook] billing upsert failed:', redactSecrets(error.message))
+    return apiError(500, 'billing_upsert_failed')
+  }
 
   return json(200, { received: true })
 }
+
+export default withErrorBoundary(webhook)

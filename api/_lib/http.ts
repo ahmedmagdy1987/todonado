@@ -5,3 +5,69 @@ export function json(status: number, body: unknown): Response {
     headers: { 'content-type': 'application/json' },
   })
 }
+
+/**
+ * Redact anything that looks like a credential before it can reach a response
+ * body or a log line. Third-party error messages (Stripe, Supabase) sometimes
+ * echo back the input they were given, so this is defence-in-depth: we return
+ * upstream messages to help debugging, but never a key.
+ *
+ * Covers Stripe secret/restricted/publishable keys, Stripe webhook signing
+ * secrets, and JWTs (the Supabase anon + service-role keys are JWTs).
+ */
+export function redactSecrets(input: string): string {
+  return input
+    .replace(/\b[rs]k_(?:live|test)_[A-Za-z0-9]+/g, '[redacted-stripe-key]')
+    .replace(/\bpk_(?:live|test)_[A-Za-z0-9]+/g, '[redacted-stripe-key]')
+    .replace(/\bwhsec_[A-Za-z0-9]+/g, '[redacted-webhook-secret]')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted-jwt]')
+}
+
+/** Error codes the billing endpoints can return. Stable, machine-readable. */
+export type ApiErrorCode =
+  | 'method_not_allowed'
+  | 'billing_not_configured'
+  | 'unauthorized'
+  | 'invalid_price'
+  | 'missing_price_id'
+  | 'no_subscription'
+  | 'missing_signature'
+  | 'invalid_signature'
+  | 'billing_lookup_failed'
+  | 'billing_upsert_failed'
+  | 'stripe_error'
+  | 'internal_error'
+
+export function apiError(
+  status: number,
+  error: ApiErrorCode,
+  extra?: Record<string, unknown>,
+): Response {
+  return json(status, { error, ...extra })
+}
+
+/**
+ * Top-level boundary so NOTHING escapes as a naked 500. Any throw that reaches
+ * here is logged server-side (redacted) and answered with a stable
+ * `{"error":"internal_error"}` — the client never sees a stack trace, and the
+ * platform never has to synthesise FUNCTION_INVOCATION_FAILED for us.
+ *
+ * NOTE: this cannot catch a *module-load* failure (e.g. an extensionless
+ * relative import under `"type": "module"`) — that throws before the handler
+ * object exists. Those are prevented by type-checking `api/` (tsconfig.api.json)
+ * and by the module-load smoke test in api/_lib/moduleLoad.test.ts.
+ */
+export function withErrorBoundary(
+  handler: (req: Request) => Promise<Response>,
+): (req: Request) => Promise<Response> {
+  return async (req: Request): Promise<Response> => {
+    try {
+      return await handler(req)
+    } catch (err) {
+      const message = redactSecrets(err instanceof Error ? err.message : String(err))
+      // Server-side only — never returned to the caller.
+      console.error('[api] unhandled error:', message)
+      return apiError(500, 'internal_error')
+    }
+  }
+}

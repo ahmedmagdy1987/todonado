@@ -9,6 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    // `api/` is covered too — the serverless handlers were previously untested
+    // AND untypechecked, which is how a module-load crash reached production.
+    include: ['src/**/*.test.ts', 'api/**/*.test.ts'],
   },
 })

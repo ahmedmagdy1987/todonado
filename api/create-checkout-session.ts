@@ -1,7 +1,12 @@
-import { serverEnv, isServerBillingConfigured } from './_lib/config'
-import { getStripe } from './_lib/stripe'
-import { getUserFromAuthHeader } from './_lib/supabase'
-import { json } from './_lib/http'
+// NOTE: relative imports MUST carry the .js extension. package.json is
+// `"type": "module"`, so these compile to ESM, and Node's ESM resolver does not
+// do extension guessing — an extensionless specifier throws ERR_MODULE_NOT_FOUND
+// at module load, which Vercel surfaces as FUNCTION_INVOCATION_FAILED (a bare
+// 500 on EVERY request, before any handler code runs).
+import { serverEnv, missingServerBillingVars, isValidPriceId } from './_lib/config.js'
+import { getStripe } from './_lib/stripe.js'
+import { getUserFromAuthHeader } from './_lib/supabase.js'
+import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
 
 /**
  * POST /api/create-checkout-session
@@ -12,27 +17,30 @@ import { json } from './_lib/http'
  * client_reference_id) AND on the subscription (subscription_data.metadata) so
  * the webhook can resolve the user without a DB lookup. Returns { url }.
  */
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== 'POST') return json(405, { error: 'Method not allowed' })
+async function checkout(req: Request): Promise<Response> {
+  if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
 
   const env = serverEnv()
-  if (!isServerBillingConfigured(env)) return json(503, { error: 'Billing is not configured' })
+  const missing = missingServerBillingVars(env)
+  // Names only — never values.
+  if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
 
   const user = await getUserFromAuthHeader(
     req.headers.get('authorization'),
     env.supabaseUrl,
     env.supabaseServiceRoleKey,
   )
-  if (!user) return json(401, { error: 'Unauthorized' })
+  if (!user) return apiError(401, 'unauthorized')
 
-  let body: { priceId?: string } = {}
+  let body: { priceId?: unknown } = {}
   try {
-    body = (await req.json()) as { priceId?: string }
+    body = (await req.json()) as { priceId?: unknown }
   } catch {
     /* empty/invalid body handled below */
   }
+  if (body.priceId == null || body.priceId === '') return apiError(400, 'missing_price_id')
+  if (!isValidPriceId(body.priceId)) return apiError(400, 'invalid_price')
   const priceId = body.priceId
-  if (!priceId) return json(400, { error: 'Missing priceId' })
 
   const origin = req.headers.get('origin') ?? 'https://www.todonado.com'
 
@@ -49,9 +57,13 @@ export default async function handler(req: Request): Promise<Response> {
       success_url: `${origin}/settings/plan?checkout=success`,
       cancel_url: `${origin}/settings/plan?checkout=cancel`,
     })
+    if (!session.url) return apiError(502, 'stripe_error', { message: 'No checkout URL returned' })
     return json(200, { url: session.url })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Checkout failed'
-    return json(502, { error: message })
+    const message = redactSecrets(err instanceof Error ? err.message : 'Checkout failed')
+    console.error('[api/create-checkout-session] stripe error:', message)
+    return apiError(502, 'stripe_error', { message })
   }
 }
+
+export default withErrorBoundary(checkout)

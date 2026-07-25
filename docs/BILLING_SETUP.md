@@ -129,7 +129,44 @@ On `https://www.todonado.com`, signed in as a **non-founding** test account
 
 With **no Stripe env vars set**, `isBillingConfigured()` is `false` everywhere:
 - **My Plan** shows the original fake-door "Upgrade to Pro" → interest form.
-- The `/api/*` endpoints answer **503 "Billing is not configured"** if hit directly.
+- The `/api/*` endpoints answer **503 `billing_not_configured`** if hit directly,
+  listing the missing variable NAMES (see the error table below).
 - `usePlan()` still works: the `billing` query degrades to "no row" if the table
   isn't applied, so plan resolves via founding-email → dev preview → free.
 - **CI stays green with zero secrets** — the E2E exercises this fallback path.
+
+---
+
+## Troubleshooting — what each API error means
+
+Every billing endpoint returns a **stable JSON error code**. Values are never
+included; a 503 lists missing env var **names** only.
+
+| HTTP | `error`                  | Meaning / fix |
+| ---- | ------------------------ | ------------- |
+| 405  | `method_not_allowed`     | Not a POST. |
+| 503  | `billing_not_configured` | `missing: [...]` names the absent Vercel env vars. Set them in **Production** scope, then **redeploy**. |
+| 401  | `unauthorized`           | Missing/invalid `Authorization: Bearer <supabase jwt>`. |
+| 400  | `missing_price_id`       | Body had no `priceId` — usually `VITE_STRIPE_PRICE_*` was not baked into the client build. |
+| 400  | `invalid_price`          | `priceId` is not a `price_…` id. Never forwarded to Stripe. |
+| 400  | `no_subscription`        | Portal: the user has no `stripe_customer_id` yet. |
+| 400  | `missing_signature` / `invalid_signature` | Webhook: absent or unverifiable `stripe-signature`. Check `STRIPE_WEBHOOK_SECRET` matches the endpoint. |
+| 502  | `stripe_error`           | Stripe rejected the call; `message` is upstream's, with any key redacted. |
+| 500  | `billing_lookup_failed` / `billing_upsert_failed` | The service-role DB read/write failed. |
+| 500  | `internal_error`         | Caught by the top-level boundary. The real message is in the Vercel function log, redacted. |
+
+### If you get a bare 500 with `x-vercel-error: FUNCTION_INVOCATION_FAILED`
+
+That is **not** one of the codes above — it is the platform reporting that the
+function crashed *before* the handler ran, so no try/catch inside the handler can
+catch it. It hits **every** request, including a plain `GET`, which is the tell.
+
+The cause we hit in production (2026-07-25): package.json is `"type": "module"`,
+so `api/*.ts` runs as **ESM**, and Node's ESM resolver does **no extension
+guessing** — an extensionless relative import (`./_lib/config`) throws
+`ERR_MODULE_NOT_FOUND` at module load and takes the whole endpoint down.
+
+**All relative imports inside `api/` must end in `.js`** (TypeScript maps
+`./_lib/config.js` → `_lib/config.ts`). This is now enforced two ways:
+`tsconfig.api.json` (`moduleResolution: NodeNext`) makes it a compile error, and
+`api/moduleContract.test.ts` asserts it. Both run in CI.
