@@ -237,8 +237,9 @@ item delete). See `supabase/migrations/`.
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **Migrations applied through `20260623140000_calendar_sources`** — re-verified live 2026-07-06
-  via anon-key probes (RLS enforcing on every table: anon reads `[]`, anon writes `42501`).
+- **Migrations applied through `20260706130000_billing` — the cloud DB is FULLY migrated; there
+  is nothing pending.** Re-verified live 2026-07-25 via anon-key probes (RLS enforcing on every
+  table: anon reads `[]`, anon writes `42501`).
   Confirmed applied: the events suite (`20260623120000_events` / `130000_events_auto_planned` /
   `140000_calendar_sources` — their columns resolve), `20260622150000_drop_resolve_login_email`
   (`resolve_login_email` → 404), and **`20260622160000_lock_complete_task_to_authenticated`
@@ -246,11 +247,13 @@ item delete). See `supabase/migrations/`.
   old `500 P0002`). See `docs/AUDIT_2026-06-22_followup.md` for the F1 rationale.
 - `20260706120000_delete_own_account.sql` (SECURITY DEFINER self-deletion RPC) **IS NOW APPLIED**
   (live-verified: anon `delete_own_account` → `42501 permission denied`, no longer 404).
-- **PENDING (committed, NOT yet applied — one migration):**
-  `20260706130000_billing.sql` — the `billing` table for Stripe subscriptions (plan gate,
-  SELECT-own RLS, no client writes; the webhook writes via service-role). The app runs fine without
-  it (`usePlan` degrades gracefully; My Plan uses the fake-door until Stripe keys are set). Apply
-  with `supabase db push`. Full turn-on runbook: `docs/BILLING_SETUP.md`.
+- `20260706130000_billing.sql` (the `billing` table for Stripe subscriptions — plan gate,
+  SELECT-own RLS, no client writes; the webhook writes via service-role) **IS NOW APPLIED**
+  (live-verified 2026-07-25: anon `select` on `billing` → `200 []`, anon `insert` → `42501 new row
+  violates row-level security policy`, so the table exists with RLS enforcing). **Nothing to
+  apply — do NOT run `supabase db push`.** Billing stays *functionally* off until Stripe keys are
+  set (`usePlan` degrades gracefully; My Plan uses the fake-door); that is config, not a migration.
+  Full turn-on runbook: `docs/BILLING_SETUP.md`.
 - Historical additions (all applied):
   - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
     profile **display identity**; usernames are not shown publicly) plus two pre-auth
@@ -277,10 +280,22 @@ item delete). See `supabase/migrations/`.
   already up to date.
 
 ### Restoring a clean machine / fresh clone
-0. Clone the **private** repo into `C:\Users\bdstd\Documents\projects` (so it lands at
-   `…\projects\todonado`). `gh` is usually still authed after a wipe → `gh repo clone
-   ahmedmagdy1987/todonado`. If the clone fails on auth, run `gh auth login` in a **real terminal**
-   (browser flow), then retry.
+0. **Run `gh auth setup-git` BEFORE the first clone.** A wipe clears git's global credential-helper
+   config *even though the `gh` keyring token survives*, so the clone otherwise dies instantly with:
+   ```
+   fatal: could not read Username for 'https://github.com': terminal prompts disabled
+   ```
+   That message looks like an auth failure but is **not** one — `gh auth status` will be green and
+   the token is perfectly valid; only git's plumbing *to* that token was wiped.
+   **The fix is `gh auth setup-git`** (it sets `credential.https://github.com.helper` to
+   `!gh auth git-credential`), **NOT `gh auth login`** — reaching for `gh auth login` here is the
+   wrong diagnosis and costs a pointless round trip through a real terminal.
+   Only escalate to `gh auth login` in a **real terminal** (browser flow) if `gh auth status`
+   *itself* reports the token missing/invalid. *(Verified again on the 2026-07-25 restore.)*
+
+   Then clone the **private** repo into `C:\Users\bdstd\Documents\projects` (so it lands at
+   `…\projects\todonado`) → `gh repo clone ahmedmagdy1987/todonado`, or
+   `git clone https://github.com/ahmedmagdy1987/todonado.git`.
 1. `npm install`
 2. `npm run dev` — the app runs with **no `.env`**: `src/lib/env.ts` ships the public Supabase
    URL + anon key as built-in defaults (anon key is public + RLS-protected). To target a
@@ -289,8 +304,8 @@ item delete). See `supabase/migrations/`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
 4. **Do NOT re-run migrations** — the cloud DB is already current (through
-   `20260622130000_wellness_tracking`). Only when adding a **new** migration, use a **real
-   terminal** (TTY — see CLI note): `supabase login` → `supabase link --project-ref
+   `20260706130000_billing`; nothing is pending). Only when adding a **new** migration, use a
+   **real terminal** (TTY — see CLI note): `supabase login` → `supabase link --project-ref
    lplsbfduankkpglyusjp` → `supabase db push`.
 
 ### Agent / CLI note (verified on this machine — Windows + PowerShell)
@@ -299,9 +314,12 @@ item delete). See `supabase/migrations/`.
   But that token CAN expire / be invalidated mid-session: if a push fails with
   `Invalid username or token` / `Authentication failed` (or `gh auth status` reports the keyring
   token invalid), run `gh auth login` (or `gh auth refresh -h github.com -s repo`) in a **real
-  terminal** (browser flow — NOT the non-TTY agent shell or the `!` prefix), optionally
-  `gh auth setup-git` to point git at gh's credential, then retry the push. Network + REST/curl
-  verification also work from PowerShell (the old Bash-sandbox network block does not apply here).
+  terminal** (browser flow — NOT the non-TTY agent shell or the `!` prefix), then retry the push.
+  **First distinguish the two failure modes** (see restore step 0): `could not read Username …
+  terminal prompts disabled` means git has **no credential helper** → `gh auth setup-git`, no
+  browser needed. `Invalid username or token` / `Authentication failed` means the **token itself**
+  is bad → `gh auth login` in a real terminal. Network + REST/curl verification also work from
+  PowerShell (the old Bash-sandbox network block does not apply here).
 - **`supabase login` CANNOT run in the agent shell** (the `!` prefix and the PowerShell tool are
   non-TTY): it errors `Cannot use automatic login flow inside non-TTY environments`. Do it in a
   **real terminal** where the browser flow works, or set `SUPABASE_ACCESS_TOKEN` / pass `--token`.
