@@ -863,6 +863,93 @@ test('personal templates: capture a project → My templates → apply to Today;
   created = null
 })
 
+test('week view: Free sees a labelled SAMPLE preview, Pro sees the real 7-day board', async ({
+  page,
+}) => {
+  const id = uniqueIdentity()
+  const signUp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: id.email, password: id.password }),
+  })
+  expect(signUp.ok, 'signup for the week fixture').toBeTruthy()
+  const auth = (await signUp.json()) as { access_token: string; user: { id: string } }
+  const token = auth.access_token
+  created = { email: id.email, password: id.password }
+
+  await rest(`profiles?id=eq.${auth.user.id}`, token, {
+    method: 'PATCH',
+    body: { onboarding_completed: true, daily_capacity_minutes: 360 },
+  })
+  const workspaces = (await rest('workspaces?select=id', token)) as { id: string }[]
+  const workspaceId = workspaces[0].id
+  const dayOffset = (n: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const mk = (body: Record<string, unknown>) =>
+    rest('tasks', token, {
+      method: 'POST',
+      body: { workspace_id: workspaceId, ...body },
+      prefer: 'return=representation',
+    })
+  await mk({ title: 'Week task today', scheduled_for: dayOffset(0), effort_minutes: 60 })
+  await mk({ title: 'Week task thursday', scheduled_for: dayOffset(2), effort_minutes: 90 })
+  await mk({ title: 'Unscheduled backlog item', effort_minutes: 45 })
+
+  await page.goto('/login')
+  await page.getByLabel('Email', { exact: true }).fill(id.email)
+  await page.getByLabel('Password', { exact: true }).fill(id.password)
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible({
+    timeout: 30_000,
+  })
+
+  // --- FREE: an honestly labelled SAMPLE, never their own week teased -------
+  await page.goto('/week')
+  await expect(page.getByRole('heading', { name: 'Week planning' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/A sample week — made-up tasks, not yours/i)).toBeVisible()
+  await expect(page.getByText(/Plan your whole week/i)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'See Pro' })).toBeVisible()
+  // Their REAL tasks must not appear in the preview.
+  await expect(page.getByText('Week task today')).toHaveCount(0)
+
+  // --- PRO: the real board, seven meters ------------------------------------
+  await page.evaluate(() => localStorage.setItem('todonado.plan', 'pro'))
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Your week' })).toBeVisible({ timeout: 30_000 })
+
+  // One capacity meter per day.
+  await expect(page.getByRole('progressbar')).toHaveCount(7)
+
+  // Tasks land on their own day, and the unscheduled one stays in Inbox only.
+  await expect(page.getByText('Week task today')).toBeVisible()
+  await expect(page.getByText('Week task thursday')).toBeVisible()
+  await expect(page.getByText('Unscheduled backlog item')).toHaveCount(0)
+
+  // Each task carries a keyboard-reachable move handle (drag is not mouse-only).
+  await expect(page.getByRole('button', { name: /Move Week task today to another day/i })).toBeVisible()
+
+  // The Today ⇄ Week toggle works both ways.
+  await page.getByRole('button', { name: 'Today' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
+  await page.getByRole('button', { name: 'Week' }).first().click()
+  await expect(page.getByRole('heading', { name: 'Your week' })).toBeVisible()
+
+  const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  expect(del.ok, `week fixture cleanup failed: ${del.status}`).toBeTruthy()
+  created = null
+})
+
 test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)

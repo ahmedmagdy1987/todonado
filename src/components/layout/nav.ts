@@ -1,4 +1,13 @@
-import { BarChart3, FolderKanban, HeartPulse, Inbox, LayoutTemplate, Sun, Timer } from 'lucide-react'
+import {
+  BarChart3,
+  CalendarRange,
+  FolderKanban,
+  HeartPulse,
+  Inbox,
+  LayoutTemplate,
+  Sun,
+  Timer,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FEATURES } from '@/lib/config'
 
@@ -18,6 +27,9 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Today', icon: Sun, end: true, primary: true },
+  // Week planning — only present when the feature flag is on. Not `primary`, so
+  // it lives in the mobile More sheet and the bottom bar keeps its 5 slots.
+  ...(FEATURES.week ? [{ to: '/week', label: 'Week', icon: CalendarRange }] : []),
   { to: '/inbox', label: 'Inbox', icon: Inbox, primary: true },
   { to: '/projects', label: 'Projects', icon: FolderKanban, primary: true },
   { to: '/focus', label: 'Focus', icon: Timer, primary: true },

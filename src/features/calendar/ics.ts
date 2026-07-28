@@ -276,11 +276,38 @@ export function busyMinutesForDay(events: IcsEvent[], todayStr: string): number 
   return Number.isFinite(mins) ? Math.min(24 * 60, Math.max(0, mins)) : 0
 }
 
-/** Convenience: parse text and sum today's busy minutes. Never throws. */
+/** Convenience: parse text and sum busy minutes for one local day. Never throws. */
 export function busyMinutesFromIcs(text: string, todayStr: string): number {
   try {
     return busyMinutesForDay(parseIcsEvents(text), todayStr)
   } catch {
     return 0
   }
+}
+
+/**
+ * Busy minutes for MANY local days from one calendar — parses the text ONCE and
+ * evaluates each date, rather than re-parsing per day (the week view asks for
+ * seven at a time).
+ *
+ * `busyMinutesForDay` stays the single definition of "busy on a day": this only
+ * changes how often the text is parsed, never the arithmetic, so /week and
+ * /today can never disagree about the same date. Never throws.
+ */
+export function busyMinutesByDate(text: string, dates: string[]): Map<string, number> {
+  const out = new Map<string, number>()
+  let events: IcsEvent[] = []
+  try {
+    events = parseIcsEvents(text)
+  } catch {
+    events = []
+  }
+  for (const date of dates) {
+    try {
+      out.set(date, busyMinutesForDay(events, date))
+    } catch {
+      out.set(date, 0)
+    }
+  }
+  return out
 }

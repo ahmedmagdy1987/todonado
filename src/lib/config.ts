@@ -100,4 +100,12 @@ export const FEATURES = {
    * everywhere with no other behaviour change.
    */
   digest: true,
+  /**
+   * Week planning — a /week view of the next 7 days, each with its own capacity
+   * meter (calendar-aware), tasks draggable between days, and a deterministic
+   * "Plan my week". PRO surface (resolved via usePlan); Free sees a clearly
+   * labelled sample-data preview. Default ON; set to false to remove the route,
+   * the nav entry and the Today toggle with no other behaviour change.
+   */
+  week: true,
 } as const

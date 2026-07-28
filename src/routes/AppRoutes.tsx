@@ -26,6 +26,7 @@ const ResetPasswordPage = lazy(() =>
 // Authenticated shell + pages
 const AppShell = lazy(() => import('@/components/layout/AppShell').then((m) => ({ default: m.AppShell })))
 const TodayPage = lazy(() => import('@/features/today/TodayPage').then((m) => ({ default: m.TodayPage })))
+const WeekPage = lazy(() => import('@/features/week/WeekPage').then((m) => ({ default: m.WeekPage })))
 const InboxPage = lazy(() => import('@/features/inbox/InboxPage').then((m) => ({ default: m.InboxPage })))
 const ProjectsPage = lazy(() => import('@/features/projects/ProjectsPage').then((m) => ({ default: m.ProjectsPage })))
 const ProjectDetailPage = lazy(() =>
@@ -63,6 +64,7 @@ export function AppRoutes() {
           <Route element={<AppShell />}>
             <Route index element={<TodayPage />} />
             <Route path="today" element={<Navigate to="/" replace />} />
+            {FEATURES.week && <Route path="week" element={<WeekPage />} />}
             <Route path="inbox" element={<InboxPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:projectId" element={<ProjectDetailPage />} />

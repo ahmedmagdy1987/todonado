@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { Flame, Sunrise, Undo2, X } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui'
+import { Link } from 'react-router-dom'
+import { CalendarRange, Flame, Sunrise, Undo2, X } from 'lucide-react'
+import { Button, Card, CardContent } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
 import { track } from '@/features/analytics/track'
 import { useAuth } from '@/features/auth/auth-context'
@@ -222,16 +223,25 @@ export function TodayPage() {
             </span>
           )}
         </div>
-        {FEATURES.autoPlan && (
-          <PlanMyDay
-            tasks={tasks}
-            capacityMinutes={cal.effectiveCapacity}
-            today={today}
-            estimate={estimateCost}
-            onApply={applyPlan}
-            variant="compact"
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {FEATURES.week && (
+            <Link to="/week">
+              <Button variant="secondary" size="sm">
+                <CalendarRange className="h-4 w-4" aria-hidden /> Week
+              </Button>
+            </Link>
+          )}
+          {FEATURES.autoPlan && (
+            <PlanMyDay
+              tasks={tasks}
+              capacityMinutes={cal.effectiveCapacity}
+              today={today}
+              estimate={estimateCost}
+              onApply={applyPlan}
+              variant="compact"
+            />
+          )}
+        </div>
       </header>
 
       {FEATURES.digest &&
