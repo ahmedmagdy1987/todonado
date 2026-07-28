@@ -12,6 +12,10 @@ import { test, expect } from '@playwright/test'
  *      shows a real number.
  *   4. Auto-plan ("Plan my day"): preview opens, applies, never exceeds capacity.
  *   5. Deep-route direct loads (/wellness, /settings) render — no 404 / blank.
+ *   5b. The landing's LIVE demo widgets: the hero capacity meter self-plays and
+ *      replays; the effort-chip, auto-plan, and focus widgets are interactive —
+ *      and the whole journey makes ZERO Supabase REST/RPC calls (the demos are
+ *      in-memory only). Plus the "Powered by HBV Studio" credit (plain text).
  *   6. /reset-password renders; forgot-password returns the neutral,
  *      non-enumerating message (logged-out test below).
  *   7. CLEANUP: the throwaway account deletes itself via the Settings
@@ -169,6 +173,9 @@ test('landing serves static share meta (OG/Twitter tags in the raw HTML — no J
 
 test('landing shows How-it-works + FAQ with real screenshots that load', async ({ page }) => {
   await page.goto('/welcome')
+  // These sections are code-split and mount as they near the viewport, so the
+  // page has to be scrolled before they exist in the DOM.
+  await mountLazySections(page)
   await expect(page.getByRole('heading', { name: 'How Todonado works' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Questions, answered' })).toBeVisible()
   await expect(page.getByText('Is Todonado free?')).toBeVisible()
@@ -215,6 +222,99 @@ test('mobile: form inputs render at ≥16px so iOS Safari does not zoom on focus
   await expect(email).toBeVisible()
   const fontSize = await email.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
   expect(fontSize).toBeGreaterThanOrEqual(16)
+})
+
+/**
+ * Scroll the whole document so every IntersectionObserver-gated section and
+ * lazily-mounted demo widget is actually in the DOM, then return to the top.
+ * Without this, the below-the-fold widgets simply don't exist to query.
+ */
+async function mountLazySections(page: import('@playwright/test').Page) {
+  await page.evaluate(async () => {
+    const step = window.innerHeight
+    for (let y = 0; y < document.body.scrollHeight; y += step) {
+      window.scrollTo(0, y)
+      await new Promise((r) => setTimeout(r, 150))
+    }
+    window.scrollTo(0, 0)
+    await new Promise((r) => setTimeout(r, 200))
+  })
+}
+
+test('landing: the hero capacity demo is live and replayable', async ({ page }) => {
+  await page.goto('/welcome')
+
+  // The hero meter is a real progressbar, not a picture.
+  const meter = page.getByRole('progressbar').first()
+  await expect(meter).toBeVisible()
+
+  // It self-plays to the scripted 92% "nearly full" end state.
+  await expect(page.getByText(/92%\s*planned/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Nearly full')).toBeVisible()
+  await expect(meter).toHaveAttribute('aria-valuenow', '92')
+
+  // Replay is interactive: it empties the day, then fills again.
+  await page.getByRole('button', { name: 'Replay' }).click()
+  await expect(page.getByText('Nearly full')).toBeHidden()
+  await expect(page.getByText(/92%\s*planned/)).toBeVisible({ timeout: 15_000 })
+})
+
+test('landing: the three demo widgets are interactive and touch a database NEVER', async ({
+  page,
+}) => {
+  // Record every Supabase REST/RPC call. Auth (/auth/v1/) is excluded — the
+  // AuthProvider legitimately restores a session on load; the DEMOS must not
+  // read or write a single row.
+  const dbCalls: string[] = []
+  page.on('request', (req) => {
+    const url = req.url()
+    if (url.includes('.supabase.co/rest/v1/')) dbCalls.push(`${req.method()} ${url}`)
+  })
+
+  await page.goto('/welcome')
+  await mountLazySections(page)
+
+  // --- W1: tap effort chips until the day stops fitting -------------------
+  const chip90 = page.getByRole('button', { name: /Add a 1h 30m task/i })
+  await chip90.scrollIntoViewIfNeeded()
+  for (let i = 0; i < 5; i += 1) await chip90.click() // 5 x 90m = 450m > 360m
+  await expect(page.getByText(/more than the day holds/i)).toBeVisible()
+
+  // The rescue action puts the day back under capacity.
+  await page.getByRole('button', { name: /Move the biggest task to tomorrow/i }).click()
+  await expect(page.getByText(/more than the day holds/i)).toBeHidden()
+
+  // Reset clears it.
+  await page.getByRole('button', { name: 'Reset the demo day' }).click()
+
+  // --- W2: the real planner fills the day and leaves the overflow ---------
+  const planBtn = page.getByRole('button', { name: 'Plan my day' })
+  await planBtn.scrollIntoViewIfNeeded()
+  await planBtn.click()
+  await expect(page.getByText(/5 planned · 3 left in backlog/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/never overcommits your day/i)).toBeVisible()
+
+  // --- W3: the focus ring runs and reaches the calm completion state ------
+  const startBtn = page.getByRole('button', { name: 'Start a sprint' })
+  await startBtn.scrollIntoViewIfNeeded()
+  await startBtn.click()
+  // 25-second sped-up sprint → the completion badge.
+  await expect(page.getByText('Session complete')).toBeVisible({ timeout: 40_000 })
+
+  // THE ASSERTION THAT MATTERS: not one database call in the whole journey.
+  expect(dbCalls, `demo widgets hit the database:\n${dbCalls.join('\n')}`).toEqual([])
+})
+
+test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
+  await page.goto('/welcome')
+  await mountLazySections(page)
+
+  const credit = page.getByText('Powered by HBV Studio')
+  await credit.scrollIntoViewIfNeeded()
+  await expect(credit).toBeVisible()
+
+  // Deliberately NOT a link yet — a link gets wired later.
+  expect(await credit.evaluate((el) => el.closest('a') !== null)).toBe(false)
 })
 
 test.afterAll(async () => {

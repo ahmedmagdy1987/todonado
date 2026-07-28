@@ -21,22 +21,33 @@ export function MarketingHeader() {
           <Logo />
         </Link>
         <nav className="flex items-center gap-1 sm:gap-3">
+          {/* Hidden below `sm`: at 390px the row wrapped onto two lines. Pricing
+              is still reachable from the teaser, the footer, and the CTAs. */}
           <Link
             to="/pricing"
-            className="focus-ring rounded-lg px-3 py-1.5 text-sm font-medium text-text-muted hover:text-text-primary"
+            className="focus-ring hidden rounded-lg px-3 py-1.5 text-sm font-medium text-text-muted hover:text-text-primary sm:inline-block"
           >
             Pricing
           </Link>
           {session ? (
-            <Button size="sm" onClick={() => navigate('/')}>
+            <Button size="sm" className="whitespace-nowrap" onClick={() => navigate('/')}>
               Open app
             </Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={() => goAuth('signin')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={() => goAuth('signin')}
+              >
                 Sign in
               </Button>
-              <Button size="sm" onClick={() => goAuth('signup')}>
+              <Button
+                size="sm"
+                className="whitespace-nowrap"
+                onClick={() => goAuth('signup')}
+              >
                 Start free
               </Button>
             </>

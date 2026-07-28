@@ -75,8 +75,10 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        <div className="mt-10 border-t border-white/5 pt-6 text-center text-xs text-text-muted sm:text-left">
-          © {year} Todonado
+        <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/5 pt-6 text-xs text-text-muted sm:flex-row sm:justify-between">
+          <p>© {year} Todonado</p>
+          {/* Studio credit — deliberately plain text; a link is wired later. */}
+          <p className="text-text-muted/60">Powered by HBV Studio</p>
         </div>
       </div>
     </footer>

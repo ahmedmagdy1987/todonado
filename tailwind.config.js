@@ -57,9 +57,17 @@ export default {
           from: { opacity: '0', transform: 'translateY(4px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        // Landing hero ambience. Transform + opacity ONLY so it composites on the
+        // GPU and never triggers layout. Disabled by the global
+        // prefers-reduced-motion rule in index.css.
+        'glow-drift': {
+          '0%, 100%': { opacity: '0.7', transform: 'translate3d(0, 0, 0) scale(1)' },
+          '50%': { opacity: '1', transform: 'translate3d(0, -2%, 0) scale(1.08)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.2s ease-out',
+        'glow-drift': 'glow-drift 14s ease-in-out infinite',
       },
     },
   },

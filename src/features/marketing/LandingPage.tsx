@@ -1,95 +1,68 @@
+import { Suspense, lazy, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import {
-  ArrowRight,
-  CalendarClock,
-  Gauge,
-  ListChecks,
-  RotateCcw,
-  Sparkles,
-  Target,
-  Timer,
-  type LucideIcon,
-} from 'lucide-react'
-import { Badge, Button, Card, CardContent } from '@/components/ui'
+import { ArrowRight, Sparkles } from 'lucide-react'
+import { Badge, Button } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
-import { FocusCalmCards } from '@/features/wellness/components/FocusCalmCards'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
-import { HowItWorks } from './components/HowItWorks'
-import { LandingFaq } from './components/LandingFaq'
+import { HeroMeterDemo } from './demo/HeroMeterDemo'
+import { LazySection, LazyWidget, Reveal } from './demo/Reveal'
 
-interface Feature {
-  icon: LucideIcon
-  title: string
-  body: string
-  soon?: boolean
+/**
+ * The three below-the-fold demos are code-split and mounted only as they near
+ * the viewport, so the landing chunk stays lean and the hero — which IS
+ * interactive on first paint — never competes with them for bandwidth.
+ */
+const CapacityDemo = lazy(() =>
+  import('./demo/CapacityDemo').then((m) => ({ default: m.CapacityDemo })),
+)
+const AutoPlanDemo = lazy(() =>
+  import('./demo/AutoPlanDemo').then((m) => ({ default: m.AutoPlanDemo })),
+)
+const FocusDemo = lazy(() => import('./demo/FocusDemo').then((m) => ({ default: m.FocusDemo })))
+
+/**
+ * Everything below the hero is deferred the same way — the first paint ships
+ * the hero and its live meter, nothing else.
+ */
+const HowItWorks = lazy(() =>
+  import('./components/HowItWorks').then((m) => ({ default: m.HowItWorks })),
+)
+const EverythingStrip = lazy(() =>
+  import('./components/EverythingStrip').then((m) => ({ default: m.EverythingStrip })),
+)
+const LandingFaq = lazy(() =>
+  import('./components/LandingFaq').then((m) => ({ default: m.LandingFaq })),
+)
+const PricingTeaser = lazy(() =>
+  import('./components/PricingTeaser').then((m) => ({ default: m.PricingTeaser })),
+)
+
+interface ShowcaseProps {
+  eyebrow: string
+  line: ReactNode
+  children: ReactNode
+  /** Put the widget on the left at desktop widths (alternating rhythm). */
+  flip?: boolean
 }
 
-const FEATURES: Feature[] = [
-  {
-    icon: Gauge,
-    title: 'Effort-aware capacity meter',
-    body: 'Tag each task with the minutes it takes. A live meter sums your day against your real capacity and warns before you overcommit.',
-  },
-  {
-    icon: RotateCcw,
-    title: 'Roll-over & recovery',
-    body: "Didn't finish? Unfinished work surfaces for a calm, one-tap roll-over. No guilt pile, no silent backlog.",
-  },
-  {
-    icon: Timer,
-    title: 'Focus mode',
-    body: 'A distraction-free, refresh-proof deep-work timer bound to the task at hand. One thing at a time.',
-  },
-  {
-    icon: CalendarClock,
-    title: 'Recurring tasks',
-    body: 'Daily, weekly, monthly, or yearly cadences with smart next-occurrence dates. Set it once.',
-  },
-  {
-    icon: ListChecks,
-    title: 'Capture & organize',
-    body: 'Frictionless capture into the Inbox, then projects, sections, and subtasks when you need structure.',
-  },
-  {
-    icon: Target,
-    title: 'Insights: planned vs actual',
-    body: 'See where your estimates drift from reality and plan a more honest day over time.',
-    soon: true,
-  },
-]
-
-/** Static hero visual: a mock of the effort-aware capacity meter. */
-function CapacityMock() {
+/** One short line, one live widget. No paragraphs — the widget is the argument. */
+function Showcase({ eyebrow, line, children, flip = false }: ShowcaseProps) {
   return (
-    <Card className="w-full max-w-sm shadow-elevation-lg">
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Gauge className="h-4 w-4 text-brand" aria-hidden />
-          <span className="font-display text-sm font-semibold">Day Capacity</span>
-          <Badge variant="brand" className="ml-1">
-            Effort-aware
-          </Badge>
-          <span className="ml-auto font-mono text-xs text-warning">92% planned</span>
-        </div>
-        <div
-          className="h-3 w-full overflow-hidden rounded-full bg-surface-2"
-          role="img"
-          aria-label="Capacity meter at 92 percent"
-        >
-          <div className="h-full rounded-full bg-warning" style={{ width: '92%' }} />
-        </div>
-        <div className="flex items-center justify-between font-mono text-sm">
-          <span className="text-text-primary">
-            5h 30m <span className="text-text-muted">planned</span>
-          </span>
-          <span className="text-text-muted">30m free</span>
-        </div>
-        <p className="text-xs text-text-muted">
-          Nearly full. Protect your focus and add only what truly matters.
-        </p>
-      </CardContent>
-    </Card>
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+        <Reveal direction={flip ? 'right' : 'left'} className={cn(flip && 'lg:order-2')}>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-brand">{eyebrow}</p>
+          <h2 className="mt-4 font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">
+            {line}
+          </h2>
+        </Reveal>
+        <Reveal direction="scale" delay={80} className={cn(flip && 'lg:order-1')}>
+          {children}
+        </Reveal>
+      </div>
+    </section>
   )
 }
 
@@ -105,179 +78,173 @@ export function LandingPage() {
           state: { ...((location.state as object | null) ?? {}), mode: 'signup' },
         })
 
+  const ctaLabel = session ? 'Open your command center' : 'Start free'
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-text-primary">
       <MarketingHeader />
 
       <main className="flex-1">
-        {/* Hero: fills the first viewport (minus the sticky h-16 header) on load.
-            min-height (svh) so short screens grow + scroll instead of clipping. */}
+        {/* ---------------------------------------------------------------- */}
+        {/* 1. HERO — the signature meter, live and moving, above the fold.  */}
+        {/* ---------------------------------------------------------------- */}
         <section className="relative flex min-h-[calc(100svh_-_4rem)] flex-col justify-center overflow-hidden">
+          {/* Ambient brand glow. Decorative, GPU-composited, motion-gated. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] animate-glow-drift"
             style={{
               background:
-                'radial-gradient(60% 50% at 50% 0%, rgba(108,92,231,0.18) 0%, rgba(78,168,255,0.07) 35%, transparent 70%)',
+                'radial-gradient(55% 55% at 50% 0%, rgba(108,92,231,0.22) 0%, rgba(78,168,255,0.08) 38%, transparent 72%)',
             }}
           />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.4]"
+            style={{
+              background:
+                'radial-gradient(40% 40% at 85% 60%, rgba(78,168,255,0.10) 0%, transparent 70%)',
+            }}
+          />
+
+          {/* Tight vertical rhythm on mobile so the live meter — the signature —
+              still clears the fold on a 390x844 phone. */}
+          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-10 sm:gap-12 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
             <div className="animate-fade-in">
-              <Badge variant="brand" className="mb-5">
+              <Badge variant="brand" className="mb-6">
                 <Sparkles className="h-3 w-3" aria-hidden />
                 Your daily command center
               </Badge>
-              <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+              <h1 className="font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
                 Plan a realistic day.
                 <br />
                 <span className="text-gradient-brand">Not a wish-list.</span>
               </h1>
-              <p className="mt-5 max-w-xl text-base text-text-muted sm:text-lg">
-                Todonado knows your time is finite. Tag each task with the effort it takes, and a
-                live capacity meter shows what actually fits, so you commit to a day you can
-                finish, and recover gracefully when plans slip.
+              <p className="mt-6 max-w-md text-base leading-relaxed text-text-muted sm:text-lg">
+                Every task carries the minutes it costs. The meter tells you the truth before the
+                day does.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Button size="lg" onClick={startFree}>
-                  {session ? 'Open your command center' : 'Start free'}
+                  {ctaLabel}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
-                <Link to="/pricing">
+                <Link to="/pricing" className="sm:w-auto">
                   <Button size="lg" variant="outline" className="w-full sm:w-auto">
                     See pricing
                   </Button>
                 </Link>
               </div>
-              <p className="mt-3 text-xs text-text-muted">
+              <p className="mt-4 text-xs text-text-muted">
                 Free to start · no credit card · dark, installable PWA.
               </p>
             </div>
+
             <div className="flex justify-center lg:justify-end">
-              <CapacityMock />
+              <HeroMeterDemo />
             </div>
           </div>
         </section>
 
-        {/* The difference: before / after */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-2xl font-bold sm:text-3xl">
-              A to-do list hoards tasks. Todonado makes the day honest.
-            </h2>
-            <p className="mt-3 text-text-muted">
-              The difference is one idea done well: <strong>effort-aware planning</strong>.
-            </p>
-          </div>
-          <div className="mt-10 grid gap-4 md:grid-cols-2">
-            <Card className="border-danger/20">
-              <CardContent className="space-y-3">
-                <Badge variant="danger">Every other to-do app</Badge>
-                <p className="text-sm text-text-muted">
-                  A bottomless list. You schedule twelve things into an eight-hour day and only
-                  discover at 6pm that you never had a chance. Then everything rolls into an
-                  ever-growing pile of guilt.
+        {/* ---------------------------------------------------------------- */}
+        {/* 2. Three scroll sections — one line, one live widget each.       */}
+        {/* ---------------------------------------------------------------- */}
+        <Showcase
+          eyebrow="Capacity"
+          line={
+            <>
+              Fill a day until it{' '}
+              <span className="text-warning">stops fitting</span>.
+            </>
+          }
+        >
+          <LazyWidget component={CapacityDemo} minHeight={470} label="the capacity demo" />
+        </Showcase>
+
+        <Showcase
+          eyebrow="Auto-plan"
+          flip
+          line={
+            <>
+              One press. A day that{' '}
+              <span className="text-gradient-brand">actually fits</span>.
+            </>
+          }
+        >
+          <LazyWidget component={AutoPlanDemo} minHeight={640} label="the auto-plan demo" />
+        </Showcase>
+
+        <Showcase
+          eyebrow="Focus"
+          line={
+            <>
+              Then <span className="text-success">protect it</span>.
+            </>
+          }
+        >
+          <LazyWidget component={FocusDemo} minHeight={520} label="the focus demo" />
+        </Showcase>
+
+        {/* Real product screenshots — no mockups. */}
+        <LazySection minHeight={1400}>
+          <Suspense fallback={null}>
+            <HowItWorks />
+          </Suspense>
+        </LazySection>
+
+        {/* 3. Everything-else strip. */}
+        <LazySection minHeight={520}>
+          <Suspense fallback={null}>
+            <EverythingStrip />
+          </Suspense>
+        </LazySection>
+
+        {/* Honest answers. */}
+        <LazySection minHeight={640}>
+          <Suspense fallback={null}>
+            <LandingFaq />
+          </Suspense>
+        </LazySection>
+
+        {/* 4. Pricing teaser + final CTA. */}
+        <LazySection minHeight={760}>
+          <Suspense fallback={null}>
+            <PricingTeaser onStartFree={startFree} ctaLabel={ctaLabel} />
+          </Suspense>
+        </LazySection>
+
+        <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+          <Reveal>
+            <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-surface px-6 py-16 text-center shadow-elevation-lg">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(60% 80% at 50% 0%, rgba(108,92,231,0.20) 0%, transparent 70%)',
+                }}
+              />
+              <div className="relative">
+                <h2 className="font-display text-2xl font-bold sm:text-4xl">
+                  Stop planning days that don&rsquo;t fit.
+                </h2>
+                <p className="mx-auto mt-4 max-w-md text-text-muted">
+                  Commit to what&rsquo;s realistic, execute with focus, recover without guilt.
                 </p>
-              </CardContent>
-            </Card>
-            <Card className="ring-1 ring-brand/30">
-              <CardContent className="space-y-3">
-                <Badge variant="brand">With Todonado</Badge>
-                <p className="text-sm text-text-primary/90">
-                  Every task carries an estimate. The meter fills as you plan. Cross your capacity
-                  and Todonado flags it, then suggests the smallest set of tasks to move to
-                  tomorrow. You commit to a day that fits.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        {/* How it works — real product screenshots */}
-        <HowItWorks />
-
-        {/* Who it's for */}
-        <section className="border-y border-white/5 bg-surface/40">
-          <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
-            <h2 className="font-display text-2xl font-bold sm:text-3xl">Built for over-committers</h2>
-            <p className="mt-4 text-text-muted">
-              Solo knowledge workers, founders, freelancers, and grad students who lose the day to
-              an ever-growing list. You don&rsquo;t need another place to hoard tasks. You need a
-              way to decide what fits <em>today</em> and protect that decision.
-            </p>
-          </div>
-        </section>
-
-        {/* Feature grid */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <h2 className="text-center font-display text-2xl font-bold sm:text-3xl">
-            Everything you need to run an honest day
-          </h2>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map(({ icon: Icon, title, body, soon }) => (
-              <Card key={title}>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
-                      <Icon className="h-4 w-4" aria-hidden />
-                    </span>
-                    {soon && <Badge variant="outline">Soon</Badge>}
-                  </div>
-                  <h3 className="font-display text-base font-semibold">{title}</h3>
-                  <p className="text-sm text-text-muted">{body}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Focus & Calm — wellness fake-door teaser (signal only; nothing here is built) */}
-        <section className="border-y border-white/5 bg-surface/40">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-            <div className="mx-auto max-w-2xl text-center">
-              <Badge variant="outline" className="mb-4">
-                Exploring
-              </Badge>
-              <h2 className="font-display text-2xl font-bold sm:text-3xl">
-                A calmer side to your day
-              </h2>
-              <p className="mt-3 text-text-muted">
-                We&rsquo;re weighing a wellness companion to Todonado. None of these are built yet —
-                tell us what you&rsquo;d actually use and we&rsquo;ll let you know if we ship it.
-              </p>
-            </div>
-            <div className="mt-10">
-              <FocusCalmCards source="landing" />
-            </div>
-          </div>
-        </section>
-
-        {/* FAQ — honest answers */}
-        <LandingFaq />
-
-        {/* Closing CTA */}
-        <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-          <Card className="overflow-hidden">
-            <CardContent className="flex flex-col items-center gap-5 py-12 text-center">
-              <h2 className="font-display text-2xl font-bold sm:text-3xl">
-                Stop planning days that don&rsquo;t fit.
-              </h2>
-              <p className="max-w-xl text-text-muted">
-                Capture everything, plan what&rsquo;s realistic, execute with focus, and recover
-                intelligently. Start free today.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={startFree}>
-                  {session ? 'Open your command center' : 'Start free'}
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Button>
-                <Link to="/pricing">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    Compare plans
+                <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                  <Button size="lg" onClick={startFree}>
+                    {ctaLabel}
+                    <ArrowRight className="h-4 w-4" aria-hidden />
                   </Button>
-                </Link>
+                  <Link to="/pricing">
+                    <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                      Compare plans
+                    </Button>
+                  </Link>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </Reveal>
         </section>
       </main>
 
