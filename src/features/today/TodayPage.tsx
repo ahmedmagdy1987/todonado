@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { format } from 'date-fns'
-import { Flame, Undo2, X } from 'lucide-react'
+import { differenceInCalendarDays, format, parseISO } from 'date-fns'
+import { Flame, Sunrise, Undo2, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
 import { track } from '@/features/analytics/track'
@@ -14,6 +14,13 @@ import { withCalendar } from '@/features/calendar/capacity'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
 import { selectToday } from '@/features/tasks/selectors'
 import { useHistoryWindow } from '@/features/history/useHistoryWindow'
+import { usePlan } from '@/features/billing/usePlan'
+import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
+import { estimationBias } from '@/features/insights/insights'
+import { planDay } from './autoPlan'
+import { composeDigest } from './digest'
+import { useDigestDismissal } from './useDigestDismissal'
+import { DailyDigest } from './components/DailyDigest'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { todayISO, isoDateOffset } from '@/lib/date'
@@ -61,7 +68,7 @@ export function TodayPage() {
   const { cutoffDay: historyCutoff } = useHistoryWindow(today)
 
   // Today's calendar busy-minutes (0 when the feature/sources are off or fail).
-  const { busyMinutes, hadError: calendarError } = useCalendarBusy(today)
+  const { busyMinutes, hadError: calendarError, enabled: hasCalendar } = useCalendarBusy(today)
 
   const todayTasks = selectToday(tasks, today)
   const overdue = selectRolloverTasks(tasks, today)
@@ -136,6 +143,57 @@ export function TodayPage() {
     track('auto_planned', { flag: picks.some((p) => p.estimated), source: 'today' })
   }
 
+  // ---------------------------------------------------------------------------
+  //  "Start your day" briefing.
+  //
+  //  Every input below is ALREADY in hand: `tasks` and `focusSessions` come from
+  //  queries this page (and TaskListView / useEffortSuggester) already run, so
+  //  the digest adds NO request and cannot introduce a waterfall. It renders
+  //  from whatever is cached — a not-yet-loaded input simply means a section
+  //  stays quiet, never a spinner and never a blocked page.
+  // ---------------------------------------------------------------------------
+  const { isPro } = usePlan()
+  const { data: focusSessions = [] } = useFocusSessions(workspaceId)
+  const { dismissed: digestDismissed, dismiss: dismissDigest, reopen: reopenDigest } =
+    useDigestDismissal(today)
+
+  const dayPlan = useMemo(
+    () => (FEATURES.autoPlan ? planDay(tasks, cal.effectiveCapacity, today, estimateCost) : null),
+    [tasks, cal.effectiveCapacity, today, estimateCost],
+  )
+  const bias = useMemo(() => estimationBias(tasks, focusSessions), [tasks, focusSessions])
+  const accountAgeDays = useMemo(() => {
+    const created = user?.created_at
+    if (!created) return null
+    try {
+      return differenceInCalendarDays(new Date(), parseISO(created))
+    } catch {
+      return null
+    }
+  }, [user?.created_at])
+
+  const digest = useMemo(
+    () =>
+      composeDigest({
+        todayStr: today,
+        isPro,
+        accountAgeDays,
+        streak,
+        rolloverTasks: overdue,
+        hasCalendarSource: hasCalendar,
+        busyMinutes: cal.busyMinutes,
+        freeMinutes: summary.freeMinutes,
+        capacityStatus: summary.status,
+        plan: dayPlan,
+        bias,
+        tasks,
+      }),
+    [
+      today, isPro, accountAgeDays, streak, overdue, hasCalendar,
+      cal.busyMinutes, summary.freeMinutes, summary.status, dayPlan, bias, tasks,
+    ],
+  )
+
   return (
     <div className="animate-fade-in space-y-8">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -175,6 +233,40 @@ export function TodayPage() {
           />
         )}
       </header>
+
+      {FEATURES.digest &&
+        (digestDismissed ? (
+          <button
+            type="button"
+            onClick={reopenDigest}
+            className="focus-ring -mt-4 inline-flex w-fit items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-primary"
+          >
+            <Sunrise className="h-3.5 w-3.5" aria-hidden />
+            Show briefing
+          </button>
+        ) : (
+          <DailyDigest
+            digest={digest}
+            greeting={getGreeting()}
+            name={name}
+            todayStr={today}
+            onDismiss={dismissDigest}
+            onAccept={() => applyPlan(digest.suggestion?.picks ?? [])}
+            planAction={
+              FEATURES.autoPlan ? (
+                <PlanMyDay
+                  tasks={tasks}
+                  capacityMinutes={cal.effectiveCapacity}
+                  today={today}
+                  estimate={estimateCost}
+                  onApply={applyPlan}
+                  variant={digest.suggestion ? 'compact' : 'prominent'}
+                  label={digest.suggestion ? 'Adjust' : 'Plan my day'}
+                />
+              ) : null
+            }
+          />
+        ))}
 
       {undo && undo.items.length > 0 && (
         <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-surface-2/50 px-4 py-2.5 text-sm">

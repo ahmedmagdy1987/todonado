@@ -14,6 +14,8 @@ interface PlanMyDayProps {
   /** Schedule the picks to today (parent owns the mutation + undo + analytics). */
   onApply: (picks: PlanPick[]) => void
   variant?: 'prominent' | 'compact'
+  /** Trigger label. The digest reuses this control as "Adjust". */
+  label?: string
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
@@ -37,6 +39,7 @@ export function PlanMyDay({
   estimate,
   onApply,
   variant = 'compact',
+  label = 'Plan my day',
 }: PlanMyDayProps) {
   const [open, setOpen] = useState(false)
   const plan = useMemo(
@@ -59,7 +62,7 @@ export function PlanMyDay({
         variant={variant === 'prominent' ? 'primary' : 'secondary'}
         size={variant === 'prominent' ? 'lg' : 'sm'}
       >
-        <Wand2 className="h-4 w-4" aria-hidden /> Plan my day
+        <Wand2 className="h-4 w-4" aria-hidden /> {label}
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Plan my day">

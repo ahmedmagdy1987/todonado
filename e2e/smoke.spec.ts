@@ -629,6 +629,104 @@ test('calendar: live URL sync is Pro — Free gets an honest upsell and file upl
   created = null
 })
 
+test('daily digest: Free base is useful, dismiss lasts the day, Pro adds the ready-made plan', async ({
+  page,
+}) => {
+  const id = uniqueIdentity()
+  const signUp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: id.email, password: id.password }),
+  })
+  expect(signUp.ok, 'signup for the digest fixture').toBeTruthy()
+  const auth = (await signUp.json()) as { access_token: string; user: { id: string } }
+  const token = auth.access_token
+  created = { email: id.email, password: id.password }
+
+  await rest(`profiles?id=eq.${auth.user.id}`, token, {
+    method: 'PATCH',
+    body: { onboarding_completed: true, daily_capacity_minutes: 360 },
+  })
+  const workspaces = (await rest('workspaces?select=id', token)) as { id: string }[]
+  const workspaceId = workspaces[0].id
+  const dayOffset = (n: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + n)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  const mk = (body: Record<string, unknown>) =>
+    rest('tasks', token, {
+      method: 'POST',
+      body: { workspace_id: workspaceId, ...body },
+      prefer: 'return=representation',
+    })
+
+  await mk({ title: 'Carried over A', scheduled_for: dayOffset(-1), effort_minutes: 45 })
+  await mk({ title: 'Overdue contract', scheduled_for: dayOffset(-2), effort_minutes: 30, priority: 3 })
+  await mk({ title: 'Backlog task one', effort_minutes: 60, priority: 2 })
+  await mk({ title: 'Backlog task two', effort_minutes: 30, priority: 1 })
+
+  await page.goto('/login')
+  await page.getByLabel('Email', { exact: true }).fill(id.email)
+  await page.getByLabel('Password', { exact: true }).fill(id.password)
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible({
+    timeout: 30_000,
+  })
+
+  const briefing = page.getByRole('region', { name: /Good (morning|afternoon|evening)/i })
+
+  // --- FREE: a genuinely useful base ---------------------------------------
+  await expect(briefing).toBeVisible()
+  // Today itself still renders fully alongside it — the card never gates the page.
+  await expect(page.getByRole('heading', { name: 'Day Capacity' })).toBeVisible()
+
+  await expect(briefing.getByText(/Carried over from earlier days: 2 tasks/i)).toBeVisible()
+  await expect(briefing.getByText(/free today/i)).toBeVisible()
+  await expect(briefing.getByRole('button', { name: 'Plan my day' })).toBeVisible()
+  // Quiet Pro line, no suggestion block, no modal.
+  await expect(briefing.getByText(/Your suggested day is ready/i)).toBeVisible()
+  await expect(briefing.getByRole('button', { name: 'Accept' })).toHaveCount(0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // --- Dismiss lasts the day and survives a reload -------------------------
+  await briefing.getByRole('button', { name: /Dismiss today/i }).click()
+  await expect(briefing).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Show briefing' })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
+  await expect(briefing).toHaveCount(0)
+  // …and can be reopened the same day.
+  await page.getByRole('button', { name: 'Show briefing' }).click()
+  await expect(briefing).toBeVisible()
+
+  // --- PRO: the smart layer ------------------------------------------------
+  await page.evaluate(() => localStorage.setItem('todonado.plan', 'pro'))
+  await page.reload()
+  await expect(briefing).toBeVisible({ timeout: 30_000 })
+
+  await expect(briefing.getByText(/Your suggested day:/i)).toBeVisible()
+  await expect(briefing.getByText(/Overdue contract/).first()).toBeVisible()
+  await expect(briefing.getByText(/high priority, overdue/i)).toBeVisible()
+  await expect(briefing.getByText(/Your suggested day is ready/i)).toHaveCount(0)
+
+  // Accept applies the plan through the existing undo path.
+  await briefing.getByRole('button', { name: 'Accept' }).click()
+  await expect(page.getByText(/Planned \d+ tasks? to today/i)).toBeVisible()
+
+  const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  expect(del.ok, `digest fixture cleanup failed: ${del.status}`).toBeTruthy()
+  created = null
+})
+
 test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)

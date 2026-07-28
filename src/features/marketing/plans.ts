@@ -43,6 +43,7 @@ export const PLANS: Plan[] = [
       'Unlimited task capture (Inbox)',
       'Projects, sections & subtasks',
       'Drag-to-reorder & priorities',
+      'Daily briefing: what carried over and what’s free today',
       // Templated from the constant so the copy can never drift from behaviour.
       `Completed history for the last ${FREE_HISTORY_DAYS} days`,
       'Calendar import (.ics file)',
@@ -61,6 +62,7 @@ export const PLANS: Plan[] = [
     features: [
       'Effort-aware capacity meter: plan what actually fits',
       'Overbooking guard + one-tap roll-over & recovery',
+      'Smart daily briefing: a ready-made plan, estimation nudge & priority alerts',
       'Focus mode: a distraction-free deep-work timer',
       'Recurring tasks (daily / weekly / monthly / yearly)',
       'Unlimited history — every completed task, kept forever',

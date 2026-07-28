@@ -82,4 +82,13 @@ export const FEATURES = {
    * to hide the badge (no other behavior changes).
    */
   streak: true,
+  /**
+   * "Start your day" — a dismissible briefing card at the top of Today that
+   * sums up carried-over work, meetings and free capacity, and offers the
+   * existing one-tap plan. Composed entirely from queries Today already runs
+   * (no new fetches); Pro additionally gets a pre-computed plan, an estimation
+   * nudge and priority alerts. Default ON; set to false to remove the card
+   * everywhere with no other behaviour change.
+   */
+  digest: true,
 } as const
