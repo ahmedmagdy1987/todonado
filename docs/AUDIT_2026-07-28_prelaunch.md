@@ -19,7 +19,7 @@ working exactly as designed but has no abuse control.
 
 | Probe | Scope |
 | --- | --- |
-| RLS sweep | 15 tables × {anon select, anon insert}, two live throwaway accounts for cross-user attempts, 7 billing-forgery attempts, RPC surface |
+| RLS sweep | 15 tables × {anon select, anon insert}, two live throwaway accounts for cross-user attempts, 7 billing-forgery attempts, RPC surface. (`user_templates` did not exist yet — covered in §6.) |
 | API | 3 production endpoints × {GET, unauthenticated POST, malformed input}, 3 webhook signature cases |
 | Bundle | 113 local `dist/` files (1.00 MB) + 108 production chunks (993 kB), transitively crawled |
 | Headers | 3 production paths |
@@ -334,6 +334,51 @@ and assuming.
 
 ---
 
+## 6. Addendum — `user_templates` RLS verified live, 2026-07-29
+
+The original sweep covered 15 tables. `public.user_templates` (personal templates) did
+**not exist** when it ran — its migration shipped committed-but-unapplied — so it was the
+one table with no live evidence behind it. The migration has since been applied, and the
+same adversarial method was run against it: two throwaway accounts, B attacking A's row,
+both self-deleted.
+
+**15 checks, 0 failures.** · FACT
+
+```
+anon SELECT                      -> 200 rows=0
+anon INSERT                      -> 401 42501
+A creates own template           -> id 732a9523…
+B reads A row                    -> 200 rows=0
+B unfiltered scan                -> total=0 foreign=0
+B updates A row                  -> 200 changed=0
+B deletes A row                  -> 200 deleted=0
+B inserts a row OWNED BY A       -> 403 42501
+A's row intact                   -> title="A private routine"
+```
+
+Note the unfiltered scan: B was allowed to `select *` with no filter and received
+**nothing** — isolation is enforced in the database, not by client filtering, matching
+every other user-scoped table.
+
+**The size/shape CHECKs are real, not decorative** — all four rejected with `23514`:
+
+```
+101 tasks                        -> 400 (jsonb_array_length <= 100)
+blank title                      -> 400 (char_length(btrim(title)) between 1 and 80)
+non-array `tasks`                -> 400 (jsonb_typeof = 'array')
+~120 KB of task text             -> 400 (pg_column_size(tasks) <= 65536)
+```
+
+So the client-side caps have a genuine backstop: a hostile or buggy client cannot store
+megabytes per row, and the column cannot be filled with a non-array shape that would
+break the reader.
+
+**Verdict unchanged: no Critical, no High.** With this, every table in the schema has
+live RLS evidence behind it. The four cleanup items in §5 (M2, `npm audit fix`, enforcing
+CSP, deleting the `source='audit'` rows) remain open and are unaffected.
+
+---
+
 *Scope note: no migrations were run and no auth/billing/RLS logic was modified during
-this audit. Every probe was read-only except the 6 disclosed fake-door rows and the two
-self-deleted throwaway accounts.*
+this audit. Every probe was read-only except the 6 disclosed fake-door rows and the
+self-deleted throwaway accounts (two in the original sweep, two more in §6).*
