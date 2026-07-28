@@ -75,7 +75,7 @@ export function HeroMeterDemo() {
           <button
             type="button"
             onClick={() => setRun((n) => n + 1)}
-            className="focus-ring ml-auto inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-text-muted transition-colors hover:text-text-primary"
+            className="focus-ring ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-text-muted transition-colors hover:text-text-primary"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             Replay

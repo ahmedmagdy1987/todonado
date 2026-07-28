@@ -65,7 +65,10 @@ export function LazyWidget({
   const [ref, near] = useInView<HTMLDivElement>({ rootMargin: '300px 0px', threshold: 0 })
 
   return (
-    <div ref={ref} style={{ minHeight }}>
+    // The reservation is RELEASED once mounted. Keeping it would leave dead
+    // space forever wherever a widget renders shorter than its placeholder
+    // (the empty capacity demo was 130px shorter at desktop widths).
+    <div ref={ref} style={near ? undefined : { minHeight }}>
       {near ? (
         <Suspense fallback={<WidgetSkeleton minHeight={minHeight} label={label} />}>
           <Widget />

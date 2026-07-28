@@ -7,7 +7,9 @@ import {
   Timer,
   type LucideIcon,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Reveal } from '../demo/Reveal'
+import { SECTION_RHYTHM } from '../sectionRhythm'
 
 interface Item {
   icon: LucideIcon
@@ -29,7 +31,7 @@ const ITEMS: Item[] = [
 export function EverythingStrip() {
   return (
     <section className="border-y border-white/5 bg-surface/30" aria-labelledby="everything">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal>
           <h2 id="everything" className="text-center font-display text-2xl font-bold sm:text-3xl">
             Everything else you&rsquo;d expect

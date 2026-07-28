@@ -64,7 +64,7 @@ export function MarketingFooter() {
                   <li key={link.to}>
                     <Link
                       to={link.to}
-                      className="focus-ring rounded text-sm text-text-muted transition-colors hover:text-text-primary"
+                      className="focus-ring inline-flex min-h-[32px] items-center rounded text-sm text-text-muted transition-colors hover:text-text-primary"
                     >
                       {link.label}
                     </Link>
@@ -77,8 +77,10 @@ export function MarketingFooter() {
 
         <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/5 pt-6 text-xs text-text-muted sm:flex-row sm:justify-between">
           <p>© {year} Todonado</p>
-          {/* Studio credit — deliberately plain text; a link is wired later. */}
-          <p className="text-text-muted/60">Powered by HBV Studio</p>
+          {/* Studio credit — deliberately plain text; a link is wired later.
+              Uses the full muted token: at /60 it fell to ~3.5:1 contrast,
+              which is unreadable rather than subtle. */}
+          <p className="text-text-muted">Powered by HBV Studio</p>
         </div>
       </div>
     </footer>

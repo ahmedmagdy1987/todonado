@@ -8,6 +8,7 @@ import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { HeroMeterDemo } from './demo/HeroMeterDemo'
 import { LazySection, LazyWidget, Reveal } from './demo/Reveal'
+import { SECTION_RHYTHM } from './sectionRhythm'
 
 /**
  * The three below-the-fold demos are code-split and mounted only as they near
@@ -50,11 +51,13 @@ interface ShowcaseProps {
 /** One short line, one live widget. No paragraphs — the widget is the argument. */
 function Showcase({ eyebrow, line, children, flip = false }: ShowcaseProps) {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+    <section className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal direction={flip ? 'right' : 'left'} className={cn(flip && 'lg:order-2')}>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-brand">{eyebrow}</p>
-          <h2 className="mt-4 font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">
+          {/* Accent blue, not brand violet: #6C5CE7 on the near-black background
+              is 4.14:1 — under the 4.5:1 needed at this size. #4EA8FF is 7.9:1. */}
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
+          <h2 className="mt-4 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
             {line}
           </h2>
         </Reveal>
@@ -81,7 +84,11 @@ export function LandingPage() {
   const ctaLabel = session ? 'Open your command center' : 'Start free'
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-text-primary">
+    // `overflow-x-clip` (NOT `overflow-x-hidden`): the reveal animations park
+    // elements 24px off-axis before they fire, which pushed the 390px viewport
+    // to 398px wide. `clip` contains that without creating a scroll container,
+    // so the sticky marketing header keeps working.
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-background text-text-primary">
       <MarketingHeader />
 
       <main className="flex-1">
@@ -158,7 +165,7 @@ export function LandingPage() {
             </>
           }
         >
-          <LazyWidget component={CapacityDemo} minHeight={470} label="the capacity demo" />
+          <LazyWidget component={CapacityDemo} minHeight={360} label="the capacity demo" />
         </Showcase>
 
         <Showcase
@@ -182,7 +189,7 @@ export function LandingPage() {
             </>
           }
         >
-          <LazyWidget component={FocusDemo} minHeight={520} label="the focus demo" />
+          <LazyWidget component={FocusDemo} minHeight={450} label="the focus demo" />
         </Showcase>
 
         {/* Real product screenshots — no mockups. */}

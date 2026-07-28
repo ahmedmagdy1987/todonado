@@ -3,6 +3,7 @@ import { ArrowRight, Check } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { Reveal } from '../demo/Reveal'
+import { SECTION_RHYTHM } from '../sectionRhythm'
 import { PLANS, PRICING_DISCLAIMER } from '../plans'
 
 /** Free + Pro only — the Team tier lives on the full pricing page. */
@@ -22,7 +23,7 @@ export function PricingTeaser({ onStartFree, ctaLabel }: PricingTeaserProps) {
   )
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24" aria-labelledby="pricing-teaser">
+    <section className={cn(SECTION_RHYTHM, 'max-w-5xl')} aria-labelledby="pricing-teaser">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 id="pricing-teaser" className="font-display text-2xl font-bold sm:text-3xl">
           Free to start. Pro when the day matters.
@@ -84,7 +85,7 @@ export function PricingTeaser({ onStartFree, ctaLabel }: PricingTeaserProps) {
       <Reveal className="mt-8 text-center">
         <Link
           to="/pricing"
-          className="focus-ring rounded px-1 text-sm text-text-muted underline-offset-4 transition-colors hover:text-text-primary hover:underline"
+          className="focus-ring inline-flex min-h-[44px] items-center rounded px-3 text-sm text-text-muted underline-offset-4 transition-colors hover:text-text-primary hover:underline"
         >
           Compare all plans
         </Link>
