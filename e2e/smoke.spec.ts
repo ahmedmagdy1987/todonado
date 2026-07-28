@@ -228,17 +228,42 @@ test('mobile: form inputs render at ≥16px so iOS Safari does not zoom on focus
  * Scroll the whole document so every IntersectionObserver-gated section and
  * lazily-mounted demo widget is actually in the DOM, then return to the top.
  * Without this, the below-the-fold widgets simply don't exist to query.
+ *
+ * Two details this depends on, both learned the hard way from a CI-only failure:
+ *
+ *  1. YIELD A FRAME after each scroll. IntersectionObserver only recomputes at a
+ *     rendering opportunity. On a saturated main thread (cold Vite in CI,
+ *     transforming a dozen chunks) a tight scroll loop never lets the page
+ *     paint, so every scroll collapses into ONE observation — taken at the final
+ *     position. The loop used to end at the top, so nothing below the fold ever
+ *     mounted and five whole sections silently went missing.
+ *  2. VERIFY, don't assume. The document grows as sections mount, so one sweep
+ *     may not reach the new bottom. Sweep until the last lazy section exists.
  */
 async function mountLazySections(page: import('@playwright/test').Page) {
-  await page.evaluate(async () => {
-    const step = window.innerHeight
-    for (let y = 0; y < document.body.scrollHeight; y += step) {
-      window.scrollTo(0, y)
+  const sweep = () =>
+    page.evaluate(async () => {
+      const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
+      const step = Math.round(window.innerHeight * 0.75)
+      for (let y = 0; y < document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y)
+        await frame()
+        await frame()
+        await new Promise((r) => setTimeout(r, 100))
+      }
+      window.scrollTo(0, document.body.scrollHeight)
+      await frame()
       await new Promise((r) => setTimeout(r, 150))
-    }
-    window.scrollTo(0, 0)
-    await new Promise((r) => setTimeout(r, 200))
-  })
+    })
+
+  // The pricing teaser is the LAST lazily-mounted section — once its link is in
+  // the DOM, everything above it has mounted too.
+  const sentinel = page.getByRole('link', { name: 'Compare all plans' })
+  for (let attempt = 0; attempt < 5 && (await sentinel.count()) === 0; attempt += 1) {
+    await sweep()
+  }
+  await expect(sentinel, 'lazy landing sections never mounted').toHaveCount(1)
+  await page.evaluate(() => window.scrollTo(0, 0))
 }
 
 test('landing: the hero capacity demo is live and replayable', async ({ page }) => {
