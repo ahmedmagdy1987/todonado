@@ -36,7 +36,13 @@ export function useApplyTemplate(workspaceId: string) {
 
   return async function apply(template: Template, target: ApplyTargetKind): Promise<ApplyResult> {
     const result = await applyTemplate(deps, template, target, { workspaceId, today: todayISO() })
-    track('template_applied', { source: typeof target === 'string' ? target : null })
+    // Reuses the existing event. `source` keeps its meaning (the target), and the
+    // free-form boolean `flag` distinguishes a personal template from a catalog
+    // one — so no new event name and therefore NO migration to the events CHECK.
+    track('template_applied', {
+      source: typeof target === 'string' ? target : null,
+      flag: template.category === 'personal',
+    })
     await qc.invalidateQueries({ queryKey: qk.tasks(workspaceId) })
     if (result.projectId) {
       await qc.invalidateQueries({ queryKey: qk.projects(workspaceId) })

@@ -303,6 +303,43 @@ export interface CalendarSource {
   updated_at: string
 }
 
+// ---------------------------------------------------------------------------
+//  Personal templates (owner-only). `tasks` stores the SAME shape as the
+//  built-in catalog, so one apply path serves both — see
+//  supabase/migrations/20260728120000_user_templates.sql.
+// ---------------------------------------------------------------------------
+export interface UserTemplateTask {
+  title: string
+  effortMinutes: number
+  section?: string
+  note?: string
+}
+
+export interface UserTemplate {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  /** Optional lucide icon name, validated against the client allow-list. */
+  icon: string | null
+  color: string | null
+  tasks: UserTemplateTask[]
+  created_at: string
+  updated_at: string
+}
+
+export interface NewUserTemplateInput {
+  title: string
+  description?: string | null
+  icon?: string | null
+  color?: string | null
+  tasks: UserTemplateTask[]
+}
+
+export type UserTemplatePatch = Partial<
+  Pick<UserTemplate, 'title' | 'description' | 'icon' | 'color' | 'tasks'>
+>
+
 export interface NewCalendarSourceInput {
   kind: CalendarSourceKind
   label: string

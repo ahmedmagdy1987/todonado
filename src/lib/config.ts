@@ -24,6 +24,15 @@ export const DEFAULT_DAILY_CAPACITY_MINUTES = 360
 export const FREE_HISTORY_DAYS = 14
 
 /**
+ * How many PERSONAL templates a Free plan may CREATE. Pro (and Founding) are
+ * unlimited. Tunable — this is the only place the number lives.
+ *
+ * The limit gates creation ONLY. Templates already saved keep working and
+ * applying forever at any count: nothing a user made is ever held hostage.
+ */
+export const FREE_PERSONAL_TEMPLATES = 3
+
+/**
  * Supabase realtime sync for the active workspace. Safe to disable if it ever
  * causes instability — the app remains fully functional via TanStack Query.
  */

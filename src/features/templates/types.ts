@@ -13,6 +13,13 @@ export type TemplateCategoryId =
   | 'students'
   | 'beginnings'
   | 'seasonal'
+  /**
+   * A user's OWN saved template. Deliberately absent from TEMPLATE_CATEGORIES,
+   * so it never renders as a browse chip — personal templates get their own
+   * "My templates" section — while still flowing through the shared
+   * Template type, card, preview and apply path.
+   */
+  | 'personal'
 
 export interface TemplateTask {
   title: string

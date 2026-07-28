@@ -727,6 +727,142 @@ test('daily digest: Free base is useful, dismiss lasts the day, Pro adds the rea
   created = null
 })
 
+/**
+ * Personal templates ship with their migration COMMITTED BUT NOT APPLIED, so
+ * this probes for the table and skips until `supabase db push` has run. It then
+ * exercises the real flow with no further changes — the skip is a deploy gate,
+ * not a permanent excuse.
+ */
+async function userTemplatesTableExists(): Promise<boolean> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/user_templates?select=id&limit=1`, {
+    headers: { apikey: SUPABASE_ANON_KEY },
+  })
+  return res.status !== 404
+}
+
+test('personal templates: capture a project → My templates → apply to Today; Free stops at the limit', async ({
+  page,
+}) => {
+  const ready = await userTemplatesTableExists()
+  test.skip(
+    !ready,
+    'user_templates does not exist yet — apply supabase/migrations/20260728120000_user_templates.sql',
+  )
+
+  const id = uniqueIdentity()
+  const signUp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: id.email, password: id.password }),
+  })
+  expect(signUp.ok, 'signup for the templates fixture').toBeTruthy()
+  const auth = (await signUp.json()) as { access_token: string; user: { id: string } }
+  const token = auth.access_token
+  created = { email: id.email, password: id.password }
+
+  await rest(`profiles?id=eq.${auth.user.id}`, token, {
+    method: 'PATCH',
+    body: { onboarding_completed: true, daily_capacity_minutes: 480 },
+  })
+  const workspaces = (await rest('workspaces?select=id', token)) as { id: string }[]
+  const workspaceId = workspaces[0].id
+  const [project] = (await rest('projects', token, {
+    method: 'POST',
+    body: { workspace_id: workspaceId, name: 'Client onboarding' },
+    prefer: 'return=representation',
+  })) as { id: string }[]
+  const [section] = (await rest('sections', token, {
+    method: 'POST',
+    body: { project_id: project.id, name: 'Kickoff', position: 0 },
+    prefer: 'return=representation',
+  })) as { id: string }[]
+
+  const mk = (body: Record<string, unknown>) =>
+    rest('tasks', token, {
+      method: 'POST',
+      body: { workspace_id: workspaceId, project_id: project.id, ...body },
+      prefer: 'return=representation',
+    })
+  await mk({ title: 'Collect brand assets', effort_minutes: 20, position: 0 })
+  await mk({ title: 'Schedule kickoff call', effort_minutes: 30, position: 0, section_id: section.id })
+  await mk({ title: 'Already finished', effort_minutes: 45, status: 'done' })
+
+  await page.goto('/login')
+  await page.getByLabel('Email', { exact: true }).fill(id.email)
+  await page.getByLabel('Password', { exact: true }).fill(id.password)
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible({
+    timeout: 30_000,
+  })
+
+  // --- Capture the project as a template -----------------------------------
+  await page.goto(`/projects/${project.id}`)
+  await page.getByRole('button', { name: 'Save as template' }).click()
+  await expect(page.getByText(/Saved .*Client onboarding.* to My templates/i)).toBeVisible({
+    timeout: 15_000,
+  })
+
+  const saved = (await rest('user_templates?select=title,tasks', token)) as {
+    title: string
+    tasks: { title: string; effortMinutes: number; section?: string }[]
+  }[]
+  expect(saved).toHaveLength(1)
+  // Fidelity: open tasks only, unsectioned first, section + effort preserved.
+  expect(saved[0].tasks).toEqual([
+    { title: 'Collect brand assets', effortMinutes: 20 },
+    { title: 'Schedule kickoff call', effortMinutes: 30, section: 'Kickoff' },
+  ])
+
+  // --- It shows under "My templates" and applies through the shared path ----
+  await page.goto('/templates')
+  const mine = page.getByRole('region', { name: 'My templates' })
+  await expect(mine).toBeVisible()
+  await expect(mine.getByRole('link', { name: 'Preview Client onboarding' })).toBeVisible()
+
+  await mine.getByRole('link', { name: 'Preview Client onboarding' }).click()
+  await expect(page.getByRole('button', { name: 'Use this list' })).toBeVisible()
+  await page.getByRole('button', { name: 'Use this list' }).click()
+
+  // Lands on Today with the tasks and a capacity meter that has moved.
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Collect brand assets' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Schedule kickoff call' })).toBeVisible()
+  // 50 minutes of 480 → a non-zero percentage.
+  await expect(page.getByText(/\b(?!0%)\d+%\s*planned/)).toBeVisible()
+
+  // --- Free stops at the limit — but nothing already saved is affected ------
+  for (const n of [2, 3]) {
+    await rest('user_templates', token, {
+      method: 'POST',
+      body: {
+        user_id: auth.user.id,
+        title: `Filler ${n}`,
+        tasks: [{ title: 'x', effortMinutes: 15 }],
+      },
+    })
+  }
+  await page.goto('/templates')
+  await expect(mine).toBeVisible()
+  await page.getByRole('button', { name: 'New template' }).click()
+  await expect(page.getByRole('note', { name: /Personal template limit reached/i })).toBeVisible()
+  // The editor must NOT have opened.
+  await expect(page.getByRole('dialog', { name: 'New template' })).toHaveCount(0)
+  // …and every saved template still previews and applies.
+  await expect(mine.getByRole('link', { name: 'Preview Client onboarding' })).toBeVisible()
+
+  const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  expect(del.ok, `templates fixture cleanup failed: ${del.status}`).toBeTruthy()
+  created = null
+})
+
 test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)

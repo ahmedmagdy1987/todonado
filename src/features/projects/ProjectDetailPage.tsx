@@ -1,12 +1,22 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Archive, ArrowLeft, Pencil, Plus } from 'lucide-react'
+import { Archive, ArrowLeft, BookmarkPlus, Pencil, Plus } from 'lucide-react'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { SortableList } from '@/components/common/SortableList'
 import { newPositionForMove } from '@/lib/reorder'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
+import { FREE_PERSONAL_TEMPLATES } from '@/lib/config'
+import { useToast } from '@/components/common/toast-context'
+import { usePlan } from '@/features/billing/usePlan'
+import { useUserTemplates } from '@/features/templates/api/useUserTemplates'
+import {
+  canCreatePersonalTemplate,
+  captureProjectAsTemplate,
+  toUserTemplateTasks,
+} from '@/features/templates/personal'
+import { PersonalLimitUpsell } from '@/features/templates/components/PersonalLimitUpsell'
 import { windowTaskHistory } from '@/features/history/historyWindow'
 import { useHistoryWindow } from '@/features/history/useHistoryWindow'
 import { HistoryCutoffCard } from '@/features/history/components/HistoryCutoffCard'
@@ -29,6 +39,19 @@ export function ProjectDetailPage() {
   const [newSection, setNewSection] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [showTemplateLimit, setShowTemplateLimit] = useState(false)
+  const toast = useToast()
+  const { isPro } = usePlan()
+  const {
+    templates: personalRows,
+    available: personalTemplatesAvailable,
+    createTemplate,
+  } = useUserTemplates()
+  const canSaveTemplate = canCreatePersonalTemplate(
+    personalRows.length,
+    isPro,
+    FREE_PERSONAL_TEMPLATES,
+  )
 
   const project = projects.find((p) => p.id === projectId)
 
@@ -67,6 +90,38 @@ export function ProjectDetailPage() {
     if (!trimmed) return
     createSection.mutate({ project_id: projectId, name: trimmed, position: sections.length })
     setNewSection('')
+  }
+
+  /**
+   * THE zero-typing capture: this project's open tasks — with their sections,
+   * order, efforts and notes — become a reusable personal template. Uses the
+   * UNWINDOWED list so nothing depends on the history view (it only ever hides
+   * completed work, which a template excludes anyway).
+   */
+  function saveAsTemplate() {
+    if (!project || createTemplate.isPending) return
+    if (!canSaveTemplate) {
+      setShowTemplateLimit(true)
+      return
+    }
+    const draft = captureProjectAsTemplate({ project, sections, tasks: allProjectTasks })
+    if (draft.tasks.length === 0) {
+      toast.show('Add an open task first — a template needs something to apply.')
+      return
+    }
+    createTemplate.mutate(
+      {
+        title: draft.title,
+        description: draft.description,
+        icon: draft.icon,
+        color: draft.color,
+        tasks: toUserTemplateTasks(draft.tasks),
+      },
+      {
+        onSuccess: () => toast.show(`Saved “${draft.title}” to My templates`),
+        onError: () => toast.show('Couldn’t save that template — please try again.'),
+      },
+    )
   }
 
   function commitName() {
@@ -119,10 +174,21 @@ export function ProjectDetailPage() {
             <Pencil className="h-4 w-4 shrink-0 text-text-muted opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" aria-hidden />
           </button>
         )}
+        {personalTemplatesAvailable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={saveAsTemplate}
+            loading={createTemplate.isPending}
+          >
+            <BookmarkPlus className="h-4 w-4" aria-hidden /> Save as template
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto"
+          className={personalTemplatesAvailable ? undefined : 'ml-auto'}
           onClick={() => {
             archiveProject.mutate({ id: projectId, archived: true })
             navigate('/projects')
@@ -131,6 +197,10 @@ export function ProjectDetailPage() {
           <Archive className="h-4 w-4" aria-hidden /> Archive
         </Button>
       </header>
+
+      {showTemplateLimit && !canSaveTemplate && (
+        <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />
+      )}
 
       <SectionGroup
         workspaceId={workspaceId}

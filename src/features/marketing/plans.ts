@@ -10,7 +10,7 @@
 
 /** Tiers a user can express purchase intent for. MUST match the DB check in
  *  supabase/migrations/20260615120000_upgrade_intents.sql (tier in ('pro','team')). */
-import { FREE_HISTORY_DAYS } from '@/lib/config'
+import { FREE_HISTORY_DAYS, FREE_PERSONAL_TEMPLATES } from '@/lib/config'
 
 export type PaidTier = 'pro' | 'team'
 export type PlanId = 'free' | PaidTier
@@ -44,6 +44,7 @@ export const PLANS: Plan[] = [
       'Projects, sections & subtasks',
       'Drag-to-reorder & priorities',
       'Daily briefing: what carried over and what’s free today',
+      `${FREE_PERSONAL_TEMPLATES} personal templates of your own`,
       // Templated from the constant so the copy can never drift from behaviour.
       `Completed history for the last ${FREE_HISTORY_DAYS} days`,
       'Calendar import (.ics file)',
@@ -63,6 +64,7 @@ export const PLANS: Plan[] = [
       'Effort-aware capacity meter: plan what actually fits',
       'Overbooking guard + one-tap roll-over & recovery',
       'Smart daily briefing: a ready-made plan, estimation nudge & priority alerts',
+      'Unlimited personal templates — save any routine, reapply in one tap',
       'Focus mode: a distraction-free deep-work timer',
       'Recurring tasks (daily / weekly / monthly / yearly)',
       'Unlimited history — every completed task, kept forever',

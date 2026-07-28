@@ -1,12 +1,25 @@
 import { useMemo, useState } from 'react'
-import { LayoutTemplate, Search } from 'lucide-react'
+import { LayoutTemplate, Plus, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Card, CardContent, Input } from '@/components/ui'
+import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import { FREE_PERSONAL_TEMPLATES } from '@/lib/config'
+import { useToast } from '@/components/common/toast-context'
+import { usePlan } from '@/features/billing/usePlan'
+import { useWorkspace } from '@/features/workspace/workspace-context'
 import { TEMPLATES, TEMPLATE_CATEGORIES } from './catalog'
 import { resolveTemplateIcon } from './icons'
 import { filterTemplates } from './browse'
 import { TemplateCard } from './components/TemplateCard'
+import { PersonalTemplateEditor } from './components/PersonalTemplateEditor'
+import { PersonalLimitUpsell } from './components/PersonalLimitUpsell'
+import { useUserTemplates } from './api/useUserTemplates'
+import {
+  canCreatePersonalTemplate,
+  personalToTemplate,
+  toUserTemplateTasks,
+  type PersonalTemplateDraft,
+} from './personal'
 
 interface CatItem {
   id: string
@@ -40,6 +53,104 @@ function CategoryChip({ item, active, onClick }: { item: CatItem; active: boolea
 export function TemplatesPage() {
   const [category, setCategory] = useState('all')
   const [query, setQuery] = useState('')
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showLimit, setShowLimit] = useState(false)
+  const { isPro } = usePlan()
+  const { workspaceId } = useWorkspace()
+  const {
+    templates: personalRows,
+    available: personalAvailable,
+    createTemplate,
+    updateTemplate,
+    deleteTemplate,
+  } = useUserTemplates()
+  const toast = useToast()
+
+  // One adaptation at the boundary — from here on a personal template IS a
+  // Template, so the card, search and preview below are the shared code path.
+  const personal = useMemo(() => personalRows.map(personalToTemplate), [personalRows])
+  const personalResults = useMemo(
+    () => filterTemplates(personal, category, query),
+    [personal, category, query],
+  )
+  const canCreate = canCreatePersonalTemplate(personalRows.length, isPro, FREE_PERSONAL_TEMPLATES)
+
+  const editing = editingId ? personalRows.find((r) => r.id === editingId) : undefined
+  const editingDraft: PersonalTemplateDraft | undefined = editing
+    ? {
+        title: editing.title,
+        description: editing.description,
+        icon: editing.icon,
+        color: editing.color,
+        tasks: personalToTemplate(editing).tasks,
+      }
+    : undefined
+
+  function startNew() {
+    // The limit gates CREATION only — never viewing or applying what exists.
+    if (!canCreate) {
+      setShowLimit(true)
+      return
+    }
+    setShowLimit(false)
+    setEditingId(null)
+    setEditorOpen(true)
+  }
+
+  function startEdit(id: string) {
+    setShowLimit(false)
+    setEditingId(id)
+    setEditorOpen(true)
+  }
+
+  function closeEditor() {
+    setEditorOpen(false)
+    setEditingId(null)
+  }
+
+  function save(draft: PersonalTemplateDraft) {
+    const payload = {
+      title: draft.title.trim(),
+      description: draft.description,
+      icon: draft.icon,
+      color: draft.color,
+      tasks: toUserTemplateTasks(draft.tasks),
+    }
+    const onError = () => toast.show('Couldn’t save that template — please try again.')
+
+    if (editingId) {
+      updateTemplate.mutate(
+        { id: editingId, patch: payload },
+        {
+          onSuccess: () => {
+            closeEditor()
+            toast.show('Template updated')
+          },
+          onError,
+        },
+      )
+      return
+    }
+    createTemplate.mutate(payload, {
+      onSuccess: () => {
+        closeEditor()
+        toast.show('Template saved')
+      },
+      onError,
+    })
+  }
+
+  function remove() {
+    if (!editingId) return
+    deleteTemplate.mutate(editingId, {
+      onSuccess: () => {
+        closeEditor()
+        toast.show('Template deleted')
+      },
+      onError: () => toast.show('Couldn’t delete that template — please try again.'),
+    })
+  }
 
   const cats: CatItem[] = useMemo(() => {
     const counts = new Map<string, number>()
@@ -63,13 +174,20 @@ export function TemplatesPage() {
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
           <LayoutTemplate className="h-5 w-5" aria-hidden />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="font-display text-xl font-semibold">Templates</h2>
           <p className="text-sm text-text-muted">
             Start from a ready-made list — every task comes effort-tagged.
           </p>
         </div>
+        {personalAvailable && (
+          <Button type="button" variant="secondary" size="sm" onClick={startNew} className="shrink-0">
+            <Plus className="h-4 w-4" aria-hidden /> New template
+          </Button>
+        )}
       </header>
+
+      {showLimit && !canCreate && <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />}
 
       <div className="relative">
         <Search
@@ -120,6 +238,23 @@ export function TemplatesPage() {
 
         {/* Results */}
         <div className="mt-2 md:mt-0">
+          {/* My templates — only when they have any that match the current filter. */}
+          {personalResults.length > 0 && (
+            <section aria-labelledby="my-templates" className="mb-8">
+              <div className="mb-3 flex items-center gap-2">
+                <h3 id="my-templates" className="font-display text-base font-semibold">
+                  My templates
+                </h3>
+                <span className="font-mono text-xs text-text-muted">{personalResults.length}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {personalResults.map((t) => (
+                  <TemplateCard key={t.id} template={t} personal onEdit={() => startEdit(t.id)} />
+                ))}
+              </div>
+            </section>
+          )}
+
           <p className="sr-only" role="status" aria-live="polite">
             {results.length} {results.length === 1 ? 'template' : 'templates'}
           </p>
@@ -140,6 +275,17 @@ export function TemplatesPage() {
           )}
         </div>
       </div>
+
+      <PersonalTemplateEditor
+        open={editorOpen}
+        workspaceId={workspaceId}
+        initial={editingDraft}
+        title={editingId ? 'Edit template' : 'New template'}
+        saving={createTemplate.isPending || updateTemplate.isPending}
+        onCancel={closeEditor}
+        onSave={save}
+        onDelete={editingId ? remove : undefined}
+      />
     </div>
   )
 }

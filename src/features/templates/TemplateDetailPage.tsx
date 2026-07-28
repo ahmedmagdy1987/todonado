@@ -7,6 +7,8 @@ import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useToast } from '@/components/common/toast-context'
 import { cn } from '@/lib/utils'
 import { formatEffort, getTemplate, templateIcon, totalEffortMinutes } from './catalog'
+import { useUserTemplates } from './api/useUserTemplates'
+import { personalToTemplate } from './personal'
 import { groupTemplateTasks } from './browse'
 import { useApplyTemplate } from './useApplyTemplate'
 import { applySuccessMessage, type ApplyTargetKind } from './apply'
@@ -17,6 +19,16 @@ const TARGETS: { kind: ApplyTargetKind; label: string; hint: string; Icon: Lucid
   { kind: 'project', label: 'New project', hint: 'A project with these tasks', Icon: FolderPlus },
   { kind: 'inbox', label: 'Inbox', hint: 'Capture for later', Icon: Inbox },
 ]
+
+function Loading() {
+  return (
+    <div className="animate-fade-in">
+      <Card>
+        <CardContent className="py-16 text-center text-text-muted">Loading template…</CardContent>
+      </Card>
+    </div>
+  )
+}
 
 function NotFound() {
   return (
@@ -37,7 +49,16 @@ function NotFound() {
 
 export function TemplateDetailPage() {
   const { templateId } = useParams()
-  const template = templateId ? getTemplate(templateId) : undefined
+  const { templates: personalRows, isPending: personalPending } = useUserTemplates()
+
+  // Catalog ids are slugs and personal ids are uuids, so they can't collide.
+  // Falling through to the user's own templates here is what lets ONE preview +
+  // apply screen serve both — there is no personal fork of this page.
+  const catalogTemplate = templateId ? getTemplate(templateId) : undefined
+  const personalRow =
+    !catalogTemplate && templateId ? personalRows.find((r) => r.id === templateId) : undefined
+  const template = catalogTemplate ?? (personalRow ? personalToTemplate(personalRow) : undefined)
+
   const { workspaceId } = useWorkspace()
   const apply = useApplyTemplate(workspaceId)
   const toast = useToast()
@@ -45,7 +66,8 @@ export function TemplateDetailPage() {
   const [target, setTarget] = useState<ApplyTargetKind>('today')
   const [busy, setBusy] = useState(false)
 
-  if (!template) return <NotFound />
+  // Don't flash "doesn't exist" while the personal list is still loading.
+  if (!template) return personalPending ? <Loading /> : <NotFound />
 
   const Icon = templateIcon(template)
   const groups = groupTemplateTasks(template)
