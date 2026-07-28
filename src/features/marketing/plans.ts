@@ -63,6 +63,7 @@ export const PLANS: Plan[] = [
     features: [
       'Effort-aware capacity meter: plan what actually fits',
       'Overbooking guard + one-tap roll-over & recovery',
+      'Week planning: 7 days of capacity, drag between days + Plan my week',
       'Smart daily briefing: a ready-made plan, estimation nudge & priority alerts',
       'Unlimited personal templates — save any routine, reapply in one tap',
       'Focus mode: a distraction-free deep-work timer',

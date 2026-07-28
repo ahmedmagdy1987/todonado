@@ -15,6 +15,7 @@ import { FullScreenLoader } from '@/components/common/FullScreenLoader'
 import { LoadError } from '@/components/common/LoadError'
 import { formatMinutes } from '@/lib/format'
 import { todayISO } from '@/lib/date'
+import { track } from '@/features/analytics/track'
 import { usePlan } from '@/features/billing/usePlan'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
@@ -28,6 +29,8 @@ import { DayColumn } from './components/DayColumn'
 import { WeekTaskItem } from './components/WeekTaskItem'
 import { WeekTaskCard } from './components/WeekTaskCard'
 import { WeekQuickAdd } from './components/WeekQuickAdd'
+import { PlanMyWeek } from './components/PlanMyWeek'
+import type { WeekPlanPick } from './planWeek'
 import { WeekStrip } from './components/WeekStrip'
 import { WeekUpsell } from './components/WeekUpsell'
 
@@ -81,6 +84,25 @@ export function WeekPage() {
     setUndo(null)
   }
 
+  /**
+   * Apply a whole week plan. The undo snapshot records EVERY task's previous
+   * date before anything changes, so one tap restores the week exactly — the
+   * same shape as a single move, just with more items.
+   */
+  function applyWeekPlan(picks: WeekPlanPick[]) {
+    if (picks.length === 0) return
+    setUndo({
+      verb: 'Planned',
+      items: picks.map((p) => ({ id: p.task.id, scheduled_for: p.task.scheduled_for })),
+    })
+    picks.forEach((p) => updateTask.mutate({ id: p.task.id, patch: { scheduled_for: p.date } }))
+    // Reuses the existing event; `source` is free text, so no migration.
+    track('auto_planned', { flag: picks.some((p) => p.estimated), source: 'week' })
+  }
+
+  /** Assumed cost for an effortless task — calc only, never written. */
+  const estimateCost = (task: Task) => suggestEffort(task.title, task.project_id)?.minutes ?? 30
+
   // Free users get the honest sample-data preview, never their own week teased.
   if (!isPro && !billingLoading) return <WeekUpsell />
   if (billingLoading || isPending) return <FullScreenLoader label="Loading your week…" />
@@ -121,11 +143,21 @@ export function WeekPage() {
             The next 7 days · {formatMinutes(plannedTotal)} planned
           </p>
         </div>
-        <Link to="/">
-          <Button variant="secondary" size="sm">
-            <Sun className="h-4 w-4" aria-hidden /> Today
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <PlanMyWeek
+            tasks={tasks}
+            capacityMinutes={capacityMinutes}
+            todayStr={today}
+            estimate={estimateCost}
+            busyByDate={byDate}
+            onApply={applyWeekPlan}
+          />
+          <Link to="/">
+            <Button variant="secondary" size="sm">
+              <Sun className="h-4 w-4" aria-hidden /> Today
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {undo && undo.items.length > 0 && (

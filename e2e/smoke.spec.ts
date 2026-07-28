@@ -937,6 +937,24 @@ test('week view: Free sees a labelled SAMPLE preview, Pro sees the real 7-day bo
   await page.getByRole('button', { name: 'Week' }).first().click()
   await expect(page.getByRole('heading', { name: 'Your week' })).toBeVisible()
 
+  // --- Plan my week: preview → accept → batch undo --------------------------
+  await page.getByRole('button', { name: 'Plan my week' }).click()
+  const planDialog = page.getByRole('dialog', { name: 'Plan my week' })
+  await expect(planDialog).toBeVisible()
+  // The planner's own promise, shown before anything is written.
+  await expect(planDialog.getByText(/No day goes over capacity/i)).toBeVisible()
+  await expect(planDialog.getByText('Unscheduled backlog item')).toBeVisible()
+
+  await planDialog.getByRole('button', { name: /Plan \d+ into the week/ }).click()
+  await expect(planDialog).toBeHidden()
+  await expect(page.getByText(/Planned \d+ task/i)).toBeVisible()
+  // The backlog item is now on the board.
+  await expect(page.getByText('Unscheduled backlog item')).toBeVisible()
+
+  // One tap puts the whole week back exactly as it was.
+  await page.getByRole('button', { name: 'Undo' }).click()
+  await expect(page.getByText('Unscheduled backlog item')).toHaveCount(0)
+
   const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
     method: 'POST',
     headers: {
