@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { isoDateOffset, todayISO } from '@/lib/date'
+import { windowDayKeys } from '@/features/history/historyWindow'
 import type { Task } from '@/types/database'
 
 /**
@@ -76,7 +77,22 @@ export function computePlanningStreak(planningDays: Set<string>, todayStr: strin
   return { count, includesToday }
 }
 
-/** Convenience: derive the streak straight from the tasks cache. */
-export function planningStreak(tasks: Task[], todayStr: string = todayISO()): StreakInfo {
-  return computePlanningStreak(planningDaysFromTasks(tasks), todayStr)
+/**
+ * Convenience: derive the streak straight from the tasks cache.
+ *
+ * `cutoffDay` applies the plan's history window (null = unlimited). The streak
+ * badge is a FREE-visible surface, so on a limited plan it must be computed from
+ * exactly the days that plan can see — never silently from history the user has
+ * been told is out of view. A Free streak therefore tops out at the window
+ * length, which is honest: it reflects the data they actually have.
+ */
+export function planningStreak(
+  tasks: Task[],
+  todayStr: string = todayISO(),
+  cutoffDay: string | null = null,
+): StreakInfo {
+  return computePlanningStreak(
+    windowDayKeys(planningDaysFromTasks(tasks), cutoffDay),
+    todayStr,
+  )
 }

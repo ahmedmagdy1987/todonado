@@ -7,6 +7,9 @@ import { newPositionForMove } from '@/lib/reorder'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
+import { windowTaskHistory } from '@/features/history/historyWindow'
+import { useHistoryWindow } from '@/features/history/useHistoryWindow'
+import { HistoryCutoffCard } from '@/features/history/components/HistoryCutoffCard'
 import { useProjects, useProjectMutations } from './api/useProjects'
 import { useSections, useSectionMutations } from './api/useSections'
 import { SectionGroup } from './components/SectionGroup'
@@ -21,6 +24,7 @@ export function ProjectDetailPage() {
   const { createSection, renameSection, deleteSection, reorderSection } =
     useSectionMutations(projectId)
   const { updateProject, archiveProject } = useProjectMutations(workspaceId)
+  const { cutoffDay, days: historyDays } = useHistoryWindow()
 
   const [newSection, setNewSection] = useState('')
   const [editingName, setEditingName] = useState(false)
@@ -46,7 +50,14 @@ export function ProjectDetailPage() {
     )
   }
 
-  const projectTasks = selectByProject(tasks, projectId)
+  // A project list is the app's completed-task history: selectByProject keeps
+  // `done` tasks so past work stays in context. On a limited plan we window that
+  // history — COMPLETED tasks older than the window drop out of the view, while
+  // every OPEN task stays put no matter how old it is (windowTaskHistory
+  // guarantees that). Nothing is deleted; `tasks` still holds it all, which is
+  // why upgrading shows everything on the next render.
+  const allProjectTasks = selectByProject(tasks, projectId)
+  const { visible: projectTasks, hiddenCount } = windowTaskHistory(allProjectTasks, cutoffDay)
   const unsectioned = projectTasks.filter((t) => t.section_id == null)
   const sectionIds = sections.map((s) => s.id)
 
@@ -159,6 +170,10 @@ export function ProjectDetailPage() {
           }}
         </SortableList>
       )}
+
+      {/* Quiet end-of-history marker. Renders nothing at all when the window
+          withheld nothing — so a user in their first two weeks never sees it. */}
+      <HistoryCutoffCard hiddenCount={hiddenCount} days={historyDays} />
 
       <form onSubmit={addSection} className="flex items-center gap-2">
         <Plus className="h-4 w-4 text-text-muted" aria-hidden />

@@ -7,6 +7,7 @@ import { usePlan } from '@/features/billing/usePlan'
 import { isBillingConfigured, priceIdFor, type BillingInterval } from '@/features/billing/stripeConfig'
 import { openBillingPortal, startCheckout } from '@/features/billing/api/checkout'
 import { PLANS } from '@/features/marketing/plans'
+import { FREE_HISTORY_DAYS } from '@/lib/config'
 import { UpgradeIntentModal } from '@/features/marketing/components/UpgradeIntentModal'
 
 const PRO_PLAN = PLANS.find((p) => p.id === 'pro') ?? null
@@ -85,7 +86,7 @@ export function PlanPage() {
     ? 'You have full access as a founding member — thank you for being here early.'
     : isPro
       ? 'You have full access to Insights and every Pro feature.'
-      : 'You are on the Free plan. Everything you need to plan and run your day is included.'
+      : `You are on the Free plan. Everything you need to plan and run your day is included, with completed history for the last ${FREE_HISTORY_DAYS} days.`
 
   return (
     // Text page: cap at a comfortable reading width, centered in the wider frame.

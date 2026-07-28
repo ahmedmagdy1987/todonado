@@ -11,6 +11,19 @@ export const LEGAL_CONTACT = 'support@todonado.com'
 export const DEFAULT_DAILY_CAPACITY_MINUTES = 360
 
 /**
+ * How many CALENDAR DAYS of completed history a Free plan can see, counting
+ * today. Pro (and Founding) are unlimited. Tunable — this is the only place the
+ * number lives.
+ *
+ * This is a VIEW limit, never a data limit: nothing is deleted, archived, or
+ * mutated, and upgrading reveals everything instantly. It applies ONLY to
+ * completed/history surfaces — open tasks, Today, Inbox, roll-over, capacity,
+ * auto-plan and templates are fully functional on Free no matter how old the
+ * task is. See src/features/history/historyWindow.ts.
+ */
+export const FREE_HISTORY_DAYS = 14
+
+/**
  * Supabase realtime sync for the active workspace. Safe to disable if it ever
  * causes instability — the app remains fully functional via TanStack Query.
  */

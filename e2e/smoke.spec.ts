@@ -401,6 +401,135 @@ test('landing: Focus & Calm shows shipped modules as live and only fake-doors th
   await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
 })
 
+// --- REST helpers for the history-window test -------------------------------
+// Data is seeded over the REST API with the user's OWN session (RLS applies
+// normally) rather than through the UI, so the fixture is deterministic: the
+// UI has no way to backdate a completion.
+async function rest(
+  path: string,
+  token: string,
+  init: { method?: string; body?: unknown; prefer?: string } = {},
+) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: init.method ?? 'GET',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(init.prefer ? { Prefer: init.prefer } : {}),
+    },
+    body: init.body ? JSON.stringify(init.body) : undefined,
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`REST ${path} → ${res.status} ${text}`)
+  return text ? (JSON.parse(text) as unknown) : null
+}
+
+/** ISO timestamp `days` ago at local midday (never lands on a day boundary). */
+function daysAgoISO(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  d.setHours(12, 0, 0, 0)
+  return d.toISOString()
+}
+
+test('Free history window: first run is untouched, old history is windowed, upgrade reveals it', async ({
+  page,
+}) => {
+  // --- Seed a throwaway account with a KNOWN history spread ----------------
+  const id = uniqueIdentity()
+  const signUp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: id.email, password: id.password }),
+  })
+  expect(signUp.ok, 'signup for the history fixture').toBeTruthy()
+  const auth = (await signUp.json()) as { access_token: string; user: { id: string } }
+  const token = auth.access_token
+  created = { email: id.email, password: id.password } // safety net owns cleanup
+
+  // Skip first-run onboarding so the app lands straight on the project.
+  await rest(`profiles?id=eq.${auth.user.id}`, token, {
+    method: 'PATCH',
+    body: { onboarding_completed: true },
+  })
+  const workspaces = (await rest('workspaces?select=id', token)) as { id: string }[]
+  const workspaceId = workspaces[0].id
+  const [project] = (await rest('projects', token, {
+    method: 'POST',
+    body: { workspace_id: workspaceId, name: 'History fixture' },
+    prefer: 'return=representation',
+  })) as { id: string }[]
+
+  const mk = (body: Record<string, unknown>) =>
+    rest('tasks', token, {
+      method: 'POST',
+      body: { workspace_id: workspaceId, project_id: project.id, ...body },
+      prefer: 'return=representation',
+    })
+  await mk({ title: 'Recently finished', status: 'done', completed_at: daysAgoISO(2) })
+  await mk({ title: 'Finished long ago', status: 'done', completed_at: daysAgoISO(40) })
+  // The invariant that matters most: an OPEN task older than the window must
+  // still show and still be plannable on Free.
+  await mk({ title: 'Ancient open task', status: 'todo', effort_minutes: 30 })
+
+  // --- Sign in through the UI ---------------------------------------------
+  await page.goto('/login')
+  await page.getByLabel('Email', { exact: true }).fill(id.email)
+  await page.getByLabel('Password', { exact: true }).fill(id.password)
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible({
+    timeout: 30_000,
+  })
+
+  // FIRST-RUN PROOF: this account's own history is only minutes old, and the
+  // 40-day task is the ONLY thing outside the window — Today never shows a
+  // cutoff, because Today is never history.
+  await expect(page.getByText(/Your history continues/)).toHaveCount(0)
+
+  // --- FREE: the project view is windowed ---------------------------------
+  await page.goto(`/projects/${project.id}`)
+  await expect(page.getByRole('button', { name: 'Recently finished' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ancient open task' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Finished long ago' })).toHaveCount(0)
+
+  // The quiet cutoff card — a card, not a dialog.
+  const cutoff = page.getByText(/Your history continues/)
+  await expect(cutoff).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Upgrade' })).toBeVisible()
+
+  // --- UPGRADE: everything reappears, with no data ever having moved -------
+  // Flip the plan through the app's OWN documented preview override, so the
+  // real usePlan() gate decides — no test-only branch in app code.
+  await page.evaluate(() => localStorage.setItem('todonado.plan', 'pro'))
+  await page.reload()
+
+  await expect(page.getByRole('button', { name: 'Finished long ago' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Recently finished' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Ancient open task' })).toBeVisible()
+  await expect(page.getByText(/Your history continues/)).toHaveCount(0)
+
+  // --- DOWNGRADE: it windows again, proving the data was never touched -----
+  await page.evaluate(() => localStorage.removeItem('todonado.plan'))
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Finished long ago' })).toHaveCount(0)
+  await expect(page.getByText(/Your history continues/)).toBeVisible()
+
+  // Cleanup: the account (and its fixture rows) self-delete.
+  const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  expect(del.ok, `history fixture cleanup failed: ${del.status}`).toBeTruthy()
+  created = null
+})
+
 test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)

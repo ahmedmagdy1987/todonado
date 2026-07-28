@@ -13,6 +13,7 @@ import { useCalendarBusy } from '@/features/calendar/api/useCalendarBusy'
 import { withCalendar } from '@/features/calendar/capacity'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
 import { selectToday } from '@/features/tasks/selectors'
+import { useHistoryWindow } from '@/features/history/useHistoryWindow'
 import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { TaskListView } from '@/features/tasks/components/TaskListView'
 import { todayISO, isoDateOffset } from '@/lib/date'
@@ -53,6 +54,12 @@ export function TodayPage() {
   const tomorrow = isoDateOffset(1)
   const name = user?.email?.split('@')[0] ?? 'there'
 
+  // Free sees a rolling history window; Pro/Founding get null (unlimited).
+  // NOTE: this bounds HISTORY ONLY. Today's task list, the capacity meter,
+  // roll-over and auto-plan below all read the FULL task set, so an open task of
+  // any age still shows, still counts, and still plans.
+  const { cutoffDay: historyCutoff } = useHistoryWindow(today)
+
   // Today's calendar busy-minutes (0 when the feature/sources are off or fail).
   const { busyMinutes, hadError: calendarError } = useCalendarBusy(today)
 
@@ -70,9 +77,14 @@ export function TodayPage() {
   const suggestions = suggestTasksToMoveTomorrow(todayTasks, cal.effectiveCapacity)
 
   // Planning streak — derived from the tasks cache (no new table); non-shaming.
+  // Bounded by the plan's history window so a Free streak is computed only from
+  // days that plan can actually see (never silently from hidden history).
   const streak = useMemo(
-    () => (FEATURES.streak ? planningStreak(tasks, today) : { count: 0, includesToday: false }),
-    [tasks, today],
+    () =>
+      FEATURES.streak
+        ? planningStreak(tasks, today, historyCutoff)
+        : { count: 0, includesToday: false },
+    [tasks, today, historyCutoff],
   )
 
   // capacity_viewed: once per Today mount. over_capacity_hit: once per mount, the

@@ -9,8 +9,12 @@ import { PLANS, PRICING_DISCLAIMER } from '../plans'
 /** Free + Pro only — the Team tier lives on the full pricing page. */
 const TEASER_IDS = ['free', 'pro'] as const
 
-/** How many bullets to show before deferring to /pricing. */
-const BULLET_LIMIT = 4
+/**
+ * How many bullets to show before deferring to /pricing. Six keeps the whole
+ * Free list plus every differentiating Pro line (including the history limit)
+ * on the landing; only Pro's closing "Everything in Free" summary is deferred.
+ */
+const BULLET_LIMIT = 6
 
 interface PricingTeaserProps {
   onStartFree: () => void
