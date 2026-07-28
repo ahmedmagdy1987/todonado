@@ -33,6 +33,9 @@ const HowItWorks = lazy(() =>
 const EverythingStrip = lazy(() =>
   import('./components/EverythingStrip').then((m) => ({ default: m.EverythingStrip })),
 )
+const WellnessTeaser = lazy(() =>
+  import('./components/WellnessTeaser').then((m) => ({ default: m.WellnessTeaser })),
+)
 const LandingFaq = lazy(() =>
   import('./components/LandingFaq').then((m) => ({ default: m.LandingFaq })),
 )
@@ -203,6 +206,14 @@ export function LandingPage() {
         <LazySection minHeight={520}>
           <Suspense fallback={null}>
             <EverythingStrip />
+          </Suspense>
+        </LazySection>
+
+        {/* Focus & Calm: two shipped modules link into the app; the two that
+            aren't usable yet keep the insert-only feature_intents fake door. */}
+        <LazySection minHeight={560}>
+          <Suspense fallback={null}>
+            <WellnessTeaser />
           </Suspense>
         </LazySection>
 

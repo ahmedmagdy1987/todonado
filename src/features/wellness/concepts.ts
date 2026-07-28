@@ -1,4 +1,4 @@
-import { Flower2, Moon, Pill } from 'lucide-react'
+import { Flower2, Moon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { FeatureKey } from '@/types/database'
 
@@ -11,27 +11,30 @@ export interface WellnessConcept {
 }
 
 /**
- * The three "Focus & Calm" concepts we're validating. Every one is a COMING-SOON
- * idea — nothing is built. Copy stays descriptive and avoids medical or
- * health-benefit claims (esp. the tracker, which is a plain log, not advice).
+ * The "Focus & Calm" ideas that are STILL NOT USABLE, and therefore still honest
+ * fake doors. Copy stays descriptive and avoids medical or health-benefit claims.
+ *
+ * Kept deliberately narrow. Breathwork (`/wellness/breathe`) and the supplement
+ * tracker (`/wellness/tracker`) have SHIPPED — they are fully working features,
+ * so offering a "Notify me" for them would be dishonest and they are no longer
+ * listed here. What remains is the audio pair: the players are built, but
+ * `AUDIO_TRACKS` ships every track with an empty `src` (no licensed audio in the
+ * repo — see public/audio/README.md), so from a visitor's point of view there is
+ * nothing to listen to yet. That is the gap this fake door measures.
  */
 export const WELLNESS_CONCEPTS: WellnessConcept[] = [
   {
-    key: 'meditation',
-    title: 'Guided meditation & breathwork',
-    description: 'Short guided sessions and breathing exercises to bookend your focus blocks.',
-    icon: Flower2,
-  },
-  {
     key: 'sleep_sounds',
     title: 'Sleep sounds',
-    description: 'Ambient soundscapes — white noise, rain, and thunderstorm — to play in the background.',
+    description:
+      'Ambient soundscapes — white noise, rain, ocean — with a sleep timer. The player is built; the audio isn’t licensed yet.',
     icon: Moon,
   },
   {
-    key: 'supplement_tracker',
-    title: 'Supplement & medication tracker',
-    description: 'A simple place to log the supplements, vitamins, and medications you take.',
-    icon: Pill,
+    key: 'meditation',
+    title: 'Guided meditation',
+    description:
+      'Short guided sessions to start the morning or wind down at night. The player is built; the sessions aren’t recorded yet.',
+    icon: Flower2,
   },
 ]

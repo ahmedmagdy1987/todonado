@@ -1,11 +1,52 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+/**
+ * Serve the PRODUCTION security headers in dev and preview too.
+ *
+ * The values are read straight out of `vercel.json` — the file Vercel actually
+ * applies — so there is exactly one source of truth and dev/prod can never
+ * drift. That also makes the E2E header assertions meaningful: they check the
+ * real deployed values, not a copy.
+ *
+ * NOTE: the CSP ships as Content-Security-Policy-REPORT-ONLY, so it never blocks
+ * anything. In dev you WILL see report-only violations that production won't
+ * have — Vite injects an inline HMR preamble and connects over ws://localhost,
+ * neither of which exists in a production build. Judge the policy from
+ * production reports, not from the dev console.
+ */
+function vercelSecurityHeaders(): Plugin {
+  const config = JSON.parse(
+    readFileSync(fileURLToPath(new URL('./vercel.json', import.meta.url)), 'utf8'),
+  ) as { headers?: { source: string; headers: { key: string; value: string }[] }[] }
+
+  // The catch-all rule is the one that applies to every route.
+  const headers = config.headers?.find((h) => h.source === '/(.*)')?.headers ?? []
+
+  return {
+    name: 'todonado:vercel-security-headers',
+    configureServer(server) {
+      server.middlewares.use((_req, res, next) => {
+        for (const { key, value } of headers) res.setHeader(key, value)
+        next()
+      })
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((_req, res, next) => {
+        for (const { key, value } of headers) res.setHeader(key, value)
+        next()
+      })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    vercelSecurityHeaders(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

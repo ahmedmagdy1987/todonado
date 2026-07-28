@@ -47,7 +47,14 @@ fails. No residue in `auth.users`.
 ### MEDIUM
 
 #### M1 — Production serves almost no security headers · FACT
-Only `Strict-Transport-Security` is present. Observed on `/`, `/welcome`, and
+> **STATUS: RESOLVED (2026-07-28).** The block in §4 was approved and applied to
+> `vercel.json` — both the five safe headers and the CSP in Report-Only. The Vite
+> dev/preview server now reads the same file, so dev and production cannot drift,
+> and two test layers lock it in: `src/test/securityHeaders.test.ts` (values +
+> "CSP must still be Report-Only") and an E2E that asserts the headers are
+> actually served. The findings below describe the state at audit time.
+
+Only `Strict-Transport-Security` was present. Observed on `/`, `/welcome`, and
 `/api/stripe-webhook`:
 
 ```
@@ -68,9 +75,9 @@ target). No `X-Content-Type-Options` allows MIME sniffing. No `Referrer-Policy` 
 full URLs to third parties. No CSP means an injected script would face no second line
 of defence — though note there is currently **no known injection vector** (see §3).
 
-**FLAGGED, not applied** — per your instruction, since CSP can break a running app.
-The exact block to approve is in §4. It is split deliberately: the four
-non-breaking headers can go live immediately; CSP starts in **Report-Only**.
+**Originally FLAGGED, not applied** — since CSP can break a running app. The block
+is in §4, split deliberately: the five non-breaking headers go live immediately;
+CSP starts in **Report-Only**. Both parts have since been approved and shipped.
 
 #### M2 — Unauthenticated, unthrottled INSERT into three tables · FACT
 `events`, `upgrade_intents` and `feature_intents` accept an anonymous insert with
@@ -250,9 +257,11 @@ with an explicit Reload rather than a silent mid-session swap.
 
 ---
 
-## 4. The `vercel.json` headers block — FOR YOUR APPROVAL
+## 4. The `vercel.json` headers block — APPLIED 2026-07-28
 
-**Not applied.** Two parts, because the risk profiles differ.
+Presented in two parts because the risk profiles differ. **Both were approved and
+are now live in `vercel.json`**, and the Vite dev/preview server reads that same
+file so local development serves byte-identical headers.
 
 **Part 1 — safe to ship as-is.** None of these can break the app; `frame-ancestors`
 is expressed via `X-Frame-Options` so no CSP is involved.
@@ -303,14 +312,19 @@ for certain before you enforce.
 
 ## 5. Before you go public
 
-1. **Apply Part 1 of the headers block** (M1). Five minutes, no risk, closes the
-   clickjacking and MIME-sniffing gaps.
+1. ~~**Apply Part 1 of the headers block** (M1).~~ **DONE** — shipped along with
+   the Report-Only CSP, dev/prod parity, and test coverage at both layers.
 2. **Decide on M2** — unauthenticated writes to `events`/`upgrade_intents`/
    `feature_intents`. Not a breach risk, but the analytics that justify the whole wedge
    are forgeable by anyone, and you'd rather know that now than after reading the numbers.
 3. **Run `npm audit fix`** and re-run the suite — clears M3 and the L3 toolchain set.
    The only browser-facing one is `react-router`.
-4. **Turn CSP Report-Only on** (M1 Part 2), watch for a few days, then enforce.
+4. ~~**Turn CSP Report-Only on**~~ **DONE** — now watch real production reports for
+   a few days, then flip the header name to `Content-Security-Policy` to enforce.
+   Ignore violations seen in `npm run dev`: Vite injects an inline HMR preamble
+   and connects over `ws://localhost`, neither of which exists in a production
+   build. `securityHeaders.test.ts` will fail the moment the header is switched to
+   enforcing, which is the intended speed bump.
 5. **Delete the 6 `source='audit'` rows** (SQL in §1).
 
 Nothing on this list blocks a launch. The parts that would have been expensive to get

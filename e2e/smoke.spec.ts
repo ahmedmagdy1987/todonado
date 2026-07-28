@@ -305,6 +305,77 @@ test('landing: the three demo widgets are interactive and touch a database NEVER
   expect(dbCalls, `demo widgets hit the database:\n${dbCalls.join('\n')}`).toEqual([])
 })
 
+test('security headers are served on every response (audit M1)', async ({ page }) => {
+  // The dev/preview server reads these straight out of vercel.json (see the
+  // vercelSecurityHeaders plugin), so asserting them here asserts the REAL
+  // production values rather than a copy that could drift.
+  for (const path of ['/welcome', '/reset-password']) {
+    const res = await page.request.get(path)
+    expect(res.ok()).toBeTruthy()
+    const h = res.headers()
+
+    expect(h['x-frame-options'], `${path} X-Frame-Options`).toBe('DENY')
+    expect(h['x-content-type-options'], `${path} X-Content-Type-Options`).toBe('nosniff')
+    expect(h['referrer-policy'], `${path} Referrer-Policy`).toBe('strict-origin-when-cross-origin')
+    expect(h['permissions-policy'], `${path} Permissions-Policy`).toContain('camera=()')
+    expect(h['strict-transport-security'], `${path} HSTS`).toContain('includeSubDomains')
+
+    const csp = h['content-security-policy-report-only']
+    expect(csp, `${path} CSP-Report-Only`).toBeTruthy()
+    expect(csp).toContain("default-src 'self'")
+    expect(csp).toContain("frame-ancestors 'none'")
+    expect(csp).toContain("object-src 'none'")
+    // Realtime is enabled — the websocket origin must be allowed or sync breaks
+    // the moment this policy is switched to enforcing.
+    expect(csp).toContain('wss://lplsbfduankkpglyusjp.supabase.co')
+
+    // Still REPORT-ONLY. Enforcing is a deliberate follow-up once the report
+    // queue is clean, not something that should land by accident.
+    expect(h['content-security-policy'], `${path} must not enforce CSP yet`).toBeUndefined()
+  }
+})
+
+test('landing: Focus & Calm shows shipped modules as live and only fake-doors the unbuilt ones', async ({
+  page,
+}) => {
+  await page.goto('/welcome')
+  await mountLazySections(page)
+
+  const section = page.getByRole('region', { name: /A calmer side to your day/i })
+  await expect(section).toBeVisible()
+
+  // SHIPPED — linked into the real app, no "Notify me".
+  for (const title of ['Breathwork', 'Supplement & medication tracker']) {
+    const card = section.locator('div').filter({ hasText: title }).last()
+    await expect(card.getByText('Live').first()).toBeVisible()
+  }
+  await expect(section.getByRole('button', { name: 'Open Breathwork' })).toBeVisible()
+  await expect(
+    section.getByRole('button', { name: 'Open Supplement & medication tracker' }),
+  ).toBeVisible()
+
+  // NOT BUILT — still honest fake doors.
+  await expect(section.getByText('Sleep sounds')).toBeVisible()
+  await expect(section.getByText('Guided meditation')).toBeVisible()
+  await expect(section.getByRole('button', { name: 'Notify me about Sleep sounds' })).toBeVisible()
+  await expect(
+    section.getByRole('button', { name: 'Notify me about Guided meditation' }),
+  ).toBeVisible()
+  // NOTE: deliberately NOT clicked. feature_intents has no delete policy, so a
+  // click would leave an undeletable row behind on every CI run.
+
+  // The two shipped modules must NOT be offered as fake doors any more.
+  await expect(section.getByRole('button', { name: /Notify me about Breathwork/ })).toHaveCount(0)
+  await expect(
+    section.getByRole('button', { name: /Notify me about Supplement/ }),
+  ).toHaveCount(0)
+
+  // A logged-out visitor is routed to signup, carrying the destination.
+  await section.getByRole('button', { name: 'Open Breathwork' }).click()
+  await expect(page).toHaveURL(/\/login/)
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
+})
+
 test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)
