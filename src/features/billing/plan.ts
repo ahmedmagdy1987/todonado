@@ -1,31 +1,24 @@
 /**
- * Simple, pre-billing entitlement check.
+ * Client-side entitlement helpers.
  *
- * Billing is still a fake door (see features/marketing + upgrade_intents), so
- * there is no real subscription state yet. Until Stripe ships, "Pro" access is
- * granted to founding/owner accounts by email allowlist, with a local override
- * for previewing either tier. Replace `resolvePlan` with a real subscription
- * lookup when billing exists; the rest of the app only depends on `usePlan`.
+ * `resolveEffectivePlan` is the real resolver (paid subscription → founding →
+ * local preview override → free); `readPlanOverride` is the dev-only preview
+ * switch. The rest of the app depends only on `usePlan`.
  */
-export type Plan = 'free' | 'pro'
-
 /**
- * Founding / owner accounts that get full Pro access for dogfooding and demos.
- * Add the email you sign into Todonado with here (matched case-insensitively).
+ * The plan type, founding allowlist and `resolveEffectivePlan` now live in
+ * `planCore.ts` — a leaf module the serverless functions can import too, so the
+ * client gate and the server gate share one definition of "who is Pro". They are
+ * re-exported here unchanged, so every existing `from './plan'` import still works.
  */
-export const FOUNDING_EMAILS: readonly string[] = [
-  'journeypixofficial@gmail.com',
-  'ahmedkassim17777@gmail.com',
-]
+export {
+  FOUNDING_EMAILS,
+  isFoundingEmail,
+  resolveEffectivePlan,
+  type Plan,
+} from './planCore'
 
-export function isFoundingEmail(
-  email: string | null | undefined,
-  list: readonly string[] = FOUNDING_EMAILS,
-): boolean {
-  if (!email) return false
-  const normalized = email.trim().toLowerCase()
-  return list.some((e) => e.toLowerCase() === normalized)
-}
+import { isFoundingEmail, FOUNDING_EMAILS, type Plan } from './planCore'
 
 /**
  * Resolve the effective plan. Pure and testable: an explicit `override` (from a
@@ -42,27 +35,6 @@ export function resolvePlan(
 ): Plan {
   if (override === 'pro' || override === 'free') return override
   return isFoundingEmail(email, list) ? 'pro' : 'free'
-}
-
-/**
- * The effective plan once real billing exists. Precedence (highest first):
- *   1. `billingPlan === 'pro'`  — a real, paid Stripe subscription (source of truth).
- *   2. FOUNDING_EMAILS          — owner/dogfooding access (kept).
- *   3. `override`               — the dev-only localStorage preview (kept, documented).
- *   4. Free.
- * Pure + unit-tested. Everything else in the app depends only on `usePlan`.
- */
-export function resolveEffectivePlan(args: {
-  billingPlan?: Plan | null
-  email?: string | null
-  override?: Plan | null
-  foundingList?: readonly string[]
-}): Plan {
-  const { billingPlan, email, override, foundingList = FOUNDING_EMAILS } = args
-  if (billingPlan === 'pro') return 'pro'
-  if (isFoundingEmail(email, foundingList)) return 'pro'
-  if (override === 'pro' || override === 'free') return override
-  return 'free'
 }
 
 /**

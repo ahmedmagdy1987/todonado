@@ -45,6 +45,7 @@ export const PLANS: Plan[] = [
       'Drag-to-reorder & priorities',
       // Templated from the constant so the copy can never drift from behaviour.
       `Completed history for the last ${FREE_HISTORY_DAYS} days`,
+      'Calendar import (.ics file)',
       'A basic Today list with manual scheduling',
       'Dark, installable PWA',
     ],
@@ -63,6 +64,7 @@ export const PLANS: Plan[] = [
       'Focus mode: a distraction-free deep-work timer',
       'Recurring tasks (daily / weekly / monthly / yearly)',
       'Unlimited history — every completed task, kept forever',
+      'Live calendar sync (URL) — paste a link once, meetings stay fresh daily',
       'Insights: planned-vs-actual effort & focus trends',
       'Everything in Free, unlimited',
     ],

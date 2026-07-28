@@ -1,8 +1,12 @@
 /** Small JSON Response helper for the serverless handlers (Web signature). */
-export function json(status: number, body: unknown): Response {
+export function json(
+  status: number,
+  body: unknown,
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...extraHeaders },
   })
 }
 
@@ -37,6 +41,10 @@ export type ApiErrorCode =
   | 'billing_upsert_failed'
   | 'stripe_error'
   | 'internal_error'
+  // Calendar proxy (api/calendar-fetch)
+  | 'not_configured'
+  | 'pro_required'
+  | 'calendar_lookup_failed'
 
 export function apiError(
   status: number,

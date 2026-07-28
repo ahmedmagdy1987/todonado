@@ -34,5 +34,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["api/**/*.ts", "src/features/billing/webhookMapping.ts"]
+  /* Leaf modules from src/ that the functions import by relative path. Both are
+     dependency-free (no `@/`, no import.meta, no browser globals) so they type-
+     check and bundle cleanly in the Node runtime. */
+  "include": [
+    "api/**/*.ts",
+    "src/features/billing/webhookMapping.ts",
+    "src/features/billing/planCore.ts"
+  ]
 }

@@ -43,10 +43,60 @@ function vercelSecurityHeaders(): Plugin {
   }
 }
 
+/**
+ * Serve `api/*.ts` from the dev/preview server.
+ *
+ * Vite alone does not run the serverless functions, so `/api/...` used to 404
+ * locally and the endpoints were only ever exercised in production. The handlers
+ * already export a Node-contract `(req, res)` default (see _lib/nodeAdapter), so
+ * mounting them is just a module load away — and it means the E2E can drive the
+ * real endpoint instead of trusting it.
+ *
+ * Dev only (`apply: 'serve'`). Local runs have no SUPABASE_SERVICE_ROLE_KEY, so
+ * the auth-requiring endpoints answer 503 `not_configured` rather than 401 —
+ * still a rejection, never data. The 401 path is covered by unit tests.
+ */
+function devApiRoutes(): Plugin {
+  return {
+    name: 'todonado:dev-api-routes',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url ?? '').split('?')[0]
+        if (!path.startsWith('/api/')) return next()
+        // Strict allow-list shape: no traversal, no nested paths.
+        const route = path.slice('/api/'.length)
+        if (!/^[a-z0-9-]+$/i.test(route)) return next()
+
+        void (async () => {
+          try {
+            const mod = await server.ssrLoadModule(`/api/${route}.ts`)
+            const handler = (mod as { default?: unknown }).default
+            if (typeof handler !== 'function') {
+              res.statusCode = 404
+              res.setHeader('content-type', 'application/json')
+              res.end('{"error":"not_found"}')
+              return
+            }
+            await (handler as (q: typeof req, s: typeof res) => Promise<void>)(req, res)
+          } catch {
+            if (!res.headersSent) {
+              res.statusCode = 404
+              res.setHeader('content-type', 'application/json')
+            }
+            res.end('{"error":"not_found"}')
+          }
+        })()
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     vercelSecurityHeaders(),
+    devApiRoutes(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

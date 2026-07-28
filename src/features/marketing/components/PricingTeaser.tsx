@@ -10,11 +10,11 @@ import { PLANS, PRICING_DISCLAIMER } from '../plans'
 const TEASER_IDS = ['free', 'pro'] as const
 
 /**
- * How many bullets to show before deferring to /pricing. Six keeps the whole
- * Free list plus every differentiating Pro line (including the history limit)
- * on the landing; only Pro's closing "Everything in Free" summary is deferred.
+ * How many bullets to show before deferring to /pricing. Seven keeps the whole
+ * Free list plus every differentiating Pro line (history limit, live calendar
+ * sync, Insights); only Pro's closing "Everything in Free" summary is deferred.
  */
-const BULLET_LIMIT = 6
+const BULLET_LIMIT = 7
 
 interface PricingTeaserProps {
   onStartFree: () => void

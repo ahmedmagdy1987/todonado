@@ -210,8 +210,8 @@ export function TodayPage() {
 
       {calendarError && (
         <p className="-mt-4 text-xs text-text-muted">
-          Couldn&rsquo;t refresh a subscribed calendar (the provider may block browser access) —
-          showing task-only capacity. Uploading the .ics file is more reliable.
+          Couldn&rsquo;t reach a subscribed calendar just now — showing task-only capacity. It will
+          retry on your next visit.
         </p>
       )}
 

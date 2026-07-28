@@ -530,6 +530,105 @@ test('Free history window: first run is untouched, old history is windowed, upgr
   created = null
 })
 
+test('calendar proxy: never serves data to an anonymous caller', async ({ page }) => {
+  // The dev/preview server mounts api/*.ts (see devApiRoutes in vite.config.ts),
+  // so this drives the REAL handler rather than trusting it.
+  const get = await page.request.get('/api/calendar-fetch')
+  expect(get.status(), 'GET must be rejected').toBe(405)
+
+  const res = await page.request.post('/api/calendar-fetch', {
+    data: { url: 'http://169.254.169.254/latest/meta-data/' },
+  })
+  // 401 once deployed with Supabase env present; 503 not_configured locally,
+  // where there is deliberately no service-role key. Either way: a rejection.
+  expect([401, 503], `unexpected status ${res.status()}`).toContain(res.status())
+  const body = await res.text()
+  expect(body, 'must never return calendar data unauthenticated').not.toContain('"sources"')
+  // A 503 lists missing variable NAMES only — never a value.
+  expect(body).not.toContain('service-role')
+})
+
+test('calendar: live URL sync is Pro — Free gets an honest upsell and file upload still works', async ({
+  page,
+}) => {
+  const id = uniqueIdentity()
+  const signUp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: id.email, password: id.password }),
+  })
+  expect(signUp.ok, 'signup for the calendar fixture').toBeTruthy()
+  const auth = (await signUp.json()) as { access_token: string; user: { id: string } }
+  const token = auth.access_token
+  created = { email: id.email, password: id.password } // safety net owns cleanup
+
+  await rest(`profiles?id=eq.${auth.user.id}`, token, {
+    method: 'PATCH',
+    body: { onboarding_completed: true },
+  })
+
+  await page.goto('/login')
+  await page.getByLabel('Email', { exact: true }).fill(id.email)
+  await page.getByLabel('Password', { exact: true }).fill(id.password)
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible({
+    timeout: 30_000,
+  })
+
+  await page.goto('/settings')
+  await expect(page.getByRole('heading', { name: 'Calendar' })).toBeVisible()
+
+  // --- FREE submits a subscribe URL → honest upsell, nothing saved ----------
+  await page.getByLabel('Calendar .ics URL').fill('https://calendar.google.com/basic.ics')
+  await page.getByRole('button', { name: 'Subscribe' }).click()
+
+  const upsell = page.getByRole('note', { name: /Live calendar sync is a Pro feature/i })
+  await expect(upsell).toBeVisible()
+  await expect(upsell.getByRole('link', { name: 'Upgrade' })).toBeVisible()
+  // A card in the page — never a modal that traps the user.
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // The gate is real: no source row was created.
+  const afterUrl = (await rest('calendar_sources?select=id,kind', token)) as { kind: string }[]
+  expect(afterUrl, 'Free must not create a URL source').toHaveLength(0)
+
+  // --- FREE file upload is untouched and fully functional -------------------
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'BEGIN:VEVENT',
+    'UID:e2e-1',
+    'DTSTART:20260101T090000Z',
+    'DTEND:20260101T100000Z',
+    'SUMMARY:Standup',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'work.ics',
+    mimeType: 'text/calendar',
+    buffer: Buffer.from(ics),
+  })
+
+  await expect(page.getByText('work.ics')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('File').first()).toBeVisible()
+
+  const afterFile = (await rest('calendar_sources?select=id,kind', token)) as { kind: string }[]
+  expect(afterFile.map((s) => s.kind), 'Free keeps full .ics file import').toEqual(['file'])
+
+  const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  })
+  expect(del.ok, `calendar fixture cleanup failed: ${del.status}`).toBeTruthy()
+  created = null
+})
+
 test('landing: footer carries the HBV Studio credit as plain text (no link)', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)
