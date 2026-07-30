@@ -91,6 +91,8 @@ src/
     focus/     # Focus Mode + the Pomodoro cadence (FEATURES.pomodoro)
     work/      # "Get to Work" — /work, one tap from wanting to start to starting
     vision/    # /vision — the goals behind the work (FEATURES.vision)
+    points/    # derived score + level bands (FEATURES.points) — no table
+    share/     # the canvas share card (FEATURES.shareCards) — drawn on-device
     templates/ # catalog (built-in) + personal (user_templates), one shared apply path
     history/   # the Free rolling history window (view-layer only)
     calendar/  # .ics parsing + busy-minutes → capacity (FEATURES.calendarImport)
@@ -322,6 +324,33 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    policy and a bill, so one `feature_intents` chip measures the demand before any of that is
    built. A target date that passes is *stated*, never scolded — no red, no "overdue" — because a
    goal is not a task. `FREE_VISION_CARDS = 3`, creation-gated only. Three migrations (§7).
+4. **Points, share cards, invite groundwork, sound settings** (`FEATURES.points`,
+   `FEATURES.shareCards`, both default **ON**). **No migration, no table, no column.**
+   **Points are DERIVED, never stored** — recomputed from the tasks and focus sessions already in
+   cache, exactly like the streak, so they cannot drift and a corrected task instantly corrects the
+   score. Three decisions worth keeping: (a) it is a **rolling `POINTS_WINDOW_DAYS` window**, the
+   same one Insights' summary uses, so Today and Insights are two views of ONE computation — a
+   lifetime total would have grown forever regardless of this week AND would have had to be
+   history-windowed for Free, making a Free user's score visibly *fall*; (b) it counts **only what
+   every surface already has** (tasks + focus sessions) — check-ins would have meant either a new
+   fetch on Today or two surfaces disagreeing; (c) levels are **bands, not numbers**, because a
+   rolling score would have to demote you after a quiet week and "you dropped to level 4" is
+   exactly the shaming this app refuses. Effort points are capped per task so the number cannot be
+   farmed by typing a bigger estimate. All weights live in `POINT_WEIGHTS`.
+   **Share cards** are drawn on a canvas in the page — no upload, no server, no image service. What
+   they can contain is exhaustive: one number, one caption, an optional FIRST name (never an
+   email-shaped one), and the wordmark. The quit card is passed `days` and **not** `habit.name` —
+   the habit is the one thing somebody would be mortified to post, so it is never passed in rather
+   than passed and carefully not drawn. A preview is always shown before anything is shared.
+   **Sounds & notices** (Settings) is device-local (`settings/prefs.ts`, localStorage): which
+   machine may make a noise is a property of the machine, not the account. `playEndTone()` keeps
+   its exact signature and now reads the tone/volume/master-switch from that store, so every
+   existing caller (focus, pomodoro breaks, breathwork) obeys the setting with no call-site change.
+   The three chimes are **synthesised** — no audio files, nothing to license. Push and email
+   reminders are NOT built, and there is no switch pretending otherwise.
+   **Invite** offers a plain copyable link that works today and an interest chip for referral
+   rewards — no fake code, no invented credit balance, no "invite 3 to unlock" that could never pay
+   out. `InterestChip` shows a FAILURE when the insert is rejected, never a thank-you.
 
 ---
 

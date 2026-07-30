@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Award, Check, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowRight, Award, Check, Pencil, RotateCcw, Share2, Trash2 } from 'lucide-react'
 import { Badge, Button, Card, CardContent, Modal } from '@/components/ui'
+import { ShareCardDialog } from '@/features/share/ShareCardDialog'
+import { usePrefs } from '@/features/settings/prefs'
+import { FEATURES } from '@/lib/config'
 import { cn } from '@/lib/utils'
 import type { QuitHabit } from '@/types/database'
 import {
@@ -53,6 +56,8 @@ export function QuitHabitCard({
   onDelete: () => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const prefs = usePrefs()
   const now = useTick(1000)
 
   const preset = presetFor(habit.preset_key)
@@ -125,7 +130,7 @@ export function QuitHabitCard({
         </div>
 
         {/* ---- milestone track -------------------------------------------- */}
-        {onMilestone && reached !== null ? (
+        {onMilestone && reached !== null && prefs.celebrations ? (
           <div className="rounded-xl border border-success/25 bg-success/10 p-3">
             <p className="text-sm font-medium text-success">
               {reached === 1 ? 'One full day.' : `${reached} days.`} That&rsquo;s a milestone.
@@ -133,6 +138,19 @@ export function QuitHabitCard({
             <p className="mt-0.5 text-xs text-text-muted">
               Nothing to claim and nothing to share unless you want to — it just counted.
             </p>
+            {/* Sharing is offered, never nudged, and the card carries the NUMBER
+                only — never which habit it was. See shareCard.ts. */}
+            {FEATURES.shareCards && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                onClick={() => setShareOpen(true)}
+              >
+                <Share2 className="h-4 w-4" aria-hidden />
+                Make a card
+              </Button>
+            )}
           </div>
         ) : next !== null ? (
           <div>
@@ -236,6 +254,17 @@ export function QuitHabitCard({
           </div>
         </div>
       </Modal>
+
+      {FEATURES.shareCards && (
+        // `days`, and deliberately not `habit.name` — the habit's name is the one
+        // thing somebody would be mortified to post, so it is never passed in.
+        <ShareCardDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          kind="quit"
+          days={days}
+        />
+      )}
     </Card>
   )
 }

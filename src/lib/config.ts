@@ -56,6 +56,31 @@ export const FREE_QUIT_HABITS = 1
 export const FREE_VISION_CARDS = 3
 
 /**
+ * How many days the points score covers. Deliberately the same as
+ * `INSIGHTS_SUMMARY_DAYS`, so the chip on Today and the breakdown in Insights
+ * describe exactly the same window and cannot disagree.
+ */
+export const POINTS_WINDOW_DAYS = 7
+
+/**
+ * The ONLY place point values live. Every score in the app is derived from
+ * these — there is no stored total anywhere.
+ *
+ * `maxEffortPointsPerTask` is the one deliberately opinionated number: without
+ * it, a single task estimated at eight hours would outweigh a whole week of
+ * real work, and anyone who noticed could inflate their score by typing a bigger
+ * estimate. Capping it makes the number harder to game, not easier.
+ */
+export const POINT_WEIGHTS = {
+  perCompletedTask: 10,
+  /** Effort is rewarded, but gently and with a ceiling. */
+  perHalfHourOfEffort: 5,
+  maxEffortPointsPerTask: 30,
+  perFocusSession: 15,
+  perTenFocusMinutes: 4,
+} as const
+
+/**
  * Supabase realtime sync for the active workspace. Safe to disable if it ever
  * causes instability — the app remains fully functional via TanStack Query.
  */
@@ -169,4 +194,21 @@ export const FEATURES = {
    * entry with no other behaviour change.
    */
   vision: true,
+  /**
+   * Points — a subtle, derived score for the last POINTS_WINDOW_DAYS days,
+   * shown as a chip on Today and broken down in Insights. No table, no column,
+   * no stored counter: recomputed from the tasks and focus sessions already in
+   * cache, exactly like the streak. No leaderboards, no decay, no penalties, and
+   * the chip simply doesn't render at zero. Default ON; set to false to hide the
+   * chip and the Insights panel (no other behaviour changes).
+   */
+  points: true,
+  /**
+   * Share cards — a "Share" action on the streak chip and on quit-habit
+   * milestones that draws a branded PNG in-browser (canvas, no upload, no
+   * server) and hands it to the native share sheet, falling back to copy or
+   * download. The card carries the NUMBER and an optional first name, nothing
+   * else. Default ON; set to false to remove every share affordance.
+   */
+  shareCards: true,
 } as const

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { Link } from 'react-router-dom'
-import { CalendarRange, Flame, Play, Sunrise, Undo2, X } from 'lucide-react'
+import { CalendarRange, Flame, Play, Share2, Sunrise, Undo2, X, Zap } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
 import { track } from '@/features/analytics/track'
@@ -31,6 +31,9 @@ import type { Task } from '@/types/database'
 import { countUnestimated, sumEffort, suggestTasksToMoveTomorrow } from './capacity'
 import { selectRolloverTasks } from './rollover'
 import { planningStreak } from './streak'
+import { computePoints } from '@/features/points/points'
+import { ShareCardDialog } from '@/features/share/ShareCardDialog'
+import { usePrefs } from '@/features/settings/prefs'
 import type { PlanPick } from './autoPlan'
 import { CapacityMeter } from './CapacityMeter'
 import { RolloverBanner } from './components/RolloverBanner'
@@ -46,7 +49,7 @@ function getGreeting(): string {
 
 export function TodayPage() {
   const { user } = useAuth()
-  const { workspaceId, capacityMinutes } = useWorkspace()
+  const { workspaceId, capacityMinutes, profile } = useWorkspace()
   const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
   const { createTask, updateTask } = useTaskMutations(workspaceId)
   const suggestEffort = useEffortSuggester(workspaceId)
@@ -57,6 +60,10 @@ export function TodayPage() {
     verb: string
     items: { id: string; scheduled_for: string | null }[]
   } | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  // Device-local preferences (Settings → Sounds & notices). `digestHidden` is the
+  // permanent "don't show the briefing", distinct from dismissing today's.
+  const prefs = usePrefs()
 
   const today = todayISO()
   const tomorrow = isoDateOffset(1)
@@ -163,6 +170,16 @@ export function TodayPage() {
     [tasks, cal.effectiveCapacity, today, estimateCost],
   )
   const bias = useMemo(() => estimationBias(tasks, focusSessions), [tasks, focusSessions])
+  // Points: derived from the two collections already fetched above, so this adds
+  // ZERO requests — the same discipline the streak and the digest follow. The
+  // flag short-circuits to a neutral value so nothing downstream needs a null check.
+  const points = useMemo(
+    () =>
+      FEATURES.points
+        ? computePoints({ tasks, sessions: focusSessions, todayStr: today })
+        : null,
+    [tasks, focusSessions, today],
+  )
   const accountAgeDays = useMemo(() => {
     const created = user?.created_at
     if (!created) return null
@@ -204,24 +221,52 @@ export function TodayPage() {
           <p className="mt-1 text-text-muted">
             {getGreeting()}, {name}. Here&rsquo;s your day at a glance.
           </p>
-          {FEATURES.streak && streak.count >= 1 && (
-            <span
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning"
-              aria-label={
-                streak.includesToday
-                  ? `${streak.count}-day planning streak`
-                  : `${streak.count}-day planning streak — plan today to keep it going`
-              }
-              title={
-                streak.includesToday
-                  ? 'You planned today — nice.'
-                  : 'Plan something today to keep your streak going.'
-              }
-            >
-              <Flame className="h-3.5 w-3.5" aria-hidden />
-              {streak.count}-day streak
-            </span>
-          )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {FEATURES.streak && streak.count >= 1 && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning"
+                aria-label={
+                  streak.includesToday
+                    ? `${streak.count}-day planning streak`
+                    : `${streak.count}-day planning streak — plan today to keep it going`
+                }
+                title={
+                  streak.includesToday
+                    ? 'You planned today — nice.'
+                    : 'Plan something today to keep your streak going.'
+                }
+              >
+                <Flame className="h-3.5 w-3.5" aria-hidden />
+                {streak.count}-day streak
+              </span>
+            )}
+            {/* Sharing is OPT-IN and never automatic: the button opens a preview
+                of the exact image, which the user then decides to share. */}
+            {FEATURES.shareCards && FEATURES.streak && streak.count >= 1 && (
+              <button
+                type="button"
+                onClick={() => setShareOpen(true)}
+                aria-label={`Share your ${streak.count}-day streak`}
+                title="Make a shareable card"
+                className="focus-ring rounded-full p-1.5 text-text-muted transition-colors hover:text-text-primary"
+              >
+                <Share2 className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            )}
+            {/* Points: a quiet chip that simply doesn't exist at zero. No
+                leaderboard, no comparison, no decay — see points.ts. */}
+            {points && points.total > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-gradient-soft px-2.5 py-1 text-xs font-medium text-brand"
+                title={`${points.total} points over the last ${points.windowDays} days · ${points.level.label}`}
+                aria-label={`${points.total} points in the last ${points.windowDays} days, ${points.level.label}`}
+              >
+                <Zap className="h-3.5 w-3.5" aria-hidden />
+                <span className="font-mono">{points.total}</span>
+                <span className="text-brand/70">· {points.level.label}</span>
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* The shortest path from "I should start" to actually starting: it
@@ -256,6 +301,7 @@ export function TodayPage() {
       </header>
 
       {FEATURES.digest &&
+        !prefs.digestHidden &&
         (digestDismissed ? (
           <button
             type="button"
@@ -376,6 +422,19 @@ export function TodayPage() {
           }
         />
       ) : null}
+
+      {FEATURES.shareCards && (
+        <ShareCardDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          kind="streak"
+          days={streak.count}
+          // The REAL name, never the email's local part: `name` above is derived
+          // from the address, and putting that on a public image would leak the
+          // account. A profile with no name simply shares without one.
+          name={profile?.full_name ?? profile?.display_name ?? null}
+        />
+      )}
     </div>
   )
 }

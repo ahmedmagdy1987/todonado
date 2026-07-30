@@ -5,6 +5,8 @@ import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
 import { usePlan } from '@/features/billing/usePlan'
+import { PointsPanel } from '@/features/points/components/PointsPanel'
+import { FEATURES } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import { computeInsights } from './insights'
 import { computeWeeklyReview } from './weeklyReview'
@@ -85,6 +87,12 @@ export function InsightsPage() {
   return (
     <div className="animate-fade-in space-y-8">
       <InsightsHeader isPro={isPro} />
+      {/* The audit trail for the chip on Today: same function, same inputs, same
+          window, so the two can never disagree. Zero extra requests — `tasks`
+          and `sessions` are already in hand above. */}
+      {isPro && FEATURES.points && !loading && (
+        <PointsPanel tasks={tasks} sessions={sessions} today={today} />
+      )}
       {!isPro ? (
         <InsightsTeaser />
       ) : loading ? (

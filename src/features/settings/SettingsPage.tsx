@@ -3,15 +3,21 @@ import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   AtSign,
+  Bell,
+  Check,
+  Copy,
   Crown,
   Download,
   Gauge,
+  Gift,
+  Play,
   Settings as SettingsIcon,
   Trash2,
   User,
 } from 'lucide-react'
 import { Badge, Button, Card, Input, Modal } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
+import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { CalendarSettings } from '@/features/calendar/CalendarSettings'
 import { useAuth } from '@/features/auth/auth-context'
@@ -21,6 +27,9 @@ import { usePlan } from '@/features/billing/usePlan'
 import { useToast } from '@/components/common/toast-context'
 import { usernameError } from '@/features/auth/identifier'
 import { checkUsernameAvailable } from '@/features/auth/api/accounts'
+import { InterestChip } from '@/components/common/InterestChip'
+import { playTone } from '@/features/focus/sound'
+import { CHIME_TONES, setPrefs, usePrefs } from './prefs'
 import { useUpdateProfile, UsernameTakenError } from './api/useUpdateProfile'
 import { downloadJson, gatherExport } from './exportData'
 
@@ -363,6 +372,222 @@ function DangerSection() {
   )
 }
 
+/**
+ * A plain on/off row. There is no Switch primitive in the design system and the
+ * Checkbox reads as a task-completion circle, so this is a labelled switch
+ * button — the same shape the focus timer's sound toggle already uses.
+ */
+function ToggleRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm text-text-primary">{label}</p>
+        {hint && <p className="mt-0.5 text-xs leading-relaxed text-text-muted">{hint}</p>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'focus-ring relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors',
+          checked ? 'bg-brand-gradient' : 'bg-surface-2 ring-1 ring-inset ring-white/10',
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+            checked ? 'translate-x-[1.375rem]' : 'translate-x-0.5',
+          )}
+        />
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Sounds and in-app notices.
+ *
+ * Everything here is DEVICE-LOCAL (localStorage, see prefs.ts): which machine is
+ * allowed to make a noise is a property of the machine, not of the account.
+ *
+ * Deliberately honest about scope: these are IN-APP settings. Web push and email
+ * reminders are not built, so there is no toggle pretending they are — the line
+ * at the bottom says so plainly rather than leaving a switch that does nothing.
+ */
+function NotificationsSection() {
+  const prefs = usePrefs()
+
+  return (
+    <Section
+      icon={Bell}
+      title="Sounds & notices"
+      description="What this device does while you work. Saved on this device only."
+    >
+      <div className="divide-y divide-white/5">
+        <ToggleRow
+          label="Sounds"
+          hint="The end-of-session chime in Focus, Pomodoro and Breathwork."
+          checked={prefs.sound}
+          onChange={(sound) => setPrefs({ sound })}
+        />
+
+        {prefs.sound && (
+          <div className="space-y-3 py-3">
+            <div>
+              <label
+                htmlFor="chime-volume"
+                className="mb-1.5 block text-xs font-medium text-text-muted"
+              >
+                Volume
+              </label>
+              <input
+                id="chime-volume"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={Math.round(prefs.volume * 100)}
+                onChange={(e) => setPrefs({ volume: Number(e.target.value) / 100 })}
+                className="focus-ring h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-2 accent-brand"
+              />
+            </div>
+
+            <fieldset>
+              <legend className="mb-1.5 text-xs font-medium text-text-muted">Chime</legend>
+              <div className="flex flex-wrap gap-2">
+                {CHIME_TONES.map((tone) => (
+                  <button
+                    key={tone.id}
+                    type="button"
+                    aria-pressed={prefs.tone === tone.id}
+                    title={tone.description}
+                    onClick={() => {
+                      setPrefs({ tone: tone.id })
+                      // Previewed inside the click, which also unlocks the shared
+                      // AudioContext for later gesture-less chimes.
+                      playTone(tone.id, prefs.volume)
+                    }}
+                    className={cn(
+                      'focus-ring inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors',
+                      prefs.tone === tone.id
+                        ? 'border-transparent bg-brand-gradient text-white'
+                        : 'border-white/10 text-text-muted hover:text-text-primary',
+                    )}
+                  >
+                    <Play className="h-3 w-3" aria-hidden />
+                    {tone.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-text-muted">
+                All three are generated in the browser — no audio files, nothing to download.
+              </p>
+            </fieldset>
+          </div>
+        )}
+
+        {FEATURES.digest && (
+          <ToggleRow
+            label="Start-your-day briefing"
+            hint="The summary card at the top of Today. Off hides it for good, not just for today."
+            checked={!prefs.digestHidden}
+            onChange={(show) => setPrefs({ digestHidden: !show })}
+          />
+        )}
+
+        <ToggleRow
+          label="Milestone celebrations"
+          hint="The quiet note when a quit-habit streak reaches a milestone."
+          checked={prefs.celebrations}
+          onChange={(celebrations) => setPrefs({ celebrations })}
+        />
+      </div>
+
+      <p className="mt-3 border-t border-white/5 pt-3 text-xs leading-relaxed text-text-muted">
+        These are in-app only. Push notifications and email reminders aren&rsquo;t built yet, so
+        there&rsquo;s no switch here pretending otherwise.
+      </p>
+    </Section>
+  )
+}
+
+/**
+ * Inviting people.
+ *
+ * WHAT IS REAL TODAY: a plain link anyone can copy and send. It works right now,
+ * costs nothing and promises nothing.
+ *
+ * WHAT IS NOT: referral rewards and discount codes. Those need Stripe live with
+ * promotion codes, a `referrals` table and attribution — none of which exist. So
+ * there is no fake "your referral code" to copy, no invented credit balance and
+ * no "invite 3 friends to unlock" that could never pay out. Just the honest link,
+ * and one chip that records whether the rewards are actually wanted.
+ */
+function InviteSection() {
+  const [copied, setCopied] = useState(false)
+  const link = 'https://todonado.com'
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <Section
+      icon={Gift}
+      title="Invite a friend"
+      description="Share the app with someone who'd get something out of it."
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Input readOnly value={link} aria-label="Link to share" className="min-w-0 flex-1" />
+        <Button variant="secondary" onClick={copy}>
+          {copied ? (
+            <>
+              <Check className="h-4 w-4" aria-hidden /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="h-4 w-4" aria-hidden /> Copy link
+            </>
+          )}
+        </Button>
+      </div>
+
+      <div className="mt-4 border-t border-white/5 pt-3">
+        <p className="text-sm text-text-primary">Referral rewards are not built yet</p>
+        <p className="mt-1 text-xs leading-relaxed text-text-muted">
+          Giving you and a friend a real discount needs billing switched on properly first. Rather
+          than show a code that wouldn&rsquo;t work, here&rsquo;s a way to say you&rsquo;d want one.
+        </p>
+        <InterestChip
+          featureKey="referral"
+          source="settings"
+          label="I&rsquo;d use referral rewards"
+          className="mt-2"
+        />
+      </div>
+    </Section>
+  )
+}
+
 export function SettingsPage() {
   return (
     // Form/text page: cap at a comfortable reading width, centered in the wider frame.
@@ -381,6 +606,8 @@ export function SettingsPage() {
       <PlanSection />
       <PlanningSection />
       {FEATURES.calendarImport && <CalendarSettings />}
+      <NotificationsSection />
+      <InviteSection />
       <DataSection />
       <DangerSection />
 
