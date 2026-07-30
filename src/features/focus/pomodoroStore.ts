@@ -12,8 +12,24 @@ import type { PomodoroChain } from './pomodoro'
 
 const KEY = 'todonado.pomodoro'
 
-/** Narrow unknown JSON to a chain, rejecting anything malformed. */
-function parseChain(raw: unknown): PomodoroChain | null {
+/**
+ * A break older than this is abandoned state, not a live break.
+ *
+ * Without a bound, closing the laptop mid-break means /focus opens days later on
+ * a break that finished long ago, and `completed` — equally stale — carries the
+ * long-break cadence into a brand-new session. Both are the same abandoned
+ * chain, so the whole record is discarded rather than only the break.
+ *
+ * Two hours is well beyond any real break (the longest is 15 minutes) and short
+ * enough that a resumed chain is always one the user actually remembers.
+ */
+const MAX_BREAK_AGE_MS = 2 * 60 * 60 * 1000
+
+/** A break timestamped slightly in the future is clock skew, not corruption. */
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000
+
+/** Narrow unknown JSON to a chain, rejecting anything malformed or stale. */
+function parseChain(raw: unknown, nowMs: number): PomodoroChain | null {
   if (typeof raw !== 'object' || raw === null) return null
   const c = raw as Record<string, unknown>
   if (typeof c.completed !== 'number' || !Number.isFinite(c.completed) || c.completed < 0) return null
@@ -33,6 +49,8 @@ function parseChain(raw: unknown): PomodoroChain | null {
     ) {
       return null
     }
+    const age = nowMs - b.startedAtMs
+    if (age > MAX_BREAK_AGE_MS || age < -MAX_CLOCK_SKEW_MS) return null
     brk = { kind: b.kind, minutes: b.minutes, startedAtMs: b.startedAtMs }
   }
 
@@ -44,11 +62,11 @@ function parseChain(raw: unknown): PomodoroChain | null {
   }
 }
 
-export function readChain(): PomodoroChain | null {
+export function readChain(nowMs: number = Date.now()): PomodoroChain | null {
   try {
     const raw = window.localStorage.getItem(KEY)
     if (!raw) return null
-    return parseChain(JSON.parse(raw))
+    return parseChain(JSON.parse(raw), nowMs)
   } catch {
     return null
   }

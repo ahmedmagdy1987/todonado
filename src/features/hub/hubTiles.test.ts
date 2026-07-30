@@ -14,7 +14,8 @@ const tiles = hubTiles()
 /** Every route AppRoutes mounts inside the authenticated shell. */
 const MOUNTED_ROUTES = new Set(
   [
-    '/',
+    // `/` is a redirect, not a page — Today's own path is what tiles must use.
+    '/today',
     '/inbox',
     '/projects',
     '/focus',
@@ -106,7 +107,15 @@ describe('the grid stays a grid', () => {
 
 describe('it is additive, not a replacement', () => {
   it('still offers Today, so the Hub never becomes a dead end', () => {
-    expect(tiles.find((t) => t.to === '/')).toBeTruthy()
+    expect(tiles.find((t) => t.to === '/today')).toBeTruthy()
+  })
+
+  it('never points at `/`, which only means "wherever this device starts"', () => {
+    // A tile pointing at `/` sends a hub-start user straight back to the Hub —
+    // and silently drops any query string on the way. Today has its own path.
+    for (const tile of tiles) {
+      expect(pathOf(tile.to ?? '/x'), `${tile.id}`).not.toBe('/')
+    }
   })
 
   it('never links to itself', () => {

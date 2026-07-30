@@ -7,6 +7,7 @@ import { CircularTimer } from './CircularTimer'
 import { playEndTone } from '../sound'
 import { formatClock } from '../timer'
 import { useNow } from '../useNow'
+import { usePrefs } from '@/features/settings/prefs'
 import {
   POMODORO,
   breakLabel,
@@ -46,6 +47,10 @@ export function BreakView({
   onEndChain: () => void
 }) {
   const [soundOn, setSoundOn] = useState(false)
+  // Same rule as the sprint timer: the Settings master switch wins, and the
+  // button never claims "on" while everything is silenced.
+  const soundAllowed = usePrefs().sound
+  const chimeAudible = soundOn && soundAllowed
   const chimedRef = useRef(false)
 
   const now = useNow(true)
@@ -118,11 +123,18 @@ export function BreakView({
         <button
           type="button"
           onClick={toggleSound}
-          title={soundOn ? 'Chime on — tap to mute' : 'Play a soft chime when the break ends'}
-          aria-label={soundOn ? 'Turn break chime off' : 'Turn break chime on'}
+          title={
+            !soundAllowed
+              ? 'Sounds are switched off in Settings'
+              : chimeAudible
+                ? 'Chime on — tap to mute'
+                : 'Play a soft chime when the break ends'
+          }
+          aria-label={chimeAudible ? 'Turn break chime off' : 'Turn break chime on'}
+          aria-pressed={chimeAudible}
           className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
         >
-          {soundOn ? (
+          {chimeAudible ? (
             <Volume2 className="h-4 w-4" aria-hidden />
           ) : (
             <VolumeX className="h-4 w-4" aria-hidden />

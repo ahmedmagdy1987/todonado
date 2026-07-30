@@ -152,7 +152,7 @@ export function WeekPage() {
             busyByDate={byDate}
             onApply={applyWeekPlan}
           />
-          <Link to="/">
+          <Link to="/today">
             <Button variant="secondary" size="sm">
               <Sun className="h-4 w-4" aria-hidden /> Today
             </Button>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { LayoutTemplate, Plus, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -60,6 +60,14 @@ export function TemplatesPage() {
   const [category, setCategory] = useState(
     requested && TEMPLATE_CATEGORIES.some((c) => c.id === requested) ? requested : 'all',
   )
+  // Keyed on the RAW param, not on `category`, so in-page chip clicks are
+  // untouched while navigating between ?category= links resyncs the filter. The
+  // Hub's Templates and Checklists tiles are exactly that navigation.
+  useEffect(() => {
+    setCategory(
+      requested && TEMPLATE_CATEGORIES.some((c) => c.id === requested) ? requested : 'all',
+    )
+  }, [requested])
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)

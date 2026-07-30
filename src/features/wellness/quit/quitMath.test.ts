@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { QuitCheckin } from '@/types/database'
 import {
   QUIT_MILESTONES,
@@ -26,6 +26,21 @@ import {
  * on the machine's timezone and the suite would pass in London and fail in
  * Auckland. Built locally, these assertions hold in every timezone.
  */
+
+/**
+ * The DST assertions below are only meaningful in a timezone that HAS a DST
+ * transition, so one is pinned for the whole file rather than trusting whatever
+ * the machine (or CI, which runs UTC) happens to be set to. Everything else here
+ * builds its dates with the LOCAL constructor, so pinning is safe for all of it.
+ */
+const ORIGINAL_TZ = process.env.TZ
+beforeAll(() => {
+  process.env.TZ = 'America/New_York'
+})
+afterAll(() => {
+  if (ORIGINAL_TZ === undefined) delete process.env.TZ
+  else process.env.TZ = ORIGINAL_TZ
+})
 
 /** Local timestamp → the ISO string the DB would hold. */
 const at = (y: number, m: number, d: number, h = 9, min = 0): string =>

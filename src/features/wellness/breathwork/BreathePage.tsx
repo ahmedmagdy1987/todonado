@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Sparkles, Volume2, VolumeX, Wind } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { playEndTone } from '@/features/focus/sound'
+import { usePrefs } from '@/features/settings/prefs'
 import { cn } from '@/lib/utils'
 import {
   BREATH_DURATIONS_MIN,
@@ -27,6 +28,9 @@ export function BreathePage() {
   const [durationMin, setDurationMin] = useState<number>(3)
   const [chimeOn, setChimeOn] = useState(false)
   const [result, setResult] = useState<SessionResult | null>(null)
+  // The Settings master switch wins; the toggle must not read "on" while muted.
+  const soundAllowed = usePrefs().sound
+  const chimeAudible = chimeOn && soundAllowed
 
   const pattern = getPattern(patternId)
 
@@ -71,7 +75,8 @@ export function BreathePage() {
           onPattern={setPatternId}
           durationMin={durationMin}
           onDuration={setDurationMin}
-          chimeOn={chimeOn}
+          chimeOn={chimeAudible}
+          soundAllowed={soundAllowed}
           onToggleChime={toggleChime}
           onStart={() => setStage('running')}
         />
@@ -94,6 +99,7 @@ function BreathSetup({
   durationMin,
   onDuration,
   chimeOn,
+  soundAllowed,
   onToggleChime,
   onStart,
 }: {
@@ -102,6 +108,7 @@ function BreathSetup({
   durationMin: number
   onDuration: (min: number) => void
   chimeOn: boolean
+  soundAllowed: boolean
   onToggleChime: () => void
   onStart: () => void
 }) {
@@ -174,6 +181,7 @@ function BreathSetup({
           type="button"
           onClick={onToggleChime}
           aria-pressed={chimeOn}
+          title={soundAllowed ? undefined : 'Sounds are switched off in Settings'}
           className="focus-ring inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-text-muted transition-colors hover:text-text-primary"
         >
           {chimeOn ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}

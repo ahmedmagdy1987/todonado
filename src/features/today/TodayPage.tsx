@@ -435,10 +435,12 @@ export function TodayPage() {
           onClose={() => setShareOpen(false)}
           kind="streak"
           days={streak.count}
-          // The REAL name, never the email's local part: `name` above is derived
-          // from the address, and putting that on a public image would leak the
-          // account. A profile with no name simply shares without one.
-          name={profile?.full_name ?? profile?.display_name ?? null}
+          // ONLY `full_name`, which is the name the user actually typed at
+          // signup (or edited in Settings). `name` above is derived from the
+          // email address and `display_name` can hold the same email-derived
+          // string, and putting either on a public image would leak the account.
+          // A profile with no name simply shares without one.
+          name={profile?.full_name ?? null}
         />
       )}
     </div>

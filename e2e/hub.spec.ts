@@ -23,7 +23,7 @@ import {
 /** Every live tile, and the heading that proves you arrived. */
 const TILES: { label: string; url: RegExp; heading: RegExp }[] = [
   { label: 'Get to work', url: /\/work$/, heading: /^Get to work$/ },
-  { label: 'Today', url: /\/$/, heading: /^Your Command Center$/ },
+  { label: 'Today', url: /\/today$/, heading: /^Your Command Center$/ },
   { label: 'Week', url: /\/week$/, heading: /Week planning|Your week/ },
   { label: 'Templates', url: /\/templates$/, heading: /^Templates$/ },
   { label: 'Checklists', url: /\/templates\?category=checklists$/, heading: /^Templates$/ },
@@ -70,7 +70,7 @@ test('hub: "Build my day" opens the planner, and Journal is an honest fake door'
   // --- Build my day deep-links straight into the planner's preview ---------
   await page.goto('/hub')
   await page.getByRole('link', { name: /^Build my day — / }).click()
-  await expect(page).toHaveURL(/\/\?plan=1$/)
+  await expect(page).toHaveURL(/\/today\?plan=1$/)
   await expect(page.getByRole('dialog', { name: 'Plan my day' })).toBeVisible({ timeout: 20_000 })
 
   // --- Journal navigates NOWHERE and promises NOTHING ----------------------
@@ -105,8 +105,8 @@ test('hub: the start-screen preference moves / to the Hub, and Today is the defa
   await expect(todayOption).toHaveAttribute('aria-checked', 'true')
   await page.getByRole('radio', { name: 'Hub' }).click()
 
-  // `/` now REDIRECTS (rather than rendering the Hub at `/`), so the URL always
-  // says where you are.
+  // `/` REDIRECTS rather than rendering a page, so the URL always says where
+  // you are.
   await page.goto('/')
   await expect(page).toHaveURL(/\/hub$/, { timeout: 20_000 })
   await expect(page.getByRole('heading', { name: 'Hub', level: 2 })).toBeVisible()
@@ -115,10 +115,33 @@ test('hub: the start-screen preference moves / to the Hub, and Today is the defa
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Hub', level: 2 })).toBeVisible()
 
+  // --- THE REGRESSION THIS GUARDS ------------------------------------------
+  // Today must stay REACHABLE while the Hub preference is on. When `/` rendered
+  // Today directly and only redirected for hub users, every Today control
+  // pointed at `/` and bounced straight back to the Hub, so Today was
+  // unreachable entirely. Today has its own path now; these assert it works.
+  await page.goto('/today')
+  await expect(page).toHaveURL(/\/today$/)
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
+
+  // The nav's Today item, with the preference still on.
+  await page.goto('/hub')
+  await page.getByRole('complementary').getByRole('link', { name: 'Today', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
+
+  // And the Hub's own Today + Build-my-day tiles, which are the ones that broke.
+  await page.goto('/hub')
+  await page.getByRole('link', { name: /^Today — / }).click()
+  await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
+  await page.goto('/hub')
+  await page.getByRole('link', { name: /^Build my day — / }).click()
+  await expect(page.getByRole('dialog', { name: 'Plan my day' })).toBeVisible({ timeout: 20_000 })
+
   // --- And switching back really switches back ------------------------------
   await page.goto('/settings')
   await page.getByRole('radio', { name: 'Today' }).click()
   await page.goto('/')
+  await expect(page).toHaveURL(/\/today$/, { timeout: 20_000 })
   await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
 
   await deleteTestAccount(account, 'hub start screen')
@@ -134,6 +157,10 @@ test('hub: reachable from the nav and laid out at 390px', async ({ page }) => {
   await expect(links.first()).toHaveAccessibleName(/Hub/)
   await links.first().click()
   await expect(page).toHaveURL(/\/hub$/)
+
+  // Vision now has its own nav entry too, so its flag doc is true and it stays
+  // reachable with FEATURES.hub off.
+  await expect(sidebar.getByRole('link', { name: 'Vision', exact: true })).toBeVisible()
 
   // Mobile: it is in the More sheet, so the bottom bar keeps its five slots.
   await page.setViewportSize({ width: 390, height: 844 })

@@ -136,16 +136,17 @@ describe('the store', () => {
     expect(getPrefs()).toEqual(DEFAULT_PREFS)
   })
 
-  it('notifies subscribers so every surface updates at once', () => {
+  it('reflects each write immediately on the next read', () => {
+    // NOTE the scope: `subscribe` is module-private and `usePrefs` needs React,
+    // so this asserts the store's VALUE contract only — the notification of
+    // subscribers is covered end-to-end instead (e2e/hub.spec.ts flips the
+    // start-screen radio and e2e/share.spec.ts the sound switch, both of which
+    // only work if consumers actually re-render).
     withStorage(fakeStorage())
-    const seen: boolean[] = []
-    // useSyncExternalStore's subscribe is not exported; observe through the
-    // public API instead — the contract that matters is that the value changed.
     setPrefs({ sound: false })
-    seen.push(getPrefs().sound)
+    expect(getPrefs().sound).toBe(false)
     setPrefs({ sound: true })
-    seen.push(getPrefs().sound)
-    expect(seen).toEqual([false, true])
+    expect(getPrefs().sound).toBe(true)
   })
 
   it('never throws when storage is unavailable', () => {

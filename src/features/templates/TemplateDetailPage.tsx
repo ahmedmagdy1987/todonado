@@ -98,7 +98,7 @@ export function TemplateDetailPage() {
       const result = await apply(template, target)
       toast.show(applySuccessMessage(result))
       if (result.target === 'project' && result.projectId) navigate(`/projects/${result.projectId}`)
-      else if (result.target === 'today') navigate('/')
+      else if (result.target === 'today') navigate('/today')
       else navigate('/inbox')
     } catch {
       toast.show('Something went wrong adding this template. Please try again.')

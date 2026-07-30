@@ -30,30 +30,32 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+/** A fixed "now", and a break that began five minutes before it. */
+const NOW = 1_700_000_000_000
 const chain: PomodoroChain = {
   sessionId: 'session-1',
   taskId: 'task-1',
   completed: 3,
-  break: { kind: 'long-break', minutes: 15, startedAtMs: 1_700_000_000_000 },
+  break: { kind: 'long-break', minutes: 15, startedAtMs: NOW - 5 * 60_000 },
 }
 
 describe('round trip', () => {
   it('writes and reads back an identical chain', () => {
     withStorage(fakeStorage())
     writeChain(chain)
-    expect(readChain()).toEqual(chain)
+    expect(readChain(NOW)).toEqual(chain)
   })
 
   it('reads null when nothing was ever written', () => {
     withStorage(fakeStorage())
-    expect(readChain()).toBeNull()
+    expect(readChain(NOW)).toBeNull()
   })
 
   it('clears the key when written null', () => {
     const store = withStorage(fakeStorage())
     writeChain(chain)
     writeChain(null)
-    expect(readChain()).toBeNull()
+    expect(readChain(NOW)).toBeNull()
     expect(store._map.size).toBe(0)
   })
 
@@ -61,7 +63,7 @@ describe('round trip', () => {
     withStorage(fakeStorage())
     const working: PomodoroChain = { sessionId: 's', taskId: null, completed: 0, break: null }
     writeChain(working)
-    expect(readChain()).toEqual(working)
+    expect(readChain(NOW)).toEqual(working)
   })
 })
 
@@ -85,14 +87,63 @@ describe('never trusts what it reads', () => {
   for (const [label, raw] of bad) {
     it(`rejects ${label} without throwing`, () => {
       withStorage(fakeStorage({ 'todonado.pomodoro': raw }))
-      expect(() => readChain()).not.toThrow()
-      expect(readChain()).toBeNull()
+      expect(() => readChain(NOW)).not.toThrow()
+      expect(readChain(NOW)).toBeNull()
     })
   }
 
   it('treats a missing taskId (an older build) as general focus rather than rejecting', () => {
     withStorage(fakeStorage({ 'todonado.pomodoro': '{"sessionId":"s","completed":2,"break":null}' }))
-    expect(readChain()).toEqual({ sessionId: 's', taskId: null, completed: 2, break: null })
+    expect(readChain(NOW)).toEqual({ sessionId: 's', taskId: null, completed: 2, break: null })
+  })
+})
+
+describe('a stale break is abandoned state, not a live break', () => {
+  const withBreak = (startedAtMs: number) =>
+    JSON.stringify({
+      sessionId: null,
+      taskId: null,
+      completed: 3,
+      break: { kind: 'break', minutes: 5, startedAtMs },
+    })
+
+  it('resumes a break that began minutes ago', () => {
+    withStorage(fakeStorage({ 'todonado.pomodoro': withBreak(NOW - 4 * 60_000) }))
+    expect(readChain(NOW)?.break?.minutes).toBe(5)
+  })
+
+  it('DISCARDS a break from yesterday, chain and all', () => {
+    // Otherwise closing the laptop mid-break means /focus opens the next morning
+    // on a break that finished hours ago — and `completed` is just as stale, so
+    // it would carry the long-break cadence into a brand-new session.
+    withStorage(fakeStorage({ 'todonado.pomodoro': withBreak(NOW - 26 * 60 * 60_000) }))
+    expect(readChain(NOW)).toBeNull()
+  })
+
+  it('is boundary-exact around the two-hour bound', () => {
+    const twoHours = 2 * 60 * 60_000
+    withStorage(fakeStorage({ 'todonado.pomodoro': withBreak(NOW - twoHours + 1000) }))
+    expect(readChain(NOW)).not.toBeNull()
+    withStorage(fakeStorage({ 'todonado.pomodoro': withBreak(NOW - twoHours - 1000) }))
+    expect(readChain(NOW)).toBeNull()
+  })
+
+  it('tolerates a slightly fast device clock but not a wildly future one', () => {
+    withStorage(fakeStorage({ 'todonado.pomodoro': withBreak(NOW + 60_000) }))
+    expect(readChain(NOW)).not.toBeNull()
+    withStorage(fakeStorage({ 'todonado.pomodoro': withBreak(NOW + 60 * 60_000) }))
+    expect(readChain(NOW)).toBeNull()
+  })
+
+  it('leaves a WORKING chain (no break) alone however old it is', () => {
+    // Only the break carries a timestamp; a chain mid-interval is validated by
+    // the running session itself, which FocusPage matches on id.
+    withStorage(
+      fakeStorage({
+        'todonado.pomodoro': '{"sessionId":"s","taskId":null,"completed":2,"break":null}',
+      }),
+    )
+    expect(readChain(NOW)?.completed).toBe(2)
   })
 })
 
@@ -106,8 +157,8 @@ describe('survives storage being unavailable', () => {
       removeItem: () => {},
       _map: new Map(),
     } as unknown as ReturnType<typeof fakeStorage>)
-    expect(() => readChain()).not.toThrow()
-    expect(readChain()).toBeNull()
+    expect(() => readChain(NOW)).not.toThrow()
+    expect(readChain(NOW)).toBeNull()
   })
 
   it('swallows a quota error on write', () => {

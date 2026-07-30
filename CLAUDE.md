@@ -370,6 +370,12 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    In the nav it sits at the **top of the desktop sidebar** but is deliberately NOT `primary`: the
    mobile bottom bar's four primary slots + More already fill its documented five, so on mobile it
    lives in the More sheet.
+   **`/` is a redirect, not a page.** It resolves to `/today` (or `/hub`), and Today has its own
+   path. That is not cosmetic: while `/` rendered Today directly and only redirected for hub users,
+   every control pointing at `/` — the Today nav item, the Hub's own Today and Build-my-day tiles,
+   the Week header's Today button — silently bounced a hub-start user back to the Hub, making Today
+   **unreachable**. One canonical path per screen is what closes that whole class of bug, and
+   `e2e/hub.spec.ts` now reaches Today by three separate routes with the preference on.
    The landing strip now states breadth as a fact ("Your day, your focus, your habits — one place
    … Not five apps stitched together") with **no named competitors and no "replaces N apps"** — the
    list under it is the claim. The Quit tracker and Vision are deliberately **absent from that

@@ -52,17 +52,23 @@ const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then(
 const PlanPage = lazy(() => import('@/features/settings/PlanPage').then((m) => ({ default: m.PlanPage })))
 
 /**
- * What `/` shows.
+ * `/` means "wherever this device starts", and nothing more.
  *
- * TODAY IS STILL THE DEFAULT and stays the default — the first-run flow that is
- * known to work lands on Today, and nothing changes that for a user who never
- * asked. Only an explicit Settings choice sends `/` to the Hub, and it redirects
- * rather than rendering the Hub at `/` so the URL always says where you are.
+ * It ALWAYS redirects — to /today by default, or to /hub when that preference is
+ * set. Today therefore has a URL of its own that always means Today.
+ *
+ * That is not a detail. When `/` rendered Today directly and only redirected for
+ * hub users, every control pointing at `/` — the Today nav item, the Hub's own
+ * "Today" and "Build my day" tiles, the Week header's Today button — silently
+ * bounced a hub user back to the Hub, making Today unreachable entirely. One
+ * canonical path per screen is what stops that whole class of bug.
+ *
+ * TODAY IS STILL THE DEFAULT: only an explicit Settings choice changes where the
+ * app opens, and the first-run flow that is known to work is untouched.
  */
 function HomeScreen() {
   const { startOn } = usePrefs()
-  if (FEATURES.hub && startOn === 'hub') return <Navigate to="/hub" replace />
-  return <TodayPage />
+  return <Navigate to={FEATURES.hub && startOn === 'hub' ? '/hub' : '/today'} replace />
 }
 
 export function AppRoutes() {
@@ -82,7 +88,7 @@ export function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
             <Route index element={<HomeScreen />} />
-            <Route path="today" element={<Navigate to="/" replace />} />
+            <Route path="today" element={<TodayPage />} />
             {FEATURES.week && <Route path="week" element={<WeekPage />} />}
             <Route path="inbox" element={<InboxPage />} />
             <Route path="projects" element={<ProjectsPage />} />

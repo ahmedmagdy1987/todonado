@@ -76,10 +76,15 @@ export function QuitPage() {
   function confirmSlip() {
     if (!slipping) return
     const habit = slipping
-    slip.mutate(habit)
+    // The card updates optimistically, but the CLAIM waits for the write. A
+    // rolled-back failure must not leave "your longest run is kept" on screen
+    // next to the global error toast — this is the copy that matters most here.
+    slip.mutate(habit, {
+      onSuccess: () => toast.show('Day zero reset. The record of your longest run is kept.'),
+      onError: () => setJustSlippedId(null),
+    })
     setSlipping(null)
     setJustSlippedId(habit.id)
-    toast.show('Day zero reset. The record of your longest run is kept.')
   }
 
   return (

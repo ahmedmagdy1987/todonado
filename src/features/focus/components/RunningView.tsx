@@ -18,6 +18,7 @@ import {
   type FocusTiming,
 } from '../timer'
 import { useNow } from '../useNow'
+import { usePrefs } from '@/features/settings/prefs'
 import { playEndTone } from '../sound'
 
 /**
@@ -46,6 +47,10 @@ export function RunningView({
   const task = session.task_id ? (tasks.find((t) => t.id === session.task_id) ?? null) : null
   const paused = session.paused_at !== null
   const [soundOn, setSoundOn] = useState(false)
+  // The master switch in Settings wins. Showing "chime on" while Settings has
+  // silenced everything would be the button lying about what it does.
+  const soundAllowed = usePrefs().sound
+  const chimeAudible = soundOn && soundAllowed
   const endingRef = useRef(false)
 
   const now = useNow(!paused)
@@ -171,11 +176,18 @@ export function RunningView({
         <button
           type="button"
           onClick={toggleSound}
-          title={soundOn ? 'End chime on — tap to mute' : 'Play a soft chime when the timer ends'}
-          aria-label={soundOn ? 'Turn end chime off' : 'Turn end chime on'}
+          title={
+            !soundAllowed
+              ? 'Sounds are switched off in Settings'
+              : chimeAudible
+                ? 'End chime on — tap to mute'
+                : 'Play a soft chime when the timer ends'
+          }
+          aria-label={chimeAudible ? 'Turn end chime off' : 'Turn end chime on'}
+          aria-pressed={chimeAudible}
           className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
         >
-          {soundOn ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
+          {chimeAudible ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
         </button>
       </div>
 

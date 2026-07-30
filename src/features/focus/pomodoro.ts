@@ -178,9 +178,21 @@ export function endBreak(chain: PomodoroChain): PomodoroChain {
 
 /**
  * Pomodoros completed on a local day, straight from the session rows.
- * A pomodoro is a COMPLETED work interval of exactly the cadence's length, so
- * this survives a cleared localStorage, a different device and a reload — the
- * chain record is only ever an optimisation for the live UI, never the record.
+ *
+ * A pomodoro is an interval of the cadence's length that actually RAN its full
+ * length. All three conditions are load-bearing:
+ *   • `status === 'completed'` is NOT sufficient on its own — `endStatusFor`
+ *     records anything over MIN_MEANINGFUL_SECONDS as 'completed', so a
+ *     25-minute interval abandoned after 90 seconds has that status too.
+ *   • `actual_seconds >= workMinutes * 60` is what separates the two: the
+ *     auto-complete path writes the PLANNED seconds (`end('completed', total,
+ *     'finished')`), so a genuinely finished interval records exactly 1500 while
+ *     an early stop records the smaller measured elapsed.
+ *   • `planned_minutes === workMinutes` keeps 50- and 90-minute sprints out.
+ *
+ * Counting the ROWS rather than a stored tally is why the number survives a
+ * cleared localStorage, another device and a reload — the chain record is only
+ * ever an optimisation for the live UI, never the record.
  */
 export function pomodorosCompletedOn(
   sessions: FocusSession[],
@@ -188,7 +200,10 @@ export function pomodorosCompletedOn(
   c: PomodoroCadence = POMODORO,
 ): number {
   return sessionsOn(sessions, dayISO).filter(
-    (s) => s.status === 'completed' && s.planned_minutes === c.workMinutes,
+    (s) =>
+      s.status === 'completed' &&
+      s.planned_minutes === c.workMinutes &&
+      s.actual_seconds >= c.workMinutes * 60,
   ).length
 }
 

@@ -106,8 +106,15 @@ export function useUserTemplates() {
       id: string
       patch: UserTemplatePatch
     }): Promise<WriteResult> => {
-      const wantsStyle = 'style' in patch
-      if (wantsStyle) {
+      // Two DIFFERENT questions, deliberately answered separately:
+      //  • should the column be written?  Whenever the patch carries it — so
+      //    switching a checklist back to a plan persists once the column exists.
+      //  • should we TELL the user the style was dropped?  Only when a checklist
+      //    was actually asked for. The editor always sends `style`, so keying the
+      //    message off key-presence made every plain edit claim "checklist mode
+      //    isn't switched on yet", which was simply untrue.
+      const wantsChecklist = patch.style === 'checklist'
+      if ('style' in patch) {
         const withStyle = await supabase.from('user_templates').update(patch).eq('id', id)
         if (!withStyle.error) return { styleDropped: false }
         if (!COLUMN_MISSING.has(withStyle.error.code)) throw withStyle.error
@@ -117,7 +124,7 @@ export function useUserTemplates() {
       delete rest.style
       const { error } = await supabase.from('user_templates').update(rest).eq('id', id)
       if (error) throw error
-      return { styleDropped: wantsStyle }
+      return { styleDropped: wantsChecklist }
     },
     onSuccess: invalidate,
   })

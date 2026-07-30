@@ -63,12 +63,14 @@ export function hubTiles(): HubTile[] {
             label: 'Build my day',
             hint: 'fill today, never over',
             icon: Wand2,
-            // Lands on Today with the planner's preview already open.
-            to: '/?plan=1',
+            // Lands on Today with the planner's preview already open. `/today`,
+            // not `/` — `/` means "wherever this device starts" and drops the
+            // query, so a hub-start user would never see the planner.
+            to: '/today?plan=1',
           },
         ]
       : []),
-    { id: 'today', label: 'Today', hint: 'your command center', icon: Sun, to: '/' },
+    { id: 'today', label: 'Today', hint: 'your command center', icon: Sun, to: '/today' },
     ...(FEATURES.week
       ? [{ id: 'week', label: 'Week', hint: 'the next seven days', icon: CalendarRange, to: '/week' }]
       : []),

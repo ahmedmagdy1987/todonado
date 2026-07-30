@@ -233,25 +233,47 @@ describe('chain lifecycle', () => {
 describe('pomodorosCompletedOn', () => {
   const day = '2026-07-30'
   const at = (h: number) => new Date(2026, 6, 30, h, 0).toISOString()
+  /** A genuinely finished interval: the auto-complete path writes the PLANNED
+   *  seconds, so a real 25-minute pomodoro always records exactly 1500. */
+  const FULL = 25 * 60
 
-  it('counts only COMPLETED intervals of the cadence length, on that local day', () => {
+  it('counts only intervals that RAN their full length, on that local day', () => {
     const sessions = [
-      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(9) }),
-      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(10) }),
+      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(9), actual_seconds: FULL }),
+      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(10), actual_seconds: FULL }),
       // still running — not finished, so not a pomodoro yet
       makeFocusSession({ planned_minutes: 25, status: 'running', started_at: at(11) }),
       // abandoned — a bailed interval is not a pomodoro
       makeFocusSession({ planned_minutes: 25, status: 'abandoned', started_at: at(12) }),
       // a classic 50-minute sprint is a session, but it is not a pomodoro
-      makeFocusSession({ planned_minutes: 50, status: 'completed', started_at: at(13) }),
+      makeFocusSession({ planned_minutes: 50, status: 'completed', started_at: at(13), actual_seconds: 50 * 60 }),
       // yesterday
       makeFocusSession({
         planned_minutes: 25,
         status: 'completed',
+        actual_seconds: FULL,
         started_at: new Date(2026, 6, 29, 9, 0).toISOString(),
       }),
     ]
     expect(pomodorosCompletedOn(sessions, day)).toBe(2)
+  })
+
+  it('does NOT count an interval stopped early, even though its status is "completed"', () => {
+    // THE TRAP this guards: endStatusFor records anything over
+    // MIN_MEANINGFUL_SECONDS as 'completed', so status alone would score a
+    // 90-second bail — or a 24:59 bail — as a finished pomodoro.
+    const bailed = [
+      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(9), actual_seconds: 90 }),
+      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(10), actual_seconds: FULL - 1 }),
+    ]
+    expect(pomodorosCompletedOn(bailed, day)).toBe(0)
+  })
+
+  it('counts an interval that ran slightly over, since the clock is wall-clock', () => {
+    const over = [
+      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(9), actual_seconds: FULL + 30 }),
+    ]
+    expect(pomodorosCompletedOn(over, day)).toBe(1)
   })
 
   it('is 0 with no sessions at all', () => {
@@ -260,8 +282,8 @@ describe('pomodorosCompletedOn', () => {
 
   it('follows a custom cadence length', () => {
     const sessions = [
-      makeFocusSession({ planned_minutes: 50, status: 'completed', started_at: at(9) }),
-      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(10) }),
+      makeFocusSession({ planned_minutes: 50, status: 'completed', started_at: at(9), actual_seconds: 50 * 60 }),
+      makeFocusSession({ planned_minutes: 25, status: 'completed', started_at: at(10), actual_seconds: FULL }),
     ]
     expect(pomodorosCompletedOn(sessions, day, { ...POMODORO, workMinutes: 50 })).toBe(1)
   })
