@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { Link } from 'react-router-dom'
-import { CalendarRange, Flame, Sunrise, Undo2, X } from 'lucide-react'
+import { CalendarRange, Flame, Play, Sunrise, Undo2, X } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
 import { track } from '@/features/analytics/track'
@@ -224,6 +224,17 @@ export function TodayPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* The shortest path from "I should start" to actually starting: it
+              picks the top task, offers a 60-second reset, and hands off to the
+              existing Focus timer. Kept at size="sm" so the header's height and
+              its mobile wrap behaviour are unchanged. */}
+          {FEATURES.getToWork && (
+            <Link to="/work">
+              <Button size="sm">
+                <Play className="h-4 w-4" aria-hidden /> Get to work
+              </Button>
+            </Link>
+          )}
           {FEATURES.week && (
             <Link to="/week">
               <Button variant="secondary" size="sm">

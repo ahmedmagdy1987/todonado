@@ -33,6 +33,7 @@ const ProjectDetailPage = lazy(() =>
   import('@/features/projects/ProjectDetailPage').then((m) => ({ default: m.ProjectDetailPage })),
 )
 const FocusPage = lazy(() => import('@/features/focus/FocusPage').then((m) => ({ default: m.FocusPage })))
+const WorkPage = lazy(() => import('@/features/work/WorkPage').then((m) => ({ default: m.WorkPage })))
 const InsightsPage = lazy(() => import('@/features/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })))
 const WellnessPage = lazy(() => import('@/features/wellness/WellnessPage').then((m) => ({ default: m.WellnessPage })))
 const BreathePage = lazy(() => import('@/features/wellness/breathwork/BreathePage').then((m) => ({ default: m.BreathePage })))
@@ -70,6 +71,7 @@ export function AppRoutes() {
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="projects/:projectId" element={<ProjectDetailPage />} />
             <Route path="focus" element={<FocusPage />} />
+            {FEATURES.getToWork && <Route path="work" element={<WorkPage />} />}
             <Route path="insights" element={<InsightsPage />} />
             {FEATURES.wellness && (
               <>

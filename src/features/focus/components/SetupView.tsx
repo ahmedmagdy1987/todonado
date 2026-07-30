@@ -1,26 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
-import { Target } from 'lucide-react'
+import { Target, Timer } from 'lucide-react'
 import { Button, Card, CardContent, Input, Select } from '@/components/ui'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
+import { FEATURES } from '@/lib/config'
 import { cn } from '@/lib/utils'
+import type { FocusSession } from '@/types/database'
 import { useFocusMutations } from '../api/useFocusSessions'
+import { POMODORO } from '../pomodoro'
 
 const PRESETS = [25, 50, 90]
 const DEFAULT_MINUTES = 50
 
 export function SetupView({
   initialTaskId,
+  initialPomodoro = false,
   onStarted,
 }: {
   initialTaskId: string | null
-  onStarted: () => void
+  /** Start in pomodoro mode — the Get-to-Work hand-off uses `?pomodoro=1`. */
+  initialPomodoro?: boolean
+  onStarted: (session: FocusSession, pomodoro: boolean) => void
 }) {
   const { workspaceId } = useWorkspace()
   const { data: tasks = [] } = useTasks(workspaceId)
   const { startSession } = useFocusMutations(workspaceId)
   const [taskId, setTaskId] = useState(initialTaskId ?? '')
   const [minutes, setMinutes] = useState(DEFAULT_MINUTES)
+  const [pomodoro, setPomodoro] = useState(FEATURES.pomodoro && initialPomodoro)
   const prefilledFor = useRef<string | null>(null)
 
   const openTasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
@@ -38,13 +45,21 @@ export function SetupView({
     }
   }, [taskId, tasks])
 
+  // In pomodoro mode the interval length IS the cadence — an adjustable
+  // "pomodoro" is just a sprint with extra words.
+  const plannedMinutes = pomodoro ? POMODORO.workMinutes : Math.max(1, Math.round(minutes))
+
   function start() {
-    startSession.mutate({
-      workspace_id: workspaceId,
-      task_id: taskId || null,
-      planned_minutes: Math.max(1, Math.round(minutes)),
-    })
-    onStarted()
+    startSession.mutate(
+      {
+        workspace_id: workspaceId,
+        task_id: taskId || null,
+        planned_minutes: plannedMinutes,
+      },
+      // The chain needs the REAL row id, so it is opened from the insert's result
+      // rather than optimistically. A failed insert therefore starts no chain.
+      { onSuccess: (session) => onStarted(session, pomodoro) },
+    )
   }
 
   return (
@@ -68,49 +83,100 @@ export function SetupView({
             </Select>
           </label>
 
-          <div className="space-y-2">
-            <span className="text-xs font-medium text-text-muted">Duration</span>
-            <div className="flex flex-wrap items-center gap-2">
-              {PRESETS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setMinutes(p)}
-                  className={cn(
-                    'focus-ring rounded-xl border px-4 py-2 text-sm font-medium transition-colors',
-                    minutes === p
-                      ? 'border-transparent bg-brand-gradient text-white'
-                      : 'border-white/10 text-text-muted hover:text-text-primary',
-                  )}
-                >
-                  {p} min
-                </button>
-              ))}
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  value={minutes}
-                  onChange={(e) => {
-                    const n = Number(e.target.value)
-                    // Allow clear-and-retype (no snap to default) and never show a
-                    // negative; start() clamps to a minimum of 1.
-                    setMinutes(e.target.value === '' || !Number.isFinite(n) ? 0 : Math.max(0, Math.floor(n)))
-                  }}
-                  className="h-10 w-24"
-                  aria-label="Custom duration in minutes"
-                />
-                <span className="text-sm text-text-muted">min</span>
+          {FEATURES.pomodoro && (
+            <fieldset className="space-y-2">
+              <legend className="text-xs font-medium text-text-muted">Rhythm</legend>
+              <div className="flex flex-wrap gap-2">
+                <ModeButton active={!pomodoro} onClick={() => setPomodoro(false)}>
+                  One sprint
+                </ModeButton>
+                <ModeButton active={pomodoro} onClick={() => setPomodoro(true)}>
+                  <Timer className="h-3.5 w-3.5" aria-hidden />
+                  Pomodoro
+                </ModeButton>
+              </div>
+              {pomodoro && (
+                <p className="text-xs leading-relaxed text-text-muted">
+                  {POMODORO.workMinutes} minutes of work, then a {POMODORO.breakMinutes}-minute
+                  break — and a {POMODORO.longBreakMinutes}-minute one after every{' '}
+                  {POMODORO.cyclesBeforeLongBreak}. Each interval is recorded as its own focus
+                  session, so breaks never count as focus time.
+                </p>
+              )}
+            </fieldset>
+          )}
+
+          {!pomodoro && (
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-text-muted">Duration</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setMinutes(p)}
+                    className={cn(
+                      'focus-ring rounded-xl border px-4 py-2 text-sm font-medium transition-colors',
+                      minutes === p
+                        ? 'border-transparent bg-brand-gradient text-white'
+                        : 'border-white/10 text-text-muted hover:text-text-primary',
+                    )}
+                  >
+                    {p} min
+                  </button>
+                ))}
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={minutes}
+                    onChange={(e) => {
+                      const n = Number(e.target.value)
+                      // Allow clear-and-retype (no snap to default) and never show a
+                      // negative; start() clamps to a minimum of 1.
+                      setMinutes(e.target.value === '' || !Number.isFinite(n) ? 0 : Math.max(0, Math.floor(n)))
+                    }}
+                    className="h-10 w-24"
+                    aria-label="Custom duration in minutes"
+                  />
+                  <span className="text-sm text-text-muted">min</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <Button onClick={start} size="lg" className="w-full">
+          <Button onClick={start} size="lg" className="w-full" disabled={startSession.isPending}>
             <Target className="h-4 w-4" aria-hidden />
-            Start {Math.max(1, Math.round(minutes))}-min sprint
+            {pomodoro ? `Start pomodoro 1 of ${POMODORO.cyclesBeforeLongBreak}` : `Start ${plannedMinutes}-min sprint`}
           </Button>
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function ModeButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'focus-ring inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium transition-colors',
+        active
+          ? 'border-transparent bg-brand-gradient text-white'
+          : 'border-white/10 text-text-muted hover:text-text-primary',
+      )}
+    >
+      {children}
+    </button>
   )
 }

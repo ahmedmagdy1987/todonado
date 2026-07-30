@@ -7,6 +7,7 @@ import { useTasks } from '@/features/tasks/api/useTasks'
 import type { FocusSession } from '@/types/database'
 import { CircularTimer } from './CircularTimer'
 import { useFocusMutations } from '../api/useFocusSessions'
+import { POMODORO } from '../pomodoro'
 import {
   elapsedSeconds,
   endStatusFor,
@@ -16,34 +17,28 @@ import {
   resume as resumeTiming,
   type FocusTiming,
 } from '../timer'
+import { useNow } from '../useNow'
 import { playEndTone } from '../sound'
 
-function useNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!active) return
-    const tick = () => setNow(Date.now())
-    const id = setInterval(tick, 1000)
-    // Re-sync immediately on refocus so a session backgrounded past 0 completes
-    // promptly (the interval is throttled while the tab is hidden).
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') tick()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(id)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [active])
-  return now
-}
+/**
+ * How a session ENDED, which is not the same thing as its recorded status.
+ * `endStatusFor` marks anything over a minute 'completed' even when the user
+ * stopped it early, so a pomodoro chain cannot use the status to decide whether
+ * an interval was actually seen through:
+ *   'finished' — the clock reached zero on its own (a real pomodoro).
+ *   'stopped'  — the user pressed End early (the chain ends here).
+ */
+export type EndReason = 'finished' | 'stopped'
 
 export function RunningView({
   session,
   onEnded,
+  pomodoro = null,
 }: {
   session: FocusSession
-  onEnded: (id: string) => void
+  onEnded: (id: string, reason: EndReason) => void
+  /** Set when this interval is part of a pomodoro chain. */
+  pomodoro?: { position: number; completed: number } | null
 }) {
   const { workspaceId } = useWorkspace()
   const { patchSession } = useFocusMutations(workspaceId)
@@ -65,7 +60,7 @@ export function RunningView({
   const progress = total > 0 ? elapsed / total : 0
   const complete = isComplete(session.planned_minutes, elapsed)
 
-  function end(status: 'completed' | 'abandoned', actualSeconds: number) {
+  function end(status: 'completed' | 'abandoned', actualSeconds: number, reason: EndReason) {
     if (endingRef.current) return
     endingRef.current = true
     if (status === 'completed') track('focus_completed')
@@ -82,14 +77,14 @@ export function RunningView({
       // If the end fails (e.g. offline), un-wedge the guard so it can be retried.
       { onError: () => void (endingRef.current = false) },
     )
-    onEnded(session.id)
+    onEnded(session.id, reason)
   }
 
   // Auto-complete when the sprint reaches zero.
   useEffect(() => {
     if (!complete || endingRef.current || session.status !== 'running') return
     if (soundOn) playEndTone()
-    end('completed', total)
+    end('completed', total, 'finished')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [complete])
 
@@ -118,18 +113,28 @@ export function RunningView({
   }
 
   function endEarly() {
-    end(endStatusFor(elapsed), elapsed)
+    end(endStatusFor(elapsed), elapsed, 'stopped')
   }
 
   return (
     <div className="animate-fade-in flex flex-col items-center space-y-8 pt-4">
       <div className="text-center">
         <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
-          {paused ? 'Paused' : 'Focusing'}
+          {paused
+            ? 'Paused'
+            : pomodoro
+              ? `Pomodoro ${pomodoro.position} of ${POMODORO.cyclesBeforeLongBreak}`
+              : 'Focusing'}
         </p>
         <h2 className="mt-1 font-display text-xl font-semibold">
           {task ? task.title : 'General focus'}
         </h2>
+        {pomodoro && pomodoro.completed > 0 && (
+          <p className="mt-1 text-sm text-text-muted">
+            {pomodoro.completed} done so far — a {POMODORO.longBreakMinutes}-minute break after{' '}
+            {POMODORO.cyclesBeforeLongBreak}.
+          </p>
+        )}
       </div>
 
       <CircularTimer progress={progress}>

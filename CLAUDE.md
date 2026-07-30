@@ -87,7 +87,9 @@ src/
     auth/      # AuthProvider, auth-context, ProtectedRoute, LoginPage
     today/     # TodayPage (command center), CapacityMeter, streak, digest, autoPlan
     week/      # /week 7-day capacity board + "Plan my week" (FEATURES.week, Pro)
-    inbox/ projects/ focus/ insights/   # feature pages
+    inbox/ projects/ insights/          # feature pages
+    focus/     # Focus Mode + the Pomodoro cadence (FEATURES.pomodoro)
+    work/      # "Get to Work" — /work, one tap from wanting to start to starting
     templates/ # catalog (built-in) + personal (user_templates), one shared apply path
     history/   # the Free rolling history window (view-layer only)
     calendar/  # .ics parsing + busy-minutes → capacity (FEATURES.calendarImport)
@@ -265,6 +267,37 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    `PlanMyDay`; Accept snapshots every task's previous date so one Undo restores the whole week.
    No migration.
 
+### Shipped in the 2026-07-30 session
+
+1. **Quit tracker** — see the wellness-suite list above. Migration pending (§7).
+2. **"Get to Work" + Pomodoro** (`FEATURES.getToWork`, `FEATURES.pomodoro`, both default **ON**).
+   `/work` is composition only: it ranks what is already in the cache (`work/pickWork.ts` — resume
+   what's in progress → overdue → planned for today → backlog, tie-broken by the same
+   priority→due→effort→position order `planWeek` uses, so two surfaces can't disagree), optionally
+   runs the **existing** breathwork pacer for 60 seconds, and hands off to `/focus?task=…&pomodoro=1`.
+   It starts no timer and owns no data.
+   **Pomodoro is one `focus_sessions` row per work interval, with the break as device-local UI
+   state — and that is the whole design decision.** The obvious alternative (one long row whose
+   elapsed time contains the breaks) silently corrupts everything downstream: `focusStats` sums
+   `actual_seconds` for every finished row, so break minutes would be reported as focus minutes in
+   Insights, the weekly review, `estimationBias` and every task's focus total — and `isComplete`
+   would have to mean two things at once. One row per interval means a 4-pomodoro chain simply *is*
+   four completed 25-minute sessions, so every existing number stays true with **no migration, no
+   new column, and no change to what `actual_seconds` means**. A break is not work, so it is not a
+   row either — recording one would make a skipped break an *abandoned session* and drag the
+   completion rate down. The break clock is still **timestamp-derived, never tick-counted**, so it
+   survives a reload, a locked phone and a throttled tab. The cadence is a single frozen preset
+   (25/5, 15 after every 4) because `docs/SUPERAPP_ROADMAP.md` flags pomodoro presets as a
+   scope-creep trap; 25/50/90 + custom sprints are untouched. `RunningView` now reports **why** a
+   session ended (`'finished'` vs `'stopped'`) because `endStatusFor` records anything over a minute
+   as `completed` even when stopped early — the status alone would over-count pomodoros. "Pomodoros
+   today" is counted off the session rows, never from a stored tally, so it survives a cleared
+   localStorage and a different device. The pacer moved to `breathwork/BreathPacer.tsx` (a pure
+   move, byte-identical) so a short breathing step can be embedded without pulling the
+   `/wellness/breathe` route chunk along; it stays gated by `FEATURES.wellness` so switching the
+   suite off really removes it. Guided-meditation **audio** remains honestly "coming soon"
+   (licensing) — unchanged. No migration.
+
 ---
 
 ## 4. Roadmap (3 phases)
@@ -281,7 +314,8 @@ manifest, docs. No full features.
 - [x] Per-user daily capacity (`profiles.daily_capacity_minutes`), editable in the meter.
 
 ### V1 — Focus & insight
-- [x] Focus sessions / timer — **done** (task-bound Focus Mode; `focus_sessions`).
+- [x] Focus sessions / timer — **done** (task-bound Focus Mode; `focus_sessions`), plus a
+      **Pomodoro** cadence and the one-tap `/work` entry point (2026-07-30).
 - [x] Insights: planned-vs-actual effort, roll-over patterns, focus trends — **done** (Pro).
 - [x] One-way calendar **read** (busy blocks → capacity) — **done**: `.ics` file on Free,
       server-side URL sync on Pro. Two-way sync stays out of scope (§5).

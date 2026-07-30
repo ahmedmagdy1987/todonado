@@ -129,4 +129,23 @@ export const FEATURES = {
    * route and the hub card with no other behaviour change.
    */
   quitTracker: true,
+  /**
+   * Pomodoro mode inside Focus — the classic 25/5 cadence with a 15-minute long
+   * break after every 4th interval. A chain is one `focus_sessions` row per work
+   * interval (so break time is never counted as focus time, and no migration is
+   * needed); the break itself is device-local UI state, derived from a timestamp
+   * exactly like the timer. Default ON; set to false to hide the mode toggle and
+   * the break screen — the existing 25/50/90 + custom sprint is untouched either
+   * way, and an in-progress chain simply behaves as a normal sprint.
+   */
+  pomodoro: true,
+  /**
+   * "Get to Work" — a one-tap route (/work) that picks the top thing to do,
+   * offers a 60-second breathwork reset first, and hands off to the existing
+   * Focus timer. Composition only: it starts no timer of its own and owns no
+   * data. Default ON; set to false to remove the route and the Today button with
+   * no other behaviour change. (The breathwork pre-step is additionally gated by
+   * FEATURES.wellness, so switching the wellness suite off still removes it.)
+   */
+  getToWork: true,
 } as const

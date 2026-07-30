@@ -1,63 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Pause, Play, Sparkles, Square, Volume2, VolumeX, Wind } from 'lucide-react'
+import { ArrowLeft, Sparkles, Volume2, VolumeX, Wind } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { playEndTone } from '@/features/focus/sound'
-import { formatClock } from '@/features/focus/timer'
 import { cn } from '@/lib/utils'
 import {
   BREATH_DURATIONS_MIN,
   BREATH_PATTERNS,
-  circleScale,
-  elapsedMs,
   getPattern,
-  isSessionComplete,
-  pacerPause,
-  pacerResume,
-  phaseAt,
-  phaseLabel,
-  roundsCompleted,
-  sessionSecondsLeft,
-  type BreathPattern,
   type BreathPatternId,
-  type PacerTiming,
 } from './breathing'
-
-/** rAF-driven re-render clock (smooth animation); pauses when inactive. */
-function useRafNow(active: boolean): number {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!active) return
-    let raf = 0
-    const loop = () => {
-      setNow(Date.now())
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    // Snap to the correct point in the cycle when returning to a throttled tab.
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') setNow(Date.now())
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      cancelAnimationFrame(raf)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [active])
-  return now
-}
-
-function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
-    const onChange = () => setReduced(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return reduced
-}
+// The pacer lives in its own module so a short breathing step can be embedded
+// elsewhere (the Get-to-Work reset) without dragging this page's chunk along.
+import { RunningPacer } from './BreathPacer'
 
 type Stage = 'setup' | 'running' | 'done'
 interface SessionResult {
@@ -224,99 +179,6 @@ function BreathSetup({
           {chimeOn ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
           End chime {chimeOn ? 'on' : 'off'}
         </button>
-      </div>
-    </div>
-  )
-}
-
-function RunningPacer({
-  pattern,
-  durationMin,
-  onFinish,
-}: {
-  pattern: BreathPattern
-  durationMin: number
-  onFinish: (rounds: number, natural: boolean) => void
-}) {
-  const [timing, setTiming] = useState<PacerTiming>(() => ({
-    startedAtMs: Date.now(),
-    accumulatedPausedMs: 0,
-    pausedAtMs: null,
-  }))
-  const paused = timing.pausedAtMs !== null
-  const reduced = usePrefersReducedMotion()
-  const now = useRafNow(!paused)
-  const finishedRef = useRef(false)
-
-  const elapsed = elapsedMs(timing, now)
-  const complete = isSessionComplete(durationMin, elapsed)
-  const state = phaseAt(elapsed, pattern)
-  const fullness = circleScale(state)
-  const secsLeft = sessionSecondsLeft(durationMin, elapsed)
-
-  // Finalize once when the session reaches its full duration.
-  useEffect(() => {
-    if (!complete || finishedRef.current) return
-    finishedRef.current = true
-    onFinish(roundsCompleted(durationMin * 60 * 1000, pattern), true)
-  }, [complete, durationMin, pattern, onFinish])
-
-  function togglePause() {
-    setTiming((t) => (t.pausedAtMs !== null ? pacerResume(t, Date.now()) : pacerPause(t, Date.now())))
-  }
-
-  function endEarly() {
-    if (finishedRef.current) return
-    finishedRef.current = true
-    onFinish(roundsCompleted(elapsed, pattern), false)
-  }
-
-  // Contracted ↔ expanded; gentle range for reduced-motion users.
-  const lo = reduced ? 0.92 : 0.5
-  const cssScale = lo + (1 - lo) * fullness
-
-  return (
-    <div className="flex flex-col items-center space-y-8 pt-2">
-      <div className="relative flex h-64 w-64 items-center justify-center sm:h-72 sm:w-72">
-        <div
-          aria-hidden
-          className="absolute inset-0 rounded-full bg-brand-gradient-soft ring-1 ring-brand/30"
-          style={{ transform: `scale(${cssScale})`, willChange: 'transform' }}
-        />
-        <div className="relative z-10 text-center">
-          <p role="status" aria-live="polite" className="font-display text-2xl font-semibold">
-            {paused ? 'Paused' : phaseLabel(state.phase.type)}
-          </p>
-          {!paused && (
-            <p aria-hidden className="mt-1 font-mono text-3xl tabular-nums text-text-muted">
-              {state.phaseSecondsLeft}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="text-center">
-        <p className="font-mono text-lg tabular-nums text-text-primary">{formatClock(secsLeft)}</p>
-        <p className="mt-1 text-xs text-text-muted">
-          {pattern.name} · {roundsCompleted(elapsed, pattern)} rounds
-        </p>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button variant="secondary" onClick={togglePause}>
-          {paused ? (
-            <>
-              <Play className="h-4 w-4" aria-hidden /> Resume
-            </>
-          ) : (
-            <>
-              <Pause className="h-4 w-4" aria-hidden /> Pause
-            </>
-          )}
-        </Button>
-        <Button variant="ghost" onClick={endEarly}>
-          <Square className="h-4 w-4" aria-hidden /> End
-        </Button>
       </div>
     </div>
   )

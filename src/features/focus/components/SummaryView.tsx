@@ -5,8 +5,12 @@ import { useTasks } from '@/features/tasks/api/useTasks'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
 import { nextOccurrenceDate } from '@/features/tasks/recurrence'
 import { useToast } from '@/components/common/toast-context'
+import { FEATURES } from '@/lib/config'
+import { todayISO } from '@/lib/date'
 import { formatDateShort } from '@/lib/format'
 import type { FocusSession } from '@/types/database'
+import { useFocusSessions } from '../api/useFocusSessions'
+import { pomodorosCompletedOn } from '../pomodoro'
 import { formatClock } from '../timer'
 
 export function SummaryView({
@@ -21,6 +25,12 @@ export function SummaryView({
   const { data: tasks = [] } = useTasks(workspaceId)
   const { toggleComplete } = useTaskMutations(workspaceId)
   const task = session.task_id ? (tasks.find((t) => t.id === session.task_id) ?? null) : null
+
+  // Pomodoros today, read straight off the session rows this page already has in
+  // cache (zero extra requests). Counting the ROWS rather than a stored tally is
+  // why the number survives a cleared localStorage, another device and a reload.
+  const { data: sessions = [] } = useFocusSessions(workspaceId)
+  const pomodorosToday = FEATURES.pomodoro ? pomodorosCompletedOn(sessions, todayISO()) : 0
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -55,6 +65,16 @@ export function SummaryView({
               </p>
               <p className="text-xs text-text-muted">interruptions</p>
             </div>
+            {pomodorosToday > 0 && (
+              <div>
+                <p className="font-mono text-2xl font-semibold text-text-primary">
+                  {pomodorosToday}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {pomodorosToday === 1 ? 'pomodoro today' : 'pomodoros today'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-2 flex flex-wrap justify-center gap-2">
