@@ -36,6 +36,12 @@ const ProjectDetailPage = lazy(() =>
 const FocusPage = lazy(() => import('@/features/focus/FocusPage').then((m) => ({ default: m.FocusPage })))
 const WorkPage = lazy(() => import('@/features/work/WorkPage').then((m) => ({ default: m.WorkPage })))
 const VisionPage = lazy(() => import('@/features/vision/VisionPage').then((m) => ({ default: m.VisionPage })))
+const MindMapsPage = lazy(() => import('@/features/mindmaps/MindMapsPage').then((m) => ({ default: m.MindMapsPage })))
+// Its own chunk, separate from the list: the canvas, the pointer handling and
+// the node dialog are only needed once a map is actually open.
+const MindMapEditorPage = lazy(() =>
+  import('@/features/mindmaps/MindMapEditorPage').then((m) => ({ default: m.MindMapEditorPage })),
+)
 const HubPage = lazy(() => import('@/features/hub/HubPage').then((m) => ({ default: m.HubPage })))
 const InsightsPage = lazy(() => import('@/features/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })))
 const WellnessPage = lazy(() => import('@/features/wellness/WellnessPage').then((m) => ({ default: m.WellnessPage })))
@@ -96,6 +102,12 @@ export function AppRoutes() {
             <Route path="focus" element={<FocusPage />} />
             {FEATURES.getToWork && <Route path="work" element={<WorkPage />} />}
             {FEATURES.vision && <Route path="vision" element={<VisionPage />} />}
+            {FEATURES.vision && FEATURES.mindMaps && (
+              <>
+                <Route path="vision/maps" element={<MindMapsPage />} />
+                <Route path="vision/maps/:mapId" element={<MindMapEditorPage />} />
+              </>
+            )}
             {FEATURES.hub && <Route path="hub" element={<HubPage />} />}
             <Route path="insights" element={<InsightsPage />} />
             {FEATURES.wellness && (

@@ -25,4 +25,9 @@ export const qk = {
   quitCheckins: (userId: string) => ['quit-checkins', userId] as const,
   // Vision cards — user-owned goals (keyed by user, not workspace).
   visionCards: (userId: string) => ['vision-cards', userId] as const,
+  // Mind maps — user-owned. The LIST is deliberately separate from a single map:
+  // the list needs only titles, while the editor holds a graph that changes on
+  // every drag, and merging the two would rewrite the list cache at pointer rate.
+  mindMaps: (userId: string) => ['mind-maps', userId] as const,
+  mindMap: (mapId: string) => ['mind-map', mapId] as const,
 }

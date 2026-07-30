@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Compass, Plus, Sparkles } from 'lucide-react'
+import { Compass, Network, Plus, Sparkles } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { InterestChip } from '@/components/common/InterestChip'
 import { SortableList } from '@/components/common/SortableList'
@@ -9,7 +9,7 @@ import { usePlan } from '@/features/billing/usePlan'
 import { useProjects } from '@/features/projects/api/useProjects'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
-import { FREE_VISION_CARDS } from '@/lib/config'
+import { FEATURES, FREE_VISION_CARDS } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import { newPositionForMove } from '@/lib/reorder'
 import type { VisionCard } from '@/types/database'
@@ -105,11 +105,24 @@ export function VisionPage() {
             </p>
           </div>
         </div>
-        {available && (
-          <Button onClick={openAdd} className="shrink-0">
-            <Plus className="h-4 w-4" aria-hidden /> Add goal
-          </Button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Maps live beside goals rather than in the nav: a mind map is how a
+              goal usually starts, and burying it a level deeper is what stops
+              anyone finding it. */}
+          {FEATURES.mindMaps && (
+            <Link
+              to="/vision/maps"
+              className="focus-ring inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 px-4 text-sm font-medium text-text-primary hover:bg-surface-2/60"
+            >
+              <Network className="h-4 w-4" aria-hidden /> Mind maps
+            </Link>
+          )}
+          {available && (
+            <Button onClick={openAdd}>
+              <Plus className="h-4 w-4" aria-hidden /> Add goal
+            </Button>
+          )}
+        </div>
       </header>
 
       {showLimit && !canCreate && <VisionLimitUpsell limit={FREE_VISION_CARDS} />}

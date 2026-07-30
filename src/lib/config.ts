@@ -56,6 +56,25 @@ export const FREE_QUIT_HABITS = 1
 export const FREE_VISION_CARDS = 3
 
 /**
+ * How many MIND MAPS a Free plan may CREATE. Pro (and Founding) are unlimited.
+ * Tunable — this is the only place the number lives.
+ *
+ * Same principle as every other cap here: it gates CREATION only. A map already
+ * drawn opens, edits and saves forever, at any count. One is deliberately enough
+ * to be useful rather than a demo — a single map holds 200 nodes.
+ */
+export const FREE_MIND_MAPS = 1
+
+/**
+ * How many challenges a Free plan may have ACTIVE at once. Pro is unlimited.
+ *
+ * Unlike the other caps this one is about attention rather than storage: a
+ * person running six challenges at once is not doing any of them. Completed and
+ * abandoned challenges never count against it, and it never blocks restarting.
+ */
+export const FREE_ACTIVE_CHALLENGES = 1
+
+/**
  * How many days the points score covers. Deliberately the same as
  * `INSIGHTS_SUMMARY_DAYS`, so the chip on Today and the breakdown in Insights
  * describe exactly the same window and cannot disagree.
@@ -220,4 +239,34 @@ export const FEATURES = {
    * set to false to remove the route, the nav entry and the Settings toggle.
    */
   hub: true,
+  /**
+   * Mind maps — a canvas of draggable ideas connected by lines, at
+   * /vision/maps. The stage BEFORE a task list: branching thoughts you cannot
+   * yet order, where a node may optionally say "this idea is that project" and
+   * link into the real work. Hand-rolled SVG, no graph library. Owner-only data
+   * in `mind_maps` (one row per map, graph in jsonb). Default ON; set to false
+   * to remove the routes, the Vision link and the hub tile with no other
+   * behaviour change.
+   */
+  mindMaps: true,
+  /**
+   * Challenges — structured multi-day pushes (/challenges) the user opts into.
+   * Progress is DERIVED from data the app already has (tasks, focus sessions,
+   * quit check-ins, journal entries), exactly like the streak and points: no new
+   * tracking machinery, no daily job, and nothing to drift. Owner-only data in
+   * `user_challenges` (which records only that you joined, never your progress).
+   * Default ON; set to false to remove the route, the nav entry and the hub tile.
+   */
+  challenges: true,
+  /**
+   * Daily journal — /journal, a prompt-guided entry per day plus optional voice
+   * notes (Pro). Owner-only data in `journal_entries`, audio in the private
+   * `journal-audio` storage bucket behind signed URLs.
+   *
+   * NO AI. The reading-back-and-spotting-patterns layer needs an AI provider the
+   * app does not have; the page says so plainly and offers the existing
+   * interest chip rather than shipping a placeholder that pretends. Default ON;
+   * set to false to remove the route, the nav entry and the hub tile.
+   */
+  journal: true,
 } as const

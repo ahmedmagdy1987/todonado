@@ -455,6 +455,70 @@ export type VisionCardPatch = Partial<
   Pick<VisionCard, 'title' | 'why' | 'target_date' | 'position' | 'project_id'>
 >
 
+// ---------------------------------------------------------------------------
+//  Mind maps — owner-only, user-scoped. ONE ROW PER MAP, graph in jsonb.
+//  A map is read, edited and saved as a whole by exactly one owner, so it has
+//  none of the concurrent-write pressure that would justify node/edge tables —
+//  and normalising it would make a drag an UPDATE and an open three round trips.
+//  The cost is that the DB cannot enforce the graph's internal shape, so
+//  `normaliseMap` (graph.ts) parses these two columns defensively on every read.
+//  See supabase/migrations/20260731120000_mind_maps.sql.
+// ---------------------------------------------------------------------------
+
+/** Design-token accent names, never raw hex — the canvas resolves them to classes. */
+export type MindMapNodeColor = 'brand' | 'accent' | 'success' | 'warning' | 'danger'
+
+export interface MindMapNode {
+  id: string
+  title: string
+  note: string | null
+  /** WORLD coordinates of the box centre — independent of pan/zoom. */
+  x: number
+  y: number
+  color: MindMapNodeColor
+  /** Exactly one node per map is the root. It cannot be deleted. */
+  root?: boolean
+  /** "This idea is that project." Guarded in RLS, not merely stored. */
+  projectId?: string | null
+  /** "This idea is that task." Also guarded in RLS. */
+  taskId?: string | null
+}
+
+/** Undirected: A→B and B→A are the same line, and only one may exist. */
+export interface MindMapEdge {
+  id: string
+  from: string
+  to: string
+}
+
+export interface MindMapGraph {
+  nodes: MindMapNode[]
+  edges: MindMapEdge[]
+}
+
+export interface MindMap {
+  id: string
+  user_id: string
+  title: string
+  /** Raw jsonb — always pass through normaliseMap before use. */
+  nodes: unknown
+  edges: unknown
+  created_at: string
+  updated_at: string
+}
+
+export interface NewMindMapInput {
+  title: string
+  nodes: MindMapNode[]
+  edges: MindMapEdge[]
+}
+
+export type MindMapPatch = Partial<{
+  title: string
+  nodes: MindMapNode[]
+  edges: MindMapEdge[]
+}>
+
 export interface NewCalendarSourceInput {
   kind: CalendarSourceKind
   label: string

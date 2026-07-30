@@ -403,6 +403,40 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    importable without dnd-kit because `planWeek.ts` and `week.ts` are pure.
    `e2e/marketing.spec.ts` pins the rule that matters: **no shipped feature may be labelled unbuilt.**
 
+### Shipped in the 2026-07-31 session
+
+7. **Mind maps** (`FEATURES.mindMaps`, `src/features/mindmaps/`, `/vision/maps`). A canvas of
+   draggable ideas joined by lines — the stage BEFORE a task list, where the thought is still
+   branching. Hand-rolled SVG and pointer events: react-flow is ~50 kB gz and d3-force more
+   again, and neither is needed to draw boxes and straight lines with no automatic layout.
+   **ONE ROW PER MAP, GRAPH IN JSONB**, and that is the design decision the rest follows from.
+   Node/edge tables would make a drag an UPDATE, an open three round trips that can arrive out of
+   order, and an undo a transaction — for data only ever read and written AS A WHOLE by one owner.
+   The price is that the database cannot enforce the graph's internal shape, so `normaliseMap`
+   parses both columns defensively on every read and DROPS what it cannot understand (duplicate
+   ids, edges to missing nodes, NaN coordinates, a second root) rather than throwing: a map that
+   opens with one node missing is recoverable, a page that crashes on load is not.
+   The one part of that gap that is security rather than tidiness IS closed in SQL —
+   `mind_map_links_ok` walks the nodes and requires `can_access_project` / `can_access_task` for
+   every link, on both write paths, because this table is user-scoped while both link targets are
+   workspace-scoped and owner-only RLS alone would let a client park an id it cannot read.
+   **The editor owns the graph while it is open** (`staleTime: Infinity`, no refetch on focus) —
+   the opposite of the app's usual TanStack-owns-server-state rule, because a drag outruns any
+   round trip. Saving is debounced 900 ms and flushed on unmount, on `visibilitychange`, and on
+   `pagehide` via a **keepalive** write — the last is what makes a RELOAD safe, since it kills both
+   the pending timer and any request in flight.
+   Two things the screenshots caught that the tests had not: ring placement was checking occupancy
+   against 0.75 × the node box, so "not taken" and "not overlapping" were different questions and
+   boxes drew through each other; and fitting a map into 390 px lands at ~35 %, where every label is
+   a smudge — so `openingView` fits only while the result stays readable and otherwise opens at a
+   readable floor centred on the root. **The Fit button still always means fit.**
+   Accessibility is not the canvas's problem alone: every node is a focusable button (arrows move,
+   Enter opens, Delete removes) AND the page renders the same map as a plain list with the same
+   actions, so nothing depends on pointing at SVG. `FREE_MIND_MAPS = 1`, creation-gated only.
+   One migration (§7, pending). `e2e/mindmaps.spec.ts` additionally runs the whole journey against
+   an INTERCEPTED table, because the real journey self-skips until the migration lands and a
+   skipping test verifies nothing at all.
+
 ---
 
 ## 4. Roadmap (3 phases)
@@ -486,6 +520,16 @@ the insert **and** update policies additionally require `public.can_access_proje
 owner-only RLS can't be used to store a project id the caller cannot read. No image columns by
 design. **APPLIED** (live-verified 2026-07-30: table present, anon read `[]`, anon write `42501`).
 
+**Mind maps (owner-only, user-scoped):** `mind_maps` — one row per map, the graph in two jsonb
+columns (`nodes`, `edges`). Full owner-only CRUD, `set_updated_at`, a `user_id` index, and CHECKs on
+title length, both columns being arrays, ≤200 nodes / ≤400 edges, and ≤64 KB each. A node may link
+to a project or a task; because this table is user-scoped while both targets are workspace-scoped,
+the insert **and** update policies additionally require `public.mind_map_links_ok(nodes)`, which
+walks the array and defers to `can_access_project` / `can_access_task` per link — and rejects a
+malformed id via a regex guard rather than casting it (a bare `::uuid` raises 22P02, aborting the
+statement with a parse error instead of a clean policy denial). `mindMapCaps.test.ts` pins the
+client caps to those CHECKs and pins the policy set and the link guard shut.
+
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs
 (title 1–80, description ≤280, ≤100 tasks, `pg_column_size(tasks) ≤ 64KB`) as a backstop for the
@@ -512,9 +556,21 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
-> ### ✅ NOTHING PENDING — the cloud DB is fully migrated
-> **Migrations are applied through `20260730150000_feature_intents_keys`.** Do **NOT** run
-> `supabase db push`; it should report the remote already up to date.
+> ### ⏳ THREE MIGRATIONS ARE PENDING — apply them in this order
+> The 2026-07-31 session (mind maps, challenges, journal) added three migrations that are
+> **committed but NOT applied**. Until `supabase db push` runs, each of those three features
+> shows its honest "not switched on yet" card and its E2E journey self-skips.
+>
+> | # | Migration | What it adds |
+> | --- | --- | --- |
+> | 1 | `20260731120000_mind_maps` | `mind_maps` (owner-only; graph in jsonb) + `mind_map_links_ok` node-link guard |
+> | 2 | `20260731130000_user_challenges` | `user_challenges` (owner-only; records only that you joined) |
+> | 3 | `20260731140000_journal_entries` | `journal_entries` (owner-only) + the private `journal-audio` storage bucket and its policies |
+>
+> Everything BEFORE them is applied and verified — the box below is still accurate for
+> `20260730150000_feature_intents_keys` and earlier.
+>
+> ### ✅ Applied through `20260730150000_feature_intents_keys`
 >
 > The four files from the 2026-07-30 expansion were applied that day and verified live:
 >
