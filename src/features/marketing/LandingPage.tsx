@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles } from 'lucide-react'
 import { Badge, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
+import { LivingBackground } from './components/LivingBackground'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { HeroMeterDemo } from './demo/HeroMeterDemo'
@@ -92,9 +93,16 @@ export function LandingPage() {
     // to 398px wide. `clip` contains that without creating a scroll container,
     // so the sticky marketing header keeps working.
     <div className="flex min-h-screen flex-col overflow-x-clip bg-background text-text-primary">
+      {/* The ambient layer. FIRST child and `z-0`, with everything after it at
+          `z-10`: a child always paints above its parent's background, so
+          `bg-background` above stays the base colour and the aurora sits between
+          it and the content. The wrapper's `overflow-x-clip` also means a blob
+          can never widen the document. */}
+      <LivingBackground />
+
       <MarketingHeader />
 
-      <main className="flex-1">
+      <main className="relative z-10 flex-1">
         {/* ---------------------------------------------------------------- */}
         {/* 1. HERO — the signature meter, live and moving, above the fold.  */}
         {/* ---------------------------------------------------------------- */}
@@ -135,7 +143,7 @@ export function LandingPage() {
                 day does.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={startFree}>
+                <Button size="lg" onClick={startFree} className="cta-sheen">
                   {ctaLabel}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
@@ -151,7 +159,17 @@ export function LandingPage() {
             </div>
 
             <div className="flex justify-center lg:justify-end">
-              <HeroMeterDemo />
+              <div className="relative">
+                {/* Breathing halo. Behind the card, blurred, decorative — the
+                    card itself is perfectly still so no text ever moves. */}
+                <div
+                  aria-hidden
+                  className="living-halo pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-brand-gradient-soft blur-2xl"
+                />
+                <div className="relative">
+                  <HeroMeterDemo />
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -250,7 +268,7 @@ export function LandingPage() {
                   Commit to what&rsquo;s realistic, execute with focus, recover without guilt.
                 </p>
                 <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                  <Button size="lg" onClick={startFree}>
+                  <Button size="lg" onClick={startFree} className="cta-sheen">
                     {ctaLabel}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Button>
@@ -266,7 +284,9 @@ export function LandingPage() {
         </section>
       </main>
 
-      <MarketingFooter />
+      <div className="relative z-10">
+        <MarketingFooter />
+      </div>
     </div>
   )
 }

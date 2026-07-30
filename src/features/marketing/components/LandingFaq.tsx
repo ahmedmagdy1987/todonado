@@ -31,7 +31,7 @@ export function LandingFaq() {
       </h2>
       <dl className="mt-10 space-y-4">
         {FAQ.map((item) => (
-          <div key={item.q} className="rounded-2xl border border-white/5 bg-surface/40 p-5">
+          <div key={item.q} className="lift-card rounded-2xl border border-white/5 bg-surface/40 p-5 hover:border-brand/20">
             <dt className="font-display text-base font-semibold text-text-primary">{item.q}</dt>
             <dd className="mt-2 text-sm leading-relaxed text-text-muted">{item.a}</dd>
           </div>

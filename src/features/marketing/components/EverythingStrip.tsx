@@ -70,7 +70,7 @@ export function EverythingStrip() {
           {ITEMS.map(({ icon: Icon, label, blurb }, i) => (
             <li key={label}>
               <Reveal delay={i * 60} direction="scale" className="h-full">
-                <div className="flex h-full items-start gap-3 rounded-2xl border border-white/5 bg-surface/60 p-4 transition-colors hover:border-brand/25 sm:items-center sm:p-5">
+                <div className="lift-card flex h-full items-start gap-3 rounded-2xl border border-white/5 bg-surface/60 p-4 hover:border-brand/25 sm:items-center sm:p-5">
                   <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
                     <Icon className="h-5 w-5" aria-hidden />
                   </span>

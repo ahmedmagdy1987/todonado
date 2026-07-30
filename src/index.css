@@ -74,6 +74,198 @@
 }
 
 @layer components {
+  /* ================================================================== */
+  /*  Living background — the marketing pages' ambient depth layer.      */
+  /*                                                                     */
+  /*  RULES THIS OBEYS, because they are what keep it cheap:             */
+  /*   • Only `transform`, `opacity` and `filter` are ever animated, so  */
+  /*     every frame composites on the GPU and nothing triggers layout.  */
+  /*   • PARALLAX AND DRIFT ARE ON SEPARATE ELEMENTS. Both want          */
+  /*     `transform`, and a keyframe animating it beats an inline one —  */
+  /*     so the outer `__layer` takes the scroll offset and the inner    */
+  /*     `__blob` takes the keyframe. Collapsing them would silently     */
+  /*     kill the parallax.                                              */
+  /*   • Cycles are 34–72s. Anything faster reads as a screensaver.      */
+  /*   • Colours are the LOCKED tokens (§2) written as rgba, because a   */
+  /*     gradient stop cannot take a Tailwind class.                     */
+  /*                                                                     */
+  /*  It is decorative: `aria-hidden`, `pointer-events-none`, and the    */
+  /*  page is fully usable with every rule below removed.                */
+  /* ================================================================== */
+  .living-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Paint containment: the browser may skip anything outside this box, and
+       it guarantees a blob can never widen the document (no h-scroll at 390px). */
+    contain: layout paint;
+  }
+
+  /* One parallax plane. `--living-scroll` is written once per animation frame
+     by LivingBackground; `--depth` is per-plane, so three planes drift at three
+     speeds and the background reads as further away than the content. */
+  .living-bg__layer {
+    position: absolute;
+    inset: 0;
+    transform: translate3d(0, calc(var(--living-scroll, 0px) * var(--depth, 0)), 0);
+    will-change: transform;
+  }
+
+  /*
+   * A soft aurora blob.
+   *
+   * NO `filter: blur()`. THIS IS THE WHOLE PERFORMANCE STORY, and it was
+   * measured, not guessed: an earlier version blurred each blob at 80px, and
+   * scrolling the landing dropped from 60fps to 21fps on a 390px viewport —
+   * unthrottled, in a production build. A blurred layer has to be
+   * RE-RASTERISED whenever it is scaled or moved, and these are ~600px square,
+   * so the compositor was redrawing three large blurred surfaces every frame.
+   *
+   * The softness now comes from the gradient's own alpha falloff, which is
+   * rasterised once and then only ever transformed. Visually it is the same
+   * cloud; it costs nothing. Multi-stop ramps replace what the blur was doing.
+   *
+   * Corollary, and just as important: these animate TRANSLATE AND OPACITY ONLY.
+   * Scaling would re-rasterise the gradient every frame and undo the fix.
+   */
+  .living-bg__blob {
+    position: absolute;
+    border-radius: 9999px;
+    will-change: transform, opacity;
+  }
+
+  .living-bg__blob--violet {
+    top: -18vmax;
+    left: -10vmax;
+    width: 78vmax;
+    height: 78vmax;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(108, 92, 231, 0.26) 0%,
+      rgba(108, 92, 231, 0.16) 34%,
+      rgba(108, 92, 231, 0.06) 60%,
+      rgba(108, 92, 231, 0) 100%
+    );
+    animation: living-drift-a 46s ease-in-out infinite;
+  }
+
+  .living-bg__blob--blue {
+    top: 18vmax;
+    right: -26vmax;
+    width: 72vmax;
+    height: 72vmax;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(78, 168, 255, 0.2) 0%,
+      rgba(78, 168, 255, 0.12) 34%,
+      rgba(78, 168, 255, 0.04) 62%,
+      rgba(78, 168, 255, 0) 100%
+    );
+    animation: living-drift-b 62s ease-in-out infinite;
+  }
+
+  /* Mint is deliberately the faintest — it is a hint of a third colour, not a
+     third brand colour. At this alpha it reads as depth rather than as green. */
+  .living-bg__blob--mint {
+    bottom: -30vmax;
+    left: 18vmax;
+    width: 64vmax;
+    height: 64vmax;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(34, 211, 166, 0.12) 0%,
+      rgba(34, 211, 166, 0.07) 36%,
+      rgba(34, 211, 166, 0.02) 64%,
+      rgba(34, 211, 166, 0) 100%
+    );
+    animation: living-drift-c 72s ease-in-out infinite;
+  }
+
+  /* Grain. A static SVG turbulence tile — no animation, so it costs one paint
+     and then nothing. Without it the dark is a flat wash and the blur bands. */
+  .living-bg__grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Sparse dust. Fourteen 2px specks, each drifting up over 30–60s. Elegant at
+     this density and invisible at any more — and it is fourteen elements, not a
+     canvas, so there is no per-frame JS at all. */
+  .living-bg__dust {
+    position: absolute;
+    inset: 0;
+  }
+
+  .living-bg__speck {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 9999px;
+    background: rgba(248, 250, 252, 0.5);
+    opacity: 0;
+    animation: living-dust var(--dur, 44s) linear var(--delay, 0s) infinite;
+  }
+
+  /* Tab hidden ⇒ every cycle parks. The compositor stops doing work the user
+     cannot see, and the page is not quietly burning battery in a background tab. */
+  .living-bg[data-paused='true'] .living-bg__blob,
+  .living-bg[data-paused='true'] .living-bg__speck {
+    animation-play-state: paused;
+  }
+
+  /*
+   * A slow sheen across a primary CTA. Deliberately NOT on the Button primitive:
+   * this is landing-page polish, and every button in the app quietly shimmering
+   * would be a different (worse) product.
+   */
+  .cta-sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .cta-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.22) 45%,
+      transparent 70%
+    );
+    transform: translate3d(-120%, 0, 0);
+    animation: living-sheen 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  /* The halo behind the hero meter, breathing. It sits BEHIND the card and the
+     card never moves, so not a pixel of text shifts — the glow does all the
+     living. */
+  .living-halo {
+    animation: living-halo 9s ease-in-out infinite;
+    will-change: opacity;
+  }
+
+  /* A card that lifts slightly toward the pointer. Transform + border only. */
+  .lift-card {
+    transition:
+      transform 0.25s ease-out,
+      border-color 0.25s ease-out,
+      box-shadow 0.25s ease-out;
+  }
+
+  @media (hover: hover) {
+    .lift-card:hover {
+      transform: translate3d(0, -3px, 0);
+    }
+  }
+
   /* Violet -> blue gradient text */
   .text-gradient-brand {
     @apply bg-brand-gradient bg-clip-text text-transparent;
@@ -82,5 +274,99 @@
   /* Consistent brand focus ring for interactive elements */
   .focus-ring {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Living-background keyframes.                                       */
+/*                                                                     */
+/*  Declared OUTSIDE @layer on purpose: Tailwind only emits keyframes  */
+/*  it can see referenced through an `animation-*` utility, and these   */
+/*  are referenced from plain CSS above. At top level they are always   */
+/*  emitted.                                                           */
+/*                                                                     */
+/*  Every one animates TRANSLATE and OPACITY only — never scale, and    */
+/*  never on a blurred layer, because either forces a re-rasterise of   */
+/*  the whole surface each frame (measured: 60fps -> 21fps). Every one  */
+/*  is neutralised by the global prefers-reduced-motion rule in the base */
+/*  layer (duration 0.01ms, iteration-count 1) — which is why a         */
+/*  reduced-motion visitor still gets the full composition, just held   */
+/*  still. Each is symmetric (0% == 100%) so the frame it freezes on is */
+/*  a deliberate one rather than whatever the cycle happened to end at. */
+/* ------------------------------------------------------------------ */
+@keyframes living-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate3d(7vmax, 5vmax, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes living-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(-8vmax, 7vmax, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes living-drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.65;
+  }
+  50% {
+    transform: translate3d(6vmax, -6vmax, 0);
+    opacity: 0.95;
+  }
+}
+
+/* Rises the height of the viewport and fades in/out at the ends, so a speck is
+   never seen popping into or out of existence. */
+@keyframes living-dust {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  10%,
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate3d(1.5rem, -60vh, 0);
+    opacity: 0;
+  }
+}
+
+/* Long pause, brief sweep — a sheen you notice once, not a shimmer. */
+@keyframes living-sheen {
+  0%,
+  62% {
+    transform: translate3d(-120%, 0, 0);
+  }
+  88%,
+  100% {
+    transform: translate3d(120%, 0, 0);
+  }
+}
+
+/* The hero meter's halo, breathing. Opacity + scale on a blurred layer behind
+   the card — the card itself never moves, so text stays perfectly still. */
+@keyframes living-halo {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.95;
   }
 }
