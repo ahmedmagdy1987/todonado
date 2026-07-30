@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { CalendarRange, Flame, Play, Share2, Sunrise, Undo2, X, Zap } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { FEATURES } from '@/lib/config'
@@ -64,6 +64,11 @@ export function TodayPage() {
   // Device-local preferences (Settings → Sounds & notices). `digestHidden` is the
   // permanent "don't show the briefing", distinct from dismissing today's.
   const prefs = usePrefs()
+  // The Hub's "Build my day" tile deep-links here with ?plan=1 so one tap goes
+  // straight to the planner's preview instead of landing you on Today to hunt
+  // for a button. Read once on mount — it seeds the dialog, it does not own it.
+  const [searchParams] = useSearchParams()
+  const planOnLoad = searchParams.get('plan') === '1'
 
   const today = todayISO()
   const tomorrow = isoDateOffset(1)
@@ -295,6 +300,7 @@ export function TodayPage() {
               estimate={estimateCost}
               onApply={applyPlan}
               variant="compact"
+              defaultOpen={planOnLoad}
             />
           )}
         </div>

@@ -93,6 +93,7 @@ src/
     vision/    # /vision — the goals behind the work (FEATURES.vision)
     points/    # derived score + level bands (FEATURES.points) — no table
     share/     # the canvas share card (FEATURES.shareCards) — drawn on-device
+    hub/       # /hub — every door on one screen (FEATURES.hub), additive to Today
     templates/ # catalog (built-in) + personal (user_templates), one shared apply path
     history/   # the Free rolling history window (view-layer only)
     calendar/  # .ics parsing + busy-minutes → capacity (FEATURES.calendarImport)
@@ -351,6 +352,29 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    **Invite** offers a plain copyable link that works today and an interest chip for referral
    rewards — no fake code, no invented credit balance, no "invite 3 to unlock" that could never pay
    out. `InterestChip` shows a FAILURE when the insert is rejected, never a thank-you.
+5. **The Hub** (`FEATURES.hub`, default **ON**). **No migration.** `/hub` is a grid of every
+   destination, for the moment you know you want to *do* something but not which part of the app
+   does it. **ADDITIVE, NEVER A REPLACEMENT**: Today is still what `/` shows, every destination is
+   still reachable exactly as before, and moving your start screen to the Hub is one explicit
+   choice in Settings — the first-run flow that is known to work is left alone. When it IS moved,
+   `/` **redirects** rather than rendering the Hub at `/`, so the URL always says where you are.
+   The tile list is pure data (`hub/hubTiles.ts`) and each tile is gated by the SAME flag as its
+   route, because a tile pointing at an unmounted route would hit the catch-all `<Route path="*">`
+   and silently drop the user on Today with no error. `hubTiles.test.ts` pins tile → mounted route
+   statically and `e2e/hub.spec.ts` clicks **every** live tile and asserts the destination.
+   Two tiles deep-link rather than inventing a page: "Build my day" opens Today with the planner's
+   preview already up (`/?plan=1`, a `defaultOpen` prop on the existing `PlanMyDay`), and
+   "Checklists" opens the filtered catalog (`/templates?category=checklists`). "Journal" is a
+   **button, not a link** — it navigates nowhere, explains that a journal worth building needs an
+   AI service the app doesn't have, and offers an interest chip.
+   In the nav it sits at the **top of the desktop sidebar** but is deliberately NOT `primary`: the
+   mobile bottom bar's four primary slots + More already fill its documented five, so on mobile it
+   lives in the More sheet.
+   The landing strip now states breadth as a fact ("Your day, your focus, your habits — one place
+   … Not five apps stitched together") with **no named competitors and no "replaces N apps"** — the
+   list under it is the claim. The Quit tracker and Vision are deliberately **absent from that
+   list** until their migrations are applied, because a visitor who signed up today would find a
+   "not switched on yet" page; the exact two lines to add afterwards are written in the file.
 
 ---
 

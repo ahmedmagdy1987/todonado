@@ -10,6 +10,7 @@ import {
   Download,
   Gauge,
   Gift,
+  LayoutGrid,
   Play,
   Settings as SettingsIcon,
   Trash2,
@@ -29,7 +30,7 @@ import { usernameError } from '@/features/auth/identifier'
 import { checkUsernameAvailable } from '@/features/auth/api/accounts'
 import { InterestChip } from '@/components/common/InterestChip'
 import { playTone } from '@/features/focus/sound'
-import { CHIME_TONES, setPrefs, usePrefs } from './prefs'
+import { CHIME_TONES, setPrefs, usePrefs, type StartScreen } from './prefs'
 import { useUpdateProfile, UsernameTakenError } from './api/useUpdateProfile'
 import { downloadJson, gatherExport } from './exportData'
 
@@ -580,9 +581,53 @@ function InviteSection() {
         <InterestChip
           featureKey="referral"
           source="settings"
-          label="I&rsquo;d use referral rewards"
+          label="I’d use referral rewards"
           className="mt-2"
         />
+      </div>
+    </Section>
+  )
+}
+
+/**
+ * Which screen `/` opens on.
+ *
+ * Today is the default and stays the default — the activation flow that is known
+ * to work lands there, and changing that for someone who never asked would be a
+ * decision the app has no business making. This is the one tap that moves it.
+ */
+function StartScreenSection() {
+  const { startOn } = usePrefs()
+  const options: { value: StartScreen; label: string; hint: string }[] = [
+    { value: 'today', label: 'Today', hint: 'Straight into the day' },
+    { value: 'hub', label: 'Hub', hint: 'Every door, one screen' },
+  ]
+
+  return (
+    <Section
+      icon={LayoutGrid}
+      title="Start my day on"
+      description="Where the app opens. Saved on this device."
+    >
+      <div role="radiogroup" aria-label="Start my day on" className="grid gap-2 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={startOn === o.value}
+            onClick={() => setPrefs({ startOn: o.value })}
+            className={cn(
+              'focus-ring rounded-xl border p-3 text-left transition-colors',
+              startOn === o.value
+                ? 'border-brand/50 bg-brand-gradient-soft'
+                : 'border-white/10 hover:bg-surface-2/60',
+            )}
+          >
+            <span className="block text-sm font-medium text-text-primary">{o.label}</span>
+            <span className="mt-0.5 block text-xs text-text-muted">{o.hint}</span>
+          </button>
+        ))}
       </div>
     </Section>
   )
@@ -606,6 +651,7 @@ export function SettingsPage() {
       <PlanSection />
       <PlanningSection />
       {FEATURES.calendarImport && <CalendarSettings />}
+      {FEATURES.hub && <StartScreenSection />}
       <NotificationsSection />
       <InviteSection />
       <DataSection />

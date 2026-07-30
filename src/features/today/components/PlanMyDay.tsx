@@ -16,6 +16,8 @@ interface PlanMyDayProps {
   variant?: 'prominent' | 'compact'
   /** Trigger label. The digest reuses this control as "Adjust". */
   label?: string
+  /** Open the preview immediately — the Hub's "Build my day" tile deep-links here. */
+  defaultOpen?: boolean
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
@@ -40,8 +42,9 @@ export function PlanMyDay({
   onApply,
   variant = 'compact',
   label = 'Plan my day',
+  defaultOpen = false,
 }: PlanMyDayProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const plan = useMemo(
     () => planDay(tasks, capacityMinutes, today, estimate),
     [tasks, capacityMinutes, today, estimate],

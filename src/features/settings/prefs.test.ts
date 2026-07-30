@@ -55,8 +55,26 @@ describe('defaults', () => {
 
 describe('parsePrefs validates every field independently', () => {
   it('accepts a complete, valid object', () => {
-    const input = { sound: false, volume: 0.25, tone: 'bell', digestHidden: true, celebrations: false }
+    const input = {
+      sound: false,
+      volume: 0.25,
+      tone: 'bell',
+      digestHidden: true,
+      celebrations: false,
+      startOn: 'hub',
+    }
     expect(parsePrefs(input)).toEqual(input)
+  })
+
+  it('defaults the start screen to Today, and only accepts the two real screens', () => {
+    // Today staying the default matters: the activation flow that is known to
+    // work lands there, and an unrecognised value must not silently move it.
+    expect(parsePrefs({}).startOn).toBe('today')
+    expect(parsePrefs({ startOn: 'hub' }).startOn).toBe('hub')
+    expect(parsePrefs({ startOn: 'today' }).startOn).toBe('today')
+    for (const junk of ['HUB', 'inbox', '', 3, null, true]) {
+      expect(parsePrefs({ startOn: junk }).startOn, `${String(junk)}`).toBe('today')
+    }
   })
 
   it('falls back per FIELD, never wholesale', () => {

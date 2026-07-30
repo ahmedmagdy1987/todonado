@@ -4,6 +4,7 @@ import {
   FolderKanban,
   HeartPulse,
   Inbox,
+  LayoutGrid,
   LayoutTemplate,
   Sun,
   Timer,
@@ -26,6 +27,11 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  // The Hub sits at the TOP of the desktop sidebar (this array is the sidebar's
+  // order) but is deliberately NOT `primary`: the mobile bottom bar's four
+  // primary slots + More already fill its five, and a sixth would break the rule
+  // documented on NavItem.primary. On mobile it lives in the More sheet.
+  ...(FEATURES.hub ? [{ to: '/hub', label: 'Hub', icon: LayoutGrid }] : []),
   { to: '/', label: 'Today', icon: Sun, end: true, primary: true },
   // Week planning — only present when the feature flag is on. Not `primary`, so
   // it lives in the mobile More sheet and the bottom bar keeps its 5 slots.

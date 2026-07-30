@@ -211,4 +211,13 @@ export const FEATURES = {
    * else. Default ON; set to false to remove every share affordance.
    */
   shareCards: true,
+  /**
+   * The Hub — a /hub grid of every destination, for the moment you know you want
+   * to DO something but not which part of the app does it. ADDITIVE: Today
+   * remains the default screen after login, every destination stays reachable
+   * the way it always was, and switching your start screen to the Hub is a
+   * preference in Settings rather than something the app decides. Default ON;
+   * set to false to remove the route, the nav entry and the Settings toggle.
+   */
+  hub: true,
 } as const

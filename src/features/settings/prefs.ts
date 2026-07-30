@@ -37,7 +37,16 @@ export interface AppPrefs {
   digestHidden: boolean
   /** In-app milestone celebrations (quit-habit milestones today). */
   celebrations: boolean
+  /**
+   * Which screen `/` shows. 'today' is the default and stays the default: the
+   * first-run flow that is known to work lands on Today, and nothing should
+   * change that for a user who never asked.
+   */
+  startOn: StartScreen
 }
+
+/** Where the app opens. */
+export type StartScreen = 'today' | 'hub'
 
 export const DEFAULT_PREFS: AppPrefs = {
   sound: true,
@@ -45,6 +54,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   tone: 'soft',
   digestHidden: false,
   celebrations: true,
+  startOn: 'today',
 }
 
 const KEY = 'todonado.prefs'
@@ -67,6 +77,7 @@ export function parsePrefs(raw: unknown): AppPrefs {
     digestHidden: typeof r.digestHidden === 'boolean' ? r.digestHidden : DEFAULT_PREFS.digestHidden,
     celebrations:
       typeof r.celebrations === 'boolean' ? r.celebrations : DEFAULT_PREFS.celebrations,
+    startOn: r.startOn === 'hub' || r.startOn === 'today' ? r.startOn : DEFAULT_PREFS.startOn,
   }
 }
 

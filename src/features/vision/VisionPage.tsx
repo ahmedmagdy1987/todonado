@@ -179,7 +179,7 @@ export function VisionPage() {
           <InterestChip
             featureKey="vision_images"
             source="vision"
-            label="I&rsquo;d want image boards"
+            label="I’d want image boards"
             className="mt-1"
           />
         </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { LayoutTemplate, Plus, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button, Card, CardContent, Input } from '@/components/ui'
@@ -52,7 +53,13 @@ function CategoryChip({ item, active, onClick }: { item: CatItem; active: boolea
 }
 
 export function TemplatesPage() {
-  const [category, setCategory] = useState('all')
+  // The Hub's Checklists tile deep-links straight to a filtered view; an
+  // unknown value simply shows everything rather than an empty page.
+  const [searchParams] = useSearchParams()
+  const requested = searchParams.get('category')
+  const [category, setCategory] = useState(
+    requested && TEMPLATE_CATEGORIES.some((c) => c.id === requested) ? requested : 'all',
+  )
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)

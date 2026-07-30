@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
 import { FullScreenLoader } from '@/components/common/FullScreenLoader'
 import { FEATURES } from '@/lib/config'
+import { usePrefs } from '@/features/settings/prefs'
 
 /**
  * Route-level code splitting. Every page (and the whole authenticated AppShell)
@@ -35,6 +36,7 @@ const ProjectDetailPage = lazy(() =>
 const FocusPage = lazy(() => import('@/features/focus/FocusPage').then((m) => ({ default: m.FocusPage })))
 const WorkPage = lazy(() => import('@/features/work/WorkPage').then((m) => ({ default: m.WorkPage })))
 const VisionPage = lazy(() => import('@/features/vision/VisionPage').then((m) => ({ default: m.VisionPage })))
+const HubPage = lazy(() => import('@/features/hub/HubPage').then((m) => ({ default: m.HubPage })))
 const InsightsPage = lazy(() => import('@/features/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })))
 const WellnessPage = lazy(() => import('@/features/wellness/WellnessPage').then((m) => ({ default: m.WellnessPage })))
 const BreathePage = lazy(() => import('@/features/wellness/breathwork/BreathePage').then((m) => ({ default: m.BreathePage })))
@@ -48,6 +50,20 @@ const TemplateDetailPage = lazy(() =>
 )
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const PlanPage = lazy(() => import('@/features/settings/PlanPage').then((m) => ({ default: m.PlanPage })))
+
+/**
+ * What `/` shows.
+ *
+ * TODAY IS STILL THE DEFAULT and stays the default — the first-run flow that is
+ * known to work lands on Today, and nothing changes that for a user who never
+ * asked. Only an explicit Settings choice sends `/` to the Hub, and it redirects
+ * rather than rendering the Hub at `/` so the URL always says where you are.
+ */
+function HomeScreen() {
+  const { startOn } = usePrefs()
+  if (FEATURES.hub && startOn === 'hub') return <Navigate to="/hub" replace />
+  return <TodayPage />
+}
 
 export function AppRoutes() {
   return (
@@ -65,7 +81,7 @@ export function AppRoutes() {
         {/* Authenticated app shell */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
-            <Route index element={<TodayPage />} />
+            <Route index element={<HomeScreen />} />
             <Route path="today" element={<Navigate to="/" replace />} />
             {FEATURES.week && <Route path="week" element={<WeekPage />} />}
             <Route path="inbox" element={<InboxPage />} />
@@ -74,6 +90,7 @@ export function AppRoutes() {
             <Route path="focus" element={<FocusPage />} />
             {FEATURES.getToWork && <Route path="work" element={<WorkPage />} />}
             {FEATURES.vision && <Route path="vision" element={<VisionPage />} />}
+            {FEATURES.hub && <Route path="hub" element={<HubPage />} />}
             <Route path="insights" element={<InsightsPage />} />
             {FEATURES.wellness && (
               <>
