@@ -85,15 +85,23 @@ src/
     common/    # cross-feature bits (loaders, placeholders)
   features/
     auth/      # AuthProvider, auth-context, ProtectedRoute, LoginPage
-    today/     # TodayPage (command center), CapacityMeter
+    today/     # TodayPage (command center), CapacityMeter, streak, digest, autoPlan
+    week/      # /week 7-day capacity board + "Plan my week" (FEATURES.week, Pro)
     inbox/ projects/ focus/ insights/   # feature pages
+    templates/ # catalog (built-in) + personal (user_templates), one shared apply path
+    history/   # the Free rolling history window (view-layer only)
+    calendar/  # .ics parsing + busy-minutes → capacity (FEATURES.calendarImport)
+    billing/   # usePlan / planCore — the ONLY entitlement source
+    settings/ marketing/ legal/ analytics/ onboarding/ auth/ workspace/
     wellness/  # "Focus & Calm" suite — breathwork/ audio/ tracker/ + /wellness hub (FEATURES.wellness)
-  lib/         # supabase, env, queryClient, utils
+  lib/         # supabase, env, queryClient, queryKeys, config (FEATURES + caps), utils
   routes/      # AppRoutes
   types/       # database row types
+api/           # Vercel serverless functions (Stripe checkout/portal/webhook, calendar proxy)
+  _lib/        # shared: ssrf guard, http, supabase service client, entitlement
 supabase/
   migrations/  # SQL: schema, RLS, auth bootstrap
-docs/          # PRD, ROADMAP
+docs/          # PRD, ROADMAP, SUPERAPP_ROADMAP, audits, billing + launch runbooks
 ```
 Group by **feature**, not by file-type. A feature owns its components, hooks, and queries.
 
@@ -170,6 +178,74 @@ card). Modules:
 A read-only **fake-door teaser** for Focus & Calm also lives on the `/welcome` marketing page
 (records `feature_intents`); it is independent of `FEATURES.wellness`.
 
+### Shipped in the 2026-07-28 session (six features)
+
+All six are live on `main`. Each is behind the repo's usual conventions: a flag in
+`src/lib/config.ts` where it is an optional surface, a single tunable constant where it is a
+plan limit, `usePlan()` as the only entitlement source, and pure logic unit-tested.
+
+1. **Free history window** (`FREE_HISTORY_DAYS = 14`, `src/features/history/`). A **view-layer**
+   limit only — nothing is deleted, archived or mutated, and there is no migration.
+   `windowTaskHistory(tasks, null)` returns the *same array reference* for Pro, so upgrading
+   reveals everything on the next render with no refetch. 14 calendar days **counting today**,
+   compared on local day strings (DST-safe, verified in six timezones). Applies **only** to
+   completed/history surfaces (project detail + the Today streak); Today, Inbox, roll-over,
+   capacity, auto-plan, templates and calendar are deliberately untouched, and an **open** task
+   is never hidden at any age. One quiet `HistoryCutoffCard` at the bottom, rendering nothing
+   when `hiddenCount` is 0.
+2. **Live calendar URL sync (Pro)** — `api/calendar-fetch.ts` + `api/_lib/ssrf.ts`. URL
+   subscribe used to be fetched from the browser and was CORS-blocked in practice; it is now
+   fetched **server-side**. The endpoint verifies the caller's Supabase JWT, gates on Pro
+   **server-side** via `resolveServerPlan` (ignores the localStorage override), and **ignores the
+   request body entirely** — URLs come only from the caller's own `calendar_sources` rows, so it
+   can never be an open proxy. Full SSRF guard: scheme/port allow-lists, no embedded credentials,
+   DNS resolved and every address checked against private ranges before a socket opens, redirects
+   followed manually and re-validated per hop, 10s timeout, streaming byte cap; every rejection
+   reason collapses to `invalid_source`. Free keeps `.ics` **file** upload fully functional;
+   existing Free URL sources are kept and badged "Paused", never deleted. `planCore.ts` holds the
+   plan type + `resolveEffectivePlan` as a leaf module both the client and the serverless
+   functions import, so the two gates cannot disagree. `vite.config.ts` now serves `api/*.ts` in
+   dev/preview. No migration ("last refreshed" comes from TanStack's `dataUpdatedAt`).
+3. **Smart Daily Digest** (`FEATURES.digest`, `src/features/today/digest.ts` +
+   `components/DailyDigest.tsx`). A dismissible "Start your day" briefing at the top of Today.
+   **Composition, not a new engine** — every number arrives already computed by the feature that
+   owns it (`streak`, `selectRolloverTasks` + `rolloverSpan`, `withCalendar`, `planDay`,
+   `estimationBias`), so it can never disagree with the meter beneath it, and it adds **zero**
+   network requests. Free gets greeting/streak/carried-over/meetings/capacity + the existing
+   plan preview; Pro adds a pre-computed plan with Accept/Adjust, an estimation nudge and
+   priority alerts. Dismissal is stored as the local **day** it was dismissed on (localStorage),
+   so it returns tomorrow by itself. No migration, no new analytics event.
+4. **Personal templates** (`FREE_PERSONAL_TEMPLATES = 3`, `src/features/templates/personal.ts`,
+   table `user_templates`). Users save their own routines — or capture a whole project via
+   "Save as template", preserving section grouping, section order, task order, effort and notes
+   (completed/cancelled work excluded; an unestimated task gets the neutral 30m fallback, never
+   0). **One system, not a fork:** `personalToTemplate` adapts a stored row into the catalog's
+   `Template` at a single boundary, so the card, search, preview, apply path, toasts and undo are
+   the existing code and `/templates/:id` resolves catalog slugs and personal uuids with no
+   collision. The cap gates **creation only** — everything already saved keeps applying forever.
+   `personalCaps.test.ts` reads the migration and asserts each client cap equals its DB CHECK, so
+   the two can't drift.
+5. **Week view (Pro)** (`FEATURES.week`, `src/features/week/`). `/week` shows the next 7 days,
+   each with its **own** capacity meter (calendar-aware via `busyMinutesByDate`, which parses each
+   calendar once and routes every date through the same `busyMinutesForDay`, so `/week` and
+   `/today` can never disagree). Tasks drag between days — a drag changes **only** `scheduled_for`
+   and is undoable. Unscheduled tasks deliberately do **not** appear (Inbox stays their single
+   home); overdue work surfaces in today's column under its own heading and is **not** counted in
+   today's capacity. Free sees a clearly labelled **sample** week — never their own data blurred
+   behind a scrim. Compact `WeekTaskCard`/`WeekQuickAdd` presentations over the **same** mutations
+   (TaskRow/QuickAdd don't survive a seventh of the screen); keyboard-movable via dnd-kit's
+   `KeyboardSensor`. No migration.
+6. **"Plan my week"** (`src/features/week/planWeek.ts`). One tap distributes eligible work across
+   the 7 days, never overcommitting one. Eligibility is `planDay`'s proven rule widened to seven
+   days: an open task qualifies when it is not already scheduled for today-or-later **and** is
+   project-less, overdue, or deadlined inside the window — a project task with no deadline is
+   deliberately left alone. Candidates are sorted once (priority → due → effort → id) and placed
+   on the **earliest day with room**, where room already charges unestimated existing work the
+   planner's assumed cost so a second run can't double-book. A task is never placed **after its
+   own due date** — it is skipped and reported instead. Same preview/confirm contract as
+   `PlanMyDay`; Accept snapshots every task's previous date so one Undo restores the whole week.
+   No migration.
+
 ---
 
 ## 4. Roadmap (3 phases)
@@ -187,12 +263,17 @@ manifest, docs. No full features.
 
 ### V1 — Focus & insight
 - [x] Focus sessions / timer — **done** (task-bound Focus Mode; `focus_sessions`).
-- Insights: planned-vs-actual effort, roll-over patterns, focus trends.
-- Keyboard-first command palette (⌘K). One-way calendar **read** (busy blocks → capacity).
+- [x] Insights: planned-vs-actual effort, roll-over patterns, focus trends — **done** (Pro).
+- [x] One-way calendar **read** (busy blocks → capacity) — **done**: `.ics` file on Free,
+      server-side URL sync on Pro. Two-way sync stays out of scope (§5).
+- Keyboard-first command palette (⌘K) — still to come.
 
 ### V2 — Depth & collaboration
 - Shared workspaces (the `workspace_members` table is already collaboration-ready).
-- [x] Recurring tasks — **done**. Templates, smarter recovery suggestions still to come.
+- [x] Recurring tasks — **done**.
+- [x] Templates — **done**: a built-in catalog plus personal templates (`user_templates`).
+- [x] Multi-day planning — **done**: `/week` + "Plan my week" (Pro).
+- Smarter recovery suggestions (capacity-aware roll-over redistribution) still to come.
 
 ---
 
@@ -228,6 +309,21 @@ select/update/delete policy, so the client can never read them back.
 `updated_at` trigger; logs: append-only select/insert/delete; `wellness_logs.item_id` cascades on
 item delete). See `supabase/migrations/`.
 
+**Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
+`user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs
+(title 1–80, description ≤280, ≤100 tasks, `pg_column_size(tasks) ≤ 64KB`) as a backstop for the
+client caps. `personalCaps.test.ts` pins the client constants to those CHECKs.
+
+**Billing:** `billing` — SELECT-own only; the Stripe webhook writes via service-role.
+**Calendar:** `calendar_sources` — owner-only; the server-side proxy reads through the
+service-role client but filters by the JWT-verified caller.
+
+> **The owner-only pattern.** Any NEW user-scoped table copies `wellness_items` verbatim:
+> `user_id uuid not null references auth.users (id) on delete cascade`, four
+> `<table>_{select,insert,update,delete}_own` policies on `user_id = auth.uid()`, the shared
+> `public.set_updated_at()` trigger named `set_updated_at`, a `<table>_user_id_idx` index, and
+> constraints added inside a `do $$ … end $$` block so the file is re-runnable.
+
 ---
 
 ## 7. Project state & post-wipe setup
@@ -237,9 +333,13 @@ item delete). See `supabase/migrations/`.
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **Migrations applied through `20260706130000_billing` — the cloud DB is FULLY migrated; there
-  is nothing pending.** Re-verified live 2026-07-25 via anon-key probes (RLS enforcing on every
-  table: anon reads `[]`, anon writes `42501`).
+- **Migrations applied through `20260728120000_user_templates` — the cloud DB is FULLY migrated;
+  there is nothing pending.** Re-verified live 2026-07-25 via anon-key probes (RLS enforcing on
+  every table: anon reads `[]`, anon writes `42501`), and `user_templates` itself was verified
+  adversarially on 2026-07-30 (commit `3c355d2`): 15 checks, 0 failures — anon blocked, user B
+  cannot read/update/delete user A's row nor insert a row owned by A, and an **unfiltered**
+  `select *` by B returned nothing, so isolation is in the database, not in client filtering. Its
+  four size/shape CHECKs are real, not decorative (all four rejected with `23514`).
   Confirmed applied: the events suite (`20260623120000_events` / `130000_events_auto_planned` /
   `140000_calendar_sources` — their columns resolve), `20260622150000_drop_resolve_login_email`
   (`resolve_login_email` → 404), and **`20260622160000_lock_complete_task_to_authenticated`
@@ -254,6 +354,10 @@ item delete). See `supabase/migrations/`.
   apply — do NOT run `supabase db push`.** Billing stays *functionally* off until Stripe keys are
   set (`usePlan` degrades gracefully; My Plan uses the fake-door); that is config, not a migration.
   Full turn-on runbook: `docs/BILLING_SETUP.md`.
+- `20260728120000_user_templates.sql` (personal templates — owner-only CRUD mirroring
+  `wellness_items`, `set_updated_at` trigger, `user_id` index, plus six size/shape CHECKs)
+  **IS NOW APPLIED** (adversarially verified 2026-07-30, see above). `tasks` stores the SAME
+  jsonb shape as the built-in catalog so one apply path serves both.
 - Historical additions (all applied):
   - `20260616120000_accounts_username` — a unique, case-insensitive `profiles.username` (a
     profile **display identity**; usernames are not shown publicly) plus two pre-auth
@@ -304,7 +408,7 @@ item delete). See `supabase/migrations/`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
 4. **Do NOT re-run migrations** — the cloud DB is already current (through
-   `20260706130000_billing`; nothing is pending). Only when adding a **new** migration, use a
+   `20260728120000_user_templates`; nothing is pending). Only when adding a **new** migration, use a
    **real terminal** (TTY — see CLI note): `supabase login` → `supabase link --project-ref
    lplsbfduankkpglyusjp` → `supabase db push`.
 
