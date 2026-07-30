@@ -56,14 +56,13 @@ export function EverythingStrip() {
     <section className="border-y border-white/5 bg-surface/30" aria-labelledby="everything">
       <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal>
+          {/* The BREADTH claim now belongs to OnePlaceStrip, which groups the
+              surfaces by the job they do and links into each one. This section
+              went back to its narrower original job — the flat "and also…" list
+              — so the two no longer say the same thing twice in a row. */}
           <h2 id="everything" className="text-center font-display text-2xl font-bold sm:text-3xl">
-            Your day, your focus, your habits &mdash; one place
+            Everything else you&rsquo;d expect
           </h2>
-          {/* Breadth, stated as a fact rather than as a comparison. No named
-              competitors and no "replaces N apps": the list below is the claim. */}
-          <p className="mx-auto mt-3 max-w-xl text-center text-text-muted">
-            Not five apps stitched together. One that already does this.
-          </p>
         </Reveal>
 
         <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">

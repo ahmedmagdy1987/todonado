@@ -382,6 +382,27 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    list** until their migrations are applied, because a visitor who signed up today would find a
    "not switched on yet" page; the exact two lines to add afterwards are written in the file.
 
+6. **Living landing + content truth-pass** (`marketing/`). The landing gained an ambient
+   `LivingBackground` — a three-colour aurora on three parallax planes, grain, and drifting dust,
+   all CSS keyframes the compositor owns. **The rule it encodes: never blur a layer that moves.**
+   The first version blurred each blob at 80px and scrolling fell from 60fps to 21 (production
+   build, 390px, unthrottled) because a blurred surface re-rasterises whenever it moves; the
+   softness now comes from the gradient's own alpha falloff, nothing scales, and it is back to 60fps
+   at 1x/4x/6x CPU. `+1.65 kB gz` total, no new dependency, and `e2e/landing.spec.ts` asserts
+   `filter: none` so it cannot regress quietly. It parks on `visibilitychange` and, under
+   `prefers-reduced-motion`, keeps the whole composition but stops every moving part.
+   The **content truth-pass** corrected the pricing split, which had drifted badly: Pro claimed the
+   capacity meter, the overbooking guard, roll-over, focus mode and recurring tasks — **all five are
+   free and always were** — while Free was described as "a basic Today list with manual scheduling".
+   Every Pro bullet is now a real `usePlan()` gate (week, Insights, unlimited history, live calendar
+   sync, the smart-briefing layer, the unlimited caps) and nothing else. `/pricing`'s "roadmap" had
+   listed two things that already shipped; it is now a **what-isn't-built** list where each entry
+   names its real blocker. New `OnePlaceStrip` states the breadth by grouping shipped surfaces
+   (plan · focus · habits · calm · reflect) with real links, and a `WeekBoardDemo` (2.34 kB gz,
+   lazy) puts the flagship paid feature on the landing by running the REAL `planWeek` — which is
+   importable without dnd-kit because `planWeek.ts` and `week.ts` are pure.
+   `e2e/marketing.spec.ts` pins the rule that matters: **no shipped feature may be labelled unbuilt.**
+
 ---
 
 ## 4. Roadmap (3 phases)

@@ -23,6 +23,9 @@ const AutoPlanDemo = lazy(() =>
   import('./demo/AutoPlanDemo').then((m) => ({ default: m.AutoPlanDemo })),
 )
 const FocusDemo = lazy(() => import('./demo/FocusDemo').then((m) => ({ default: m.FocusDemo })))
+const WeekBoardDemo = lazy(() =>
+  import('./demo/WeekBoardDemo').then((m) => ({ default: m.WeekBoardDemo })),
+)
 
 /**
  * Everything below the hero is deferred the same way — the first paint ships
@@ -33,6 +36,9 @@ const HowItWorks = lazy(() =>
 )
 const EverythingStrip = lazy(() =>
   import('./components/EverythingStrip').then((m) => ({ default: m.EverythingStrip })),
+)
+const OnePlaceStrip = lazy(() =>
+  import('./components/OnePlaceStrip').then((m) => ({ default: m.OnePlaceStrip })),
 )
 const WellnessTeaser = lazy(() =>
   import('./components/WellnessTeaser').then((m) => ({ default: m.WellnessTeaser })),
@@ -213,6 +219,20 @@ export function LandingPage() {
           <LazyWidget component={FocusDemo} minHeight={450} label="the focus demo" />
         </Showcase>
 
+        {/* Week planning is the flagship paid feature and was invisible to anyone
+            who hadn't signed up. This runs the REAL planWeek, same as the app. */}
+        <Showcase
+          eyebrow="The week"
+          flip
+          line={
+            <>
+              Seven days that <span className="text-gradient-brand">each still fit</span>.
+            </>
+          }
+        >
+          <LazyWidget component={WeekBoardDemo} minHeight={420} label="the week board demo" />
+        </Showcase>
+
         {/* Real product screenshots — no mockups. */}
         <LazySection minHeight={1400}>
           <Suspense fallback={null}>
@@ -224,6 +244,13 @@ export function LandingPage() {
         <LazySection minHeight={520}>
           <Suspense fallback={null}>
             <EverythingStrip />
+          </Suspense>
+        </LazySection>
+
+        {/* 3b. The breadth, stated as a fact and linked to the real surfaces. */}
+        <LazySection minHeight={560}>
+          <Suspense fallback={null}>
+            <OnePlaceStrip />
           </Suspense>
         </LazySection>
 

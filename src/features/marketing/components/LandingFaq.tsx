@@ -3,15 +3,27 @@ interface Qa {
   a: string
 }
 
-// Honest answers only — every claim reflects what the app actually does today.
+/*
+ * HONEST ANSWERS ONLY — every claim here reflects what the app does today.
+ *
+ * Two answers were wrong and are corrected below. "A future Pro tier" was
+ * untrue: Pro is a real tier with real gates in the code right now (Week,
+ * Insights, unlimited history, live calendar sync, the smart briefing layer).
+ * And the free answer listed six features when free is most of the product —
+ * under-selling is its own kind of inaccuracy.
+ */
 const FAQ: Qa[] = [
   {
     q: 'Is Todonado free?',
-    a: 'Yes. Capture, projects and subtasks, the effort-aware Today meter, roll-over, focus mode, and recurring tasks are all free to use. A future Pro tier adds deeper Insights — and nothing is charged today.',
+    a: 'Most of it, permanently. The effort-aware capacity meter, the overbooking guard, “Plan my day”, roll-over and recovery, focus mode with Pomodoro, recurring tasks, the template and checklist catalog, breathwork and the quit tracker are all free — that is the complete daily loop, not a trial. Nothing is charged today at all.',
   },
   {
     q: 'What do I get with Pro?',
-    a: 'Pro is about insight over time: planned-vs-actual effort, how accurate your estimates are, and your focus and roll-over trends — the data that makes each week’s planning sharper. Day-to-day planning stays free.',
+    a: 'The week and the retrospective. Week planning puts seven days on one board, each with its own capacity, plus a one-tap “Plan my week”. Insights show planned-vs-actual effort and how accurate your estimates are getting. Pro also keeps your completed history forever instead of the last 14 days, syncs a calendar URL so meetings stay fresh, and turns the daily briefing into a plan that arrives already made.',
+  },
+  {
+    q: 'What isn’t built yet?',
+    a: 'Sleep sounds and guided meditation (the players exist; no audio is licensed yet), an AI coach and voice journal (they need an AI provider we are not wired to), referral discount codes (billing has to go live first) and image vision boards (pictures need storage). Everything else on this page you can use right now.',
   },
   {
     q: 'Does it work on my phone?',

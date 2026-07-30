@@ -9,10 +9,39 @@ import { MarketingFooter } from './components/MarketingFooter'
 import { UpgradeIntentModal } from './components/UpgradeIntentModal'
 import { PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
 
-const ROADMAP = [
-  'Deeper Insights: estimation accuracy & weekly planned-vs-actual trends',
-  'One-way calendar import: subtract real meetings from your daily capacity',
-  'Shared workspaces & team capacity (Team plan)',
+/**
+ * NOT BUILT — and each line says WHY.
+ *
+ * This replaced a "roadmap" that listed three things, two of which had already
+ * shipped: deeper Insights (estimation accuracy and the weekly review are live)
+ * and calendar import (live, with .ics on Free and URL sync on Pro). Promising
+ * something a user can already use is a small lie that makes every other claim
+ * on the page worth less.
+ *
+ * The rule for this list: it may only contain things that genuinely do not
+ * exist, and each has to name the real blocker rather than say "soon".
+ */
+const NOT_BUILT: { what: string; why: string }[] = [
+  {
+    what: 'Sleep sounds & guided meditation',
+    why: 'The players are built. No audio is licensed yet, and we would rather ship silence than something we do not have the rights to.',
+  },
+  {
+    what: 'An AI coach and a voice journal',
+    why: 'Both need an AI provider this app is not wired to. A journal that only stored text would be a worse notes app.',
+  },
+  {
+    what: 'Referral rewards & discount codes',
+    why: 'Real discounts need billing switched on properly first. Until then there is a plain share link that actually works.',
+  },
+  {
+    what: 'Image vision boards',
+    why: 'Pictures need storage, upload limits and a bill. The Vision page ships text-first while we find out whether the images are wanted.',
+  },
+  {
+    what: 'Shared workspaces & team capacity',
+    why: 'The data model is collaboration-ready, but none of the sharing UI exists. That is the Team plan below.',
+  },
 ]
 
 function priceLabel(plan: Plan): { big: string; small: string } {
@@ -101,8 +130,9 @@ export function PricingPage() {
             Simple pricing for an honest day
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-text-muted">
-            Start free with full task management. Upgrade to Pro for the part that makes Todonado
-            different: realistic-day planning that actually fits.
+            The day is free — the capacity meter, the overbooking guard, auto-planning, focus and
+            roll-over included. Pro adds the week ahead and the record of how your days actually
+            went.
           </p>
           <p className="mx-auto mt-4 inline-flex max-w-xl items-start gap-2 rounded-xl border border-white/10 bg-surface-2/50 px-3 py-2 text-left text-xs text-text-muted">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
@@ -128,10 +158,16 @@ export function PricingPage() {
           <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
             <h2 className="font-display text-2xl font-bold">What you get with Pro</h2>
             <p className="mt-4 text-text-muted">
-              Free keeps your tasks tidy. <strong className="text-text-primary">Pro</strong> is the
-              daily ritual: the effort-aware capacity meter, the overbooking guard, focus sessions,
-              recurring tasks, and the Insights that make your estimates sharper over time. It&rsquo;s
-              the difference between a list you stare at and a day you actually finish.
+              Free is not a trial. The capacity meter, the overbooking guard,{' '}
+              <strong className="text-text-primary">Plan my day</strong>, focus sessions with
+              Pomodoro, roll-over and recurring tasks are all free, permanently — that is the daily
+              loop, complete.
+            </p>
+            <p className="mt-4 text-text-muted">
+              <strong className="text-text-primary">Pro</strong> is what comes after a good day: the
+              whole week on one board with its own capacity per day, a briefing that arrives already
+              planned, live calendar sync, and Insights that show planned-vs-actual and how accurate
+              your estimates are getting. The day is free; the week and the retrospective are paid.
             </p>
           </div>
         </section>
@@ -140,13 +176,20 @@ export function PricingPage() {
         <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
           <div className="mb-6 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-brand" aria-hidden />
-            <h2 className="font-display text-xl font-bold">Where Todonado is going</h2>
+            <h2 className="font-display text-xl font-bold">What isn&rsquo;t built yet</h2>
           </div>
-          <ul className="space-y-3">
-            {ROADMAP.map((item) => (
-              <li key={item} className="flex items-start gap-3">
+          <p className="mb-6 text-sm text-text-muted">
+            Everything else on this page works today. These five don&rsquo;t — and here&rsquo;s the
+            actual reason for each, rather than &ldquo;coming soon&rdquo;.
+          </p>
+          <ul className="space-y-4">
+            {NOT_BUILT.map((item) => (
+              <li key={item.what} className="flex items-start gap-3">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" aria-hidden />
-                <span className="text-sm text-text-muted">{item}</span>
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{item.what}</p>
+                  <p className="mt-0.5 text-sm text-text-muted">{item.why}</p>
+                </div>
               </li>
             ))}
           </ul>

@@ -10,7 +10,12 @@
 
 /** Tiers a user can express purchase intent for. MUST match the DB check in
  *  supabase/migrations/20260615120000_upgrade_intents.sql (tier in ('pro','team')). */
-import { FREE_HISTORY_DAYS, FREE_PERSONAL_TEMPLATES } from '@/lib/config'
+import {
+  FREE_HISTORY_DAYS,
+  FREE_PERSONAL_TEMPLATES,
+  FREE_QUIT_HABITS,
+  FREE_VISION_CARDS,
+} from '@/lib/config'
 
 export type PaidTier = 'pro' | 'team'
 export type PlanId = 'free' | PaidTier
@@ -35,42 +40,55 @@ export const PLANS: Plan[] = [
   {
     id: 'free',
     name: 'Free',
-    tagline: 'Capture and organize everything.',
+    tagline: 'The whole daily loop — plan, focus, recover.',
     priceMonthly: 0,
     priceNote: 'Free forever',
     cta: 'Start free',
+    // ORDER MATTERS: PricingTeaser shows only the first BULLET_LIMIT of these,
+    // so the strongest true lines lead.
     features: [
-      'Unlimited task capture (Inbox)',
-      'Projects, sections & subtasks',
-      'Drag-to-reorder & priorities',
+      'The effort-aware capacity meter — the whole idea, free',
+      'Overbooking guard, one-tap roll-over & recovery',
+      '“Plan my day”: one press fills today without going over',
+      'Focus mode with Pomodoro, and one-tap “Get to work”',
+      'Unlimited capture — projects, sections, subtasks, priorities',
+      'Recurring tasks (daily / weekly / monthly / yearly)',
+      'A catalog of effort-tagged templates & checklists',
       'Daily briefing: what carried over and what’s free today',
-      `${FREE_PERSONAL_TEMPLATES} personal templates of your own`,
-      // Templated from the constant so the copy can never drift from behaviour.
+      // Templated from the constants so the copy can never drift from behaviour.
+      `${FREE_PERSONAL_TEMPLATES} personal templates · ${FREE_QUIT_HABITS} quit habit · ${FREE_VISION_CARDS} vision goals`,
+      'Breathwork, and a supplement & medication log',
       `Completed history for the last ${FREE_HISTORY_DAYS} days`,
       'Calendar import (.ics file)',
-      'A basic Today list with manual scheduling',
       'Dark, installable PWA',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    tagline: 'Plan a realistic day, every day.',
+    tagline: 'The week ahead, and what your days are telling you.',
     priceMonthly: 6,
     priceNote: 'per month, billed yearly',
     cta: 'Start Pro',
     featured: true,
+    /*
+     * EVERY LINE HERE IS A REAL `usePlan()` GATE IN THE CODE — nothing else.
+     *
+     * This list used to claim the capacity meter, the overbooking guard,
+     * roll-over, focus mode and recurring tasks. All five are FREE and always
+     * have been, which made the Free column read as "a basic Today list" and the
+     * Pro column read as a paywall around the thing the product is for. The
+     * honest split is narrower and easier to defend: the day is free, the WEEK
+     * and the RETROSPECTIVE are paid.
+     */
     features: [
-      'Effort-aware capacity meter: plan what actually fits',
-      'Overbooking guard + one-tap roll-over & recovery',
-      'Week planning: 7 days of capacity, drag between days + Plan my week',
-      'Smart daily briefing: a ready-made plan, estimation nudge & priority alerts',
-      'Unlimited personal templates — save any routine, reapply in one tap',
-      'Focus mode: a distraction-free deep-work timer',
-      'Recurring tasks (daily / weekly / monthly / yearly)',
+      'Week planning: 7 days of capacity, drag between days + “Plan my week”',
+      'Insights: planned-vs-actual, estimation accuracy, focus & weekly trends',
+      'Smart daily briefing: a ready-made plan, an estimation nudge & priority alerts',
       'Unlimited history — every completed task, kept forever',
       'Live calendar sync (URL) — paste a link once, meetings stay fresh daily',
-      'Insights: planned-vs-actual effort & focus trends',
+      'Unlimited personal templates & checklists',
+      'Unlimited quit habits and vision goals',
       'Everything in Free, unlimited',
     ],
   },
