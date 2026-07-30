@@ -42,6 +42,9 @@ const MindMapsPage = lazy(() => import('@/features/mindmaps/MindMapsPage').then(
 const MindMapEditorPage = lazy(() =>
   import('@/features/mindmaps/MindMapEditorPage').then((m) => ({ default: m.MindMapEditorPage })),
 )
+const ChallengesPage = lazy(() =>
+  import('@/features/challenges/ChallengesPage').then((m) => ({ default: m.ChallengesPage })),
+)
 const HubPage = lazy(() => import('@/features/hub/HubPage').then((m) => ({ default: m.HubPage })))
 const InsightsPage = lazy(() => import('@/features/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })))
 const WellnessPage = lazy(() => import('@/features/wellness/WellnessPage').then((m) => ({ default: m.WellnessPage })))
@@ -108,6 +111,7 @@ export function AppRoutes() {
                 <Route path="vision/maps/:mapId" element={<MindMapEditorPage />} />
               </>
             )}
+            {FEATURES.challenges && <Route path="challenges" element={<ChallengesPage />} />}
             {FEATURES.hub && <Route path="hub" element={<HubPage />} />}
             <Route path="insights" element={<InsightsPage />} />
             {FEATURES.wellness && (

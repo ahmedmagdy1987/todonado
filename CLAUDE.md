@@ -437,6 +437,33 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    an INTERCEPTED table, because the real journey self-skips until the migration lands and a
    skipping test verifies nothing at all.
 
+8. **Challenges** (`FEATURES.challenges`, `src/features/challenges/`, `/challenges`). A short,
+   structured push you opt into — nine to ten built-ins spanning what already ships.
+   **PROGRESS IS DERIVED, AND THE TABLE HAS NO PROGRESS COLUMN.** Every bar is recomputed on
+   render from tasks, focus sessions, quit habits and journal days — the same discipline as the
+   planning streak and the points score. A stored counter would drift the first time a task was
+   un-completed or a date corrected, and the only way back would be a repair script; derived
+   progress has nothing to drift from. `challengeMigration.test.ts` asserts the absence of any
+   `progress` / `count` / `streak` / `total` column, because that is exactly the "optimisation"
+   a future session would reach for.
+   The constraint that a challenge may only measure data that already exists is what keeps the
+   feature from growing tracking machinery of its own — and it is why there is no meditation
+   challenge: breathwork is deliberately device-local with no table.
+   **NON-SHAMING BY CONSTRUCTION**, and each piece is load-bearing: `elapsedDays` counts only days
+   that have HAPPENED, so day one of seven reads "1 of 7" rather than "1 of 7, 6 missed"; a window
+   that runs out is `ended` (never "failed") and the row is never rewritten to say abandoned just
+   because time passed; and the Free cap counts only RUNNING attempts, so a finished or lapsed one
+   never blocks a new one. `started_at` is a DATE and part of `UNIQUE (user_id, challenge_key,
+   started_at)`, so a double-tap is one attempt while a genuine restart tomorrow stays legal — and
+   the client treats 23505 as success rather than surfacing a scary error for a button that did
+   what was asked. `challenge_key` deliberately has **no** CHECK: the catalog is client content
+   that will grow, and an unknown key is handled kindly in the client instead.
+   The completion share card carries the challenge's LENGTH and never which challenge it was —
+   the same rule as the quit card, and for the same reason: one of them counts clean days.
+   `FREE_ACTIVE_CHALLENGES = 1`. One migration (§7, pending). `e2e/challenges.spec.ts` seeds REAL
+   tasks over REST and asserts the bars against them, so if progress ever started being stored the
+   numbers would stop matching the work behind them.
+
 ---
 
 ## 4. Roadmap (3 phases)
@@ -529,6 +556,12 @@ walks the array and defers to `can_access_project` / `can_access_task` per link 
 malformed id via a regex guard rather than casting it (a bare `::uuid` raises 22P02, aborting the
 statement with a parse error instead of a clean policy denial). `mindMapCaps.test.ts` pins the
 client caps to those CHECKs and pins the policy set and the link guard shut.
+
+**Challenges (owner-only, user-scoped):** `user_challenges` — full owner-only CRUD, a `user_id`
+index, `UNIQUE (user_id, challenge_key, started_at)`, and CHECKs on status, key length and the
+completed-shape (a row claiming `completed` must carry a `completed_at`). **There is no progress
+column and there must never be one** — see the migration header and `challengeMigration.test.ts`.
+`started_at` is a `date` because every metric counts whole local calendar days.
 
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs

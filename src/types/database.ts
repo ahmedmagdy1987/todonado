@@ -519,6 +519,32 @@ export type MindMapPatch = Partial<{
   edges: MindMapEdge[]
 }>
 
+// ---------------------------------------------------------------------------
+//  Challenges — owner-only, user-scoped.
+//  THE ROW RECORDS THAT YOU JOINED. It never records progress: every number is
+//  derived on render from tasks / focus sessions / quit habits / journal
+//  entries, the same discipline as the streak and the points score. There is no
+//  progress column and there must never be one — see the migration header.
+//  See supabase/migrations/20260731130000_user_challenges.sql.
+// ---------------------------------------------------------------------------
+export type ChallengeStatus = 'active' | 'completed' | 'abandoned'
+
+export interface UserChallenge {
+  id: string
+  user_id: string
+  /** Catalog id, e.g. 'plan_7'. Unconstrained in the DB — the catalog grows. */
+  challenge_key: string
+  /** Local calendar day it began (`yyyy-MM-dd`). Every metric counts whole days. */
+  started_at: string
+  completed_at: string | null
+  /**
+   * An attempt that merely runs out of time stays `active` and is shown as
+   * ended — 'abandoned' is only ever written when the user explicitly leaves.
+   */
+  status: ChallengeStatus
+  created_at: string
+}
+
 export interface NewCalendarSourceInput {
   kind: CalendarSourceKind
   label: string

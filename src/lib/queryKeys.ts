@@ -30,4 +30,7 @@ export const qk = {
   // every drag, and merging the two would rewrite the list cache at pointer rate.
   mindMaps: (userId: string) => ['mind-maps', userId] as const,
   mindMap: (mapId: string) => ['mind-map', mapId] as const,
+  // Challenges — user-owned. The row records only that you JOINED; progress is
+  // derived from the caches the app already holds, so there is nothing else here.
+  userChallenges: (userId: string) => ['user-challenges', userId] as const,
 }

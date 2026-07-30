@@ -2,6 +2,7 @@ import {
   BarChart3,
   CalendarRange,
   Compass,
+  Flag,
   FolderKanban,
   HeartPulse,
   Inbox,
@@ -44,6 +45,10 @@ export const NAV_ITEMS: NavItem[] = [
   // Vision — only present when the feature flag is on. Not `primary`, so the
   // mobile bottom bar keeps its 5 slots.
   ...(FEATURES.vision ? [{ to: '/vision', label: 'Vision', icon: Compass }] : []),
+  // Challenges — only present when the feature flag is on. Not `primary`: it is
+  // something you visit occasionally, not a daily tab, so it lives in the mobile
+  // More sheet and the bottom bar keeps its 5 slots.
+  ...(FEATURES.challenges ? [{ to: '/challenges', label: 'Challenges', icon: Flag }] : []),
   // Wellness suite — only present when the feature flag is on.
   ...(FEATURES.wellness ? [{ to: '/wellness', label: 'Wellness', icon: HeartPulse }] : []),
   // Templates library — only present when the feature flag is on.

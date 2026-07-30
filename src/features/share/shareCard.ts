@@ -15,7 +15,7 @@
  */
 
 /** What the card is celebrating. */
-export type ShareCardKind = 'streak' | 'quit'
+export type ShareCardKind = 'streak' | 'quit' | 'challenge'
 
 export interface ShareCardCopy {
   /** The big number. */
@@ -63,6 +63,21 @@ export function shareCardCopy(
       eyebrow,
     }
   }
+
+  // A challenge card carries its LENGTH, never which challenge it was. That is
+  // the same rule as the quit card and it exists for the same reason: one of
+  // the challenges counts clean days, and "30 days clean" on a public card is
+  // the user's business to disclose, not the app's. Every challenge therefore
+  // produces the same neutral card, and nothing private can leak through it.
+  if (kind === 'challenge') {
+    return {
+      value: String(n),
+      // No plural branch: the number qualifies "day challenge", so it reads
+      // "7 day challenge, done" and "1 day challenge, done" alike.
+      caption: 'day challenge, done',
+      eyebrow,
+    }
+  }
   return {
     value: String(n),
     caption: n === 1 ? 'day of showing up' : 'days of showing up',
@@ -73,16 +88,17 @@ export function shareCardCopy(
 /** The filename a download gets. Contains no personal data. */
 export function shareCardFilename(kind: ShareCardKind, days: number): string {
   const n = Math.max(0, Math.floor(days))
-  return `todonado-${kind === 'quit' ? 'clean' : 'streak'}-${n}-days.png`
+  const slug = kind === 'quit' ? 'clean' : kind === 'challenge' ? 'challenge' : 'streak'
+  return `todonado-${slug}-${n}-days.png`
 }
 
 /** Text that accompanies the image in the native share sheet. */
 export function shareCardMessage(kind: ShareCardKind, days: number): string {
   const n = Math.max(0, Math.floor(days))
   const noun = n === 1 ? 'day' : 'days'
-  return kind === 'quit'
-    ? `${n} ${noun} clean. 🌪️ todonado.com`
-    : `${n} ${noun} of showing up. 🌪️ todonado.com`
+  if (kind === 'quit') return `${n} ${noun} clean. 🌪️ todonado.com`
+  if (kind === 'challenge') return `${n}-day challenge, done. 🌪️ todonado.com`
+  return `${n} ${noun} of showing up. 🌪️ todonado.com`
 }
 
 /**
