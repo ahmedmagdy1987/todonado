@@ -102,10 +102,17 @@ test('challenges: the route renders and states its case honestly', async ({ page
 
   if (await tableExists('user_challenges')) {
     await expect(page.getByRole('heading', { name: 'Pick one' })).toBeVisible()
-    // Nothing is offered that reads data the account does not have: no quit
-    // habit is tracked and the journal is not switched on, so neither appears.
+
+    // A challenge is offered only when its SOURCE exists. This account tracks no
+    // quit habit, so "Thirty days clean" stays hidden — a locked card would read
+    // as a nag to start one.
     await expect(page.getByText('Thirty days clean')).toHaveCount(0)
-    await expect(page.getByText('Seven days written down')).toHaveCount(0)
+
+    // The journal one is the mirror image, and it flipped when the migration was
+    // applied: `journal_entries` now exists, so the source is there and the
+    // challenge appears by itself. It was asserted ABSENT here while the table
+    // was pending, which is exactly the same rule read the other way round.
+    await expect(page.getByText('Seven days written down')).toBeVisible()
   } else {
     await expect(page.getByRole('heading', { name: 'Not switched on yet' })).toBeVisible()
     // No Join button that could only ever fail.

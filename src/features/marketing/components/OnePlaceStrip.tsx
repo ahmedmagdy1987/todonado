@@ -34,20 +34,21 @@ interface Surface {
  *
  * THE BAR FOR THIS LIST IS THE SAME AS EVERYWHERE ELSE ON THE LANDING: not "the
  * code is merged" but "a stranger who signs up right now can use it". The
- * journal and mind maps are both built and both behind committed-but-unapplied
- * migrations, so a visitor who signed up today would find an honest "not
- * switched on yet" page instead of the category this line promised.
+ * journal and the mind-map canvas waited out here while their migrations were
+ * pending; both are applied and live-verified now, so both are claimable.
  *
- * The exact two lines to add once `supabase db push` has run:
- *   'A journal',
- *   'A mind-map canvas',
- * — and the matching rows in EverythingStrip. Nothing else needs to change.
+ * NO BRAND NAMES AND NO "REPLACES N APPS" — a number invites arithmetic nobody
+ * wins, and naming competitors makes the page about them. The list is the claim.
+ * `e2e/marketing.spec.ts` enforces both, and enforces that every category here
+ * is one a signed-up user can actually open.
  */
 const CATEGORIES = [
   'A day planner',
   'A focus & pomodoro timer',
   'A habit & quit tracker',
   'A breathing coach',
+  'A journal',
+  'A mind-map canvas',
 ] as const
 
 const SURFACES: Surface[] = [

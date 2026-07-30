@@ -35,7 +35,18 @@ export function MindMapsPage() {
   const pending = createMap.isPending ? 1 : 0
   const canCreate = canCreateMindMap(maps.length + pending, isPro, FREE_MIND_MAPS)
 
+  /**
+   * UNTIL THE LIST HAS LOADED, THE COUNT IS ZERO AND EVERY CAP LOOKS SATISFIED.
+   *
+   * That is not hypothetical: with the migration applied, the E2E tapped "New
+   * map" on a freshly-opened list and got a SECOND map on a plan that allows
+   * one — because `maps` was still `[]`. A cap computed from data that has not
+   * arrived is not a cap, so creation waits for the answer.
+   */
+  const countKnown = !isPending
+
   function create() {
+    if (!countKnown) return
     if (!canCreate) {
       setShowLimit(true)
       return
@@ -63,7 +74,11 @@ export function MindMapsPage() {
           </div>
         </div>
         {available && (
-          <Button onClick={create} disabled={createMap.isPending} className="shrink-0">
+          <Button
+            onClick={create}
+            disabled={createMap.isPending || !countKnown}
+            className="shrink-0"
+          >
             <Plus className="h-4 w-4" aria-hidden /> New map
           </Button>
         )}

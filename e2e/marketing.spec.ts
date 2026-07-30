@@ -124,11 +124,19 @@ test('landing: the all-in-one claim is categories only, and every one of them is
   await expect(section.getByText('One app instead of several')).toBeVisible()
 
   // Categories, never brands, and never a countable claim.
+  //
+  // The journal and the mind-map canvas joined this list when their migrations
+  // were applied — until then they were deliberately absent, because a category
+  // may only be claimed if a stranger who signs up RIGHT NOW can use it. That
+  // rule is now enforced from the other side: each one is asserted present here,
+  // AND the route test below proves the page behind it actually works.
   for (const category of [
     'A day planner',
     'A focus & pomodoro timer',
     'A habit & quit tracker',
     'A breathing coach',
+    'A journal',
+    'A mind-map canvas',
   ]) {
     await expect(section.getByText(category, { exact: true })).toBeVisible()
   }
@@ -137,12 +145,23 @@ test('landing: the all-in-one claim is categories only, and every one of them is
   expect(text).not.toMatch(/replaces?\s+\d+\s+apps?/i)
   expect(text).not.toMatch(/\d+\s+apps? in one/i)
   expect(text).not.toMatch(/todoist|ticktick|asana|trello|sunsama|evernote|[^a-z]notion[^a-z]/i)
+})
 
-  // THE LOAD-BEARING ONE: a category may only be claimed if a stranger who
-  // signs up right now can use it. The journal and mind maps are built but sit
-  // behind unapplied migrations, so they must NOT be advertised here yet.
-  expect(text, 'the journal is not switched on yet').not.toMatch(/a journal/i)
-  expect(text, 'mind maps are not switched on yet').not.toMatch(/mind.map/i)
+test('landing: the strip names the three newly-live surfaces, and they are real', async ({
+  page,
+}) => {
+  await page.goto('/welcome')
+  await mountLazySections(page)
+
+  const strip = page.getByRole('region', { name: /Everything else/i })
+  for (const label of ['Mind maps', 'Journal', 'Challenges']) {
+    await expect(strip.getByText(label, { exact: true })).toBeVisible()
+  }
+
+  // The strip's whole rule is "everything here ships today", so none of the
+  // three may carry an unbuilt label anywhere near it.
+  const text = (await strip.textContent()) ?? ''
+  expect(text).not.toMatch(/coming soon|not built|not switched on|notify me/i)
 })
 
 test('landing: the week board is on the page and runs the real planner', async ({ page }) => {

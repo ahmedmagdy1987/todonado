@@ -116,11 +116,23 @@ test('journal: write an entry, reload, and find it — with voice gated to Pro',
   // Same local override every other spec uses to exercise a Pro surface.
   await page.evaluate(() => localStorage.setItem('todonado.plan', 'pro'))
   await page.reload()
+  // WAIT FOR THE PAGE FIRST. `.count()` does not retry, so counting straight
+  // after a reload measured the loading screen and reported that Pro was offered
+  // neither a control nor a reason — which was true of a page that had not
+  // rendered yet, and false of the product.
+  await expect(page.getByLabel('What got done?')).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText(/Voice notes are part of Pro/i)).toHaveCount(0)
-  // Either a record button, or an honest reason this browser cannot.
-  const canRecord = await page.getByRole('button', { name: /^Record/ }).count()
-  const cannot = await page.getByText(/can.t record audio|microphone is blocked/i).count()
-  expect(canRecord + cannot, 'Pro must get a control or a reason').toBeGreaterThan(0)
+
+  // Either a record button, or an honest reason this browser cannot — never
+  // nothing, and never a dead control.
+  await expect
+    .poll(
+      async () =>
+        (await page.getByRole('button', { name: /^Record/ }).count()) +
+        (await page.getByText(/can.t record audio|microphone is blocked/i).count()),
+      { timeout: 15_000, message: 'Pro must get a control or a reason' },
+    )
+    .toBeGreaterThan(0)
 
   await deleteTestAccount(account, 'journal journey')
 })

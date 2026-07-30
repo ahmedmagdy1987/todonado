@@ -526,8 +526,8 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
     rest; `hubTiles.test.ts`'s grid bound went 15 → 17, which is still a real limit rather than a
     formality.
     `e2e/marketing.spec.ts` gained the rule that matters: the all-in-one claim is categories only,
-    carries no number and no brand, and **may not mention the journal or mind maps while their
-    migrations are pending**. Its `SHIPPED` list gained all three new features, so the
+    carries no number and no brand, and **names every category it claims**, each of which must be a page a
+    signed-up user can actually open. Its `SHIPPED` list gained all three new features, so the
     never-labelled-unbuilt guard is already armed for the day the strip lines are uncommented.
 
 ---
@@ -666,19 +666,28 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
-> ### ⏳ THREE MIGRATIONS ARE PENDING — apply them in this order
-> The 2026-07-31 session (mind maps, challenges, journal) added three migrations that are
-> **committed but NOT applied**. Until `supabase db push` runs, each of those three features
-> shows its honest "not switched on yet" card and its E2E journey self-skips.
+> ### ✅ NOTHING PENDING — the cloud DB is fully migrated
+> **Migrations are applied through `20260731140000_journal_entries`.** Do **NOT** run
+> `supabase db push`; it should report the remote already up to date.
 >
-> | # | Migration | What it adds |
-> | --- | --- | --- |
-> | 1 | `20260731120000_mind_maps` | `mind_maps` (owner-only; graph in jsonb) + `mind_map_links_ok` node-link guard |
-> | 2 | `20260731130000_user_challenges` | `user_challenges` (owner-only; records only that you joined) |
-> | 3 | `20260731140000_journal_entries` | `journal_entries` (owner-only) + the private `journal-audio` storage bucket and its policies |
+> The three files from the 2026-07-31 session were applied and verified live:
 >
-> Everything BEFORE them is applied and verified — the box below is still accurate for
-> `20260730150000_feature_intents_keys` and earlier.
+> | Migration | Evidence |
+> | --- | --- |
+> | `20260731120000_mind_maps` | table present; anon read `[]`, anon write `42501`; the full journey (create → add → connect → autosave → reload → Free cap) runs green |
+> | `20260731130000_user_challenges` | table present; anon read `[]`, anon write `42501`; progress derived from 50 seeded tasks reads `50 of 50`, completion writes `status=completed` once |
+> | `20260731140000_journal_entries` | table present; anon read `[]`, anon write `42501`; **and the bucket end-to-end**: upload lands under `<user_id>/…`, the signed URL serves real webm bytes, the PUBLIC url and an anonymous fetch both fail, another signed-in user can neither read, list nor write the folder, and deleting either the recording or the whole entry removes the object |
+>
+> All three E2E journeys that used to self-skip now RUN. The graceful-degradation paths stay in
+> place (each hook still marks itself unavailable on `PGRST205`/`42P01`, and each page keeps its
+> "not switched on yet" card) — they are DORMANT, not dead, and they are what makes a fresh
+> Supabase project safe by default.
+>
+> **THE APPLIED MIGRATIONS PAID FOR THEMSELVES IMMEDIATELY.** Running the real journeys found a
+> live bug no stub could: `MindMapsPage` rendered its "New map" button outside the loading branch,
+> so a tap before the list arrived saw `maps.length === 0`, passed the Free cap, and created a
+> SECOND map on a one-map plan. `VisionPage` had the identical shape. Both now refuse creation
+> until the count is actually known — **a cap computed from data that has not arrived is not a cap.**
 >
 > ### ✅ Applied through `20260730150000_feature_intents_keys`
 >

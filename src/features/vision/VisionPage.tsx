@@ -61,8 +61,14 @@ export function VisionPage() {
   // fourth goal past a three-goal limit.
   const pendingCreate = createCard.isPending ? 1 : 0
   const canCreate = canCreateVisionCard(cards.length + pendingCreate, isPro, FREE_VISION_CARDS)
+  // Until the list has loaded the count is zero and the cap looks satisfied, so
+  // a tap during load would add a fourth goal to a three-goal plan. Found on
+  // Mind maps once its migration was applied; this is the identical shape, and
+  // the Add button is likewise rendered outside the loading branch.
+  const countKnown = !isPending
 
   function openAdd() {
+    if (!countKnown) return
     if (!canCreate) {
       // A card in the flow, never a modal — and the editor must not open behind it.
       setShowLimit(true)
@@ -118,7 +124,7 @@ export function VisionPage() {
             </Link>
           )}
           {available && (
-            <Button onClick={openAdd}>
+            <Button onClick={openAdd} disabled={!countKnown}>
               <Plus className="h-4 w-4" aria-hidden /> Add goal
             </Button>
           )}
