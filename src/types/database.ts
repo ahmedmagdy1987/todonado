@@ -283,6 +283,61 @@ export interface NewWellnessLogInput {
 }
 
 // ---------------------------------------------------------------------------
+//  Quit tracker (habits a user is BREAKING) — owner-only, user-scoped.
+//  `quit_started_at` is day zero and the SOLE source of the clean streak: the
+//  streak is derived from it, never stored. `longest_streak_days` is the only
+//  denormalised value and only ever goes up. NOT medical software — `name`,
+//  `replacement_action` and `notes` are free text the app never interprets.
+//  See supabase/migrations/20260730120000_quit_habits.sql.
+// ---------------------------------------------------------------------------
+export interface QuitHabit {
+  id: string
+  user_id: string
+  name: string
+  /** One of the client's neutral preset keys (see quit/presets.ts), or 'custom'. */
+  preset_key: string
+  /** Day zero. Moving this forward IS the slip reset. */
+  quit_started_at: string
+  /** Best run ever completed, in whole local days. Monotonic. */
+  longest_streak_days: number
+  /** The "do this instead" action, free text. */
+  replacement_action: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NewQuitHabitInput {
+  name: string
+  preset_key?: string
+  quit_started_at?: string
+  replacement_action?: string | null
+  notes?: string | null
+}
+
+export type QuitHabitPatch = Partial<
+  Pick<
+    QuitHabit,
+    'name' | 'preset_key' | 'quit_started_at' | 'longest_streak_days' | 'replacement_action' | 'notes'
+  >
+>
+
+/** An optional "still clean today" affirmation. Never gates the clean streak. */
+export interface QuitCheckin {
+  id: string
+  user_id: string
+  habit_id: string
+  /** The LOCAL calendar day (yyyy-MM-dd) that was affirmed. */
+  checked_on: string
+  created_at: string
+}
+
+export interface NewQuitCheckinInput {
+  habit_id: string
+  checked_on: string
+}
+
+// ---------------------------------------------------------------------------
 //  Calendar busy-import (ICS) — owner-only. A 'url' source stores the .ics URL
 //  (fetched best-effort, often CORS-blocked); a 'file' source stores the raw
 //  uploaded .ics text so today's busy minutes can be recomputed each day.

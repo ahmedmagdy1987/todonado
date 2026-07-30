@@ -39,6 +39,7 @@ const BreathePage = lazy(() => import('@/features/wellness/breathwork/BreathePag
 const SoundsPage = lazy(() => import('@/features/wellness/audio/SoundsPage').then((m) => ({ default: m.SoundsPage })))
 const MeditatePage = lazy(() => import('@/features/wellness/audio/MeditatePage').then((m) => ({ default: m.MeditatePage })))
 const TrackerPage = lazy(() => import('@/features/wellness/tracker/TrackerPage').then((m) => ({ default: m.TrackerPage })))
+const QuitPage = lazy(() => import('@/features/wellness/quit/QuitPage').then((m) => ({ default: m.QuitPage })))
 const TemplatesPage = lazy(() => import('@/features/templates/TemplatesPage').then((m) => ({ default: m.TemplatesPage })))
 const TemplateDetailPage = lazy(() =>
   import('@/features/templates/TemplateDetailPage').then((m) => ({ default: m.TemplateDetailPage })),
@@ -77,6 +78,7 @@ export function AppRoutes() {
                 <Route path="wellness/sleep" element={<SoundsPage />} />
                 <Route path="wellness/meditate" element={<MeditatePage />} />
                 <Route path="wellness/tracker" element={<TrackerPage />} />
+                {FEATURES.quitTracker && <Route path="wellness/quit" element={<QuitPage />} />}
               </>
             )}
             {FEATURES.templates && (

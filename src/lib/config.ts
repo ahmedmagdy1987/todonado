@@ -33,6 +33,18 @@ export const FREE_HISTORY_DAYS = 14
 export const FREE_PERSONAL_TEMPLATES = 3
 
 /**
+ * How many ACTIVE quit habits a Free plan may CREATE. Pro (and Founding) are
+ * unlimited. Tunable — this is the only place the number lives.
+ *
+ * Same principle as FREE_PERSONAL_TEMPLATES: the limit gates CREATION only.
+ * A habit already being tracked keeps counting, checking in and celebrating
+ * milestones forever, at any count. Interrupting someone's clean streak to sell
+ * them something would be indefensible, and this is the one feature in the app
+ * where that would do real harm.
+ */
+export const FREE_QUIT_HABITS = 1
+
+/**
  * Supabase realtime sync for the active workspace. Safe to disable if it ever
  * causes instability — the app remains fully functional via TanStack Query.
  */
@@ -108,4 +120,13 @@ export const FEATURES = {
    * the nav entry and the Today toggle with no other behaviour change.
    */
   week: true,
+  /**
+   * Quit tracker — a "Quit" area inside Wellness for habits the user is
+   * BREAKING: day zero, a live clean-streak counter, a no-shame "I slipped"
+   * reset that keeps the longest-streak record, optional daily check-ins,
+   * milestones, and a "do this instead" replacement action. Owner-only data in
+   * `quit_habits` / `quit_checkins`. Default ON; set to false to remove the
+   * route and the hub card with no other behaviour change.
+   */
+  quitTracker: true,
 } as const

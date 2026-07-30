@@ -20,4 +20,7 @@ export const qk = {
   billing: (userId: string) => ['billing', userId] as const,
   // Personal templates — user-owned (keyed by user, not workspace).
   userTemplates: (userId: string) => ['user-templates', userId] as const,
+  // Quit tracker — user-owned habits being broken + their optional check-ins.
+  quitHabits: (userId: string) => ['quit-habits', userId] as const,
+  quitCheckins: (userId: string) => ['quit-checkins', userId] as const,
 }

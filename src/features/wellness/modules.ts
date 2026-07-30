@@ -1,5 +1,6 @@
-import { Flower2, Moon, Pill, Wind } from 'lucide-react'
+import { Flower2, Moon, Pill, Sprout, Wind } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { FEATURES } from '@/lib/config'
 import type { FeatureKey } from '@/types/database'
 
 /**
@@ -54,4 +55,20 @@ export const WELLNESS_MODULES: WellnessModule[] = [
     status: 'live',
     to: '/wellness/tracker',
   },
+  // Gated by its own flag INSIDE the registry, so flipping FEATURES.quitTracker
+  // off removes the hub card and the route together — the hub can never link to
+  // a route that isn't mounted.
+  ...(FEATURES.quitTracker
+    ? [
+        {
+          id: 'quit',
+          title: 'Quit tracker',
+          description:
+            'Count the days since you stopped — with a replacement action for the moment it gets hard.',
+          icon: Sprout,
+          status: 'live',
+          to: '/wellness/quit',
+        } satisfies WellnessModule,
+      ]
+    : []),
 ]

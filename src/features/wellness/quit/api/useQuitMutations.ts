@@ -1,0 +1,227 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import { qk } from '@/lib/queryKeys'
+import type {
+  NewQuitHabitInput,
+  QuitCheckin,
+  QuitHabit,
+  QuitHabitPatch,
+} from '@/types/database'
+import { slipPatch } from '../quitMath'
+
+/**
+ * Owner-scoped quit mutations with optimistic updates, mirroring
+ * useWellnessMutations. The `user_id` on every insert equals the signed-in
+ * user (RLS enforces it too).
+ *
+ * The slip reset is a plain UPDATE of `quit_started_at` + `longest_streak_days`
+ * — there is no "reset" endpoint and no counter to zero, because the streak was
+ * never stored in the first place. What the update contains is decided by the
+ * pure, unit-tested `slipPatch`, so the no-shame rule (the record only ever
+ * goes UP) is enforced by a tested function rather than by a component.
+ */
+export function useQuitMutations(userId: string) {
+  const qc = useQueryClient()
+  const habitsKey = qk.quitHabits(userId)
+  const checkinsKey = qk.quitCheckins(userId)
+
+  type HabitsCache = { rows: QuitHabit[]; available: boolean }
+
+  const setHabits = (u: (p: QuitHabit[]) => QuitHabit[]) =>
+    qc.setQueryData<HabitsCache>(habitsKey, (p) => ({
+      available: p?.available ?? true,
+      rows: u(p?.rows ?? []),
+    }))
+  const setCheckins = (u: (p: QuitCheckin[]) => QuitCheckin[]) =>
+    qc.setQueryData<QuitCheckin[]>(checkinsKey, (p) => u(p ?? []))
+
+  const createHabit = useMutation({
+    mutationFn: async (input: NewQuitHabitInput) => {
+      const { data, error } = await supabase
+        .from('quit_habits')
+        .insert({
+          user_id: userId,
+          name: input.name,
+          preset_key: input.preset_key ?? 'custom',
+          // Omitted ⇒ the DB default now() decides day zero, so a skewed client
+          // clock can't hand someone a head start (or a deficit).
+          ...(input.quit_started_at ? { quit_started_at: input.quit_started_at } : {}),
+          replacement_action: input.replacement_action ?? null,
+          notes: input.notes ?? null,
+        })
+        .select('*')
+        .single()
+      if (error) throw error
+      return data as QuitHabit
+    },
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: habitsKey })
+      const prev = qc.getQueryData<HabitsCache>(habitsKey)
+      const now = new Date().toISOString()
+      const optimistic: QuitHabit = {
+        id: `optimistic-${crypto.randomUUID()}`,
+        user_id: userId,
+        name: input.name,
+        preset_key: input.preset_key ?? 'custom',
+        quit_started_at: input.quit_started_at ?? now,
+        longest_streak_days: 0,
+        replacement_action: input.replacement_action ?? null,
+        notes: input.notes ?? null,
+        created_at: now,
+        updated_at: now,
+      }
+      setHabits((p) => [...p, optimistic])
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(habitsKey, ctx.prev)
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: habitsKey }),
+    // Non-idempotent insert: don't offer a one-click Retry (could double-insert).
+    meta: { noRetry: true },
+  })
+
+  const updateHabit = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: QuitHabitPatch }) => {
+      const { data, error } = await supabase
+        .from('quit_habits')
+        .update(patch)
+        .eq('id', id)
+        .select('*')
+        .single()
+      if (error) throw error
+      return data as QuitHabit
+    },
+    onMutate: async ({ id, patch }) => {
+      await qc.cancelQueries({ queryKey: habitsKey })
+      const prev = qc.getQueryData<HabitsCache>(habitsKey)
+      setHabits((p) => p.map((h) => (h.id === id ? { ...h, ...patch } : h)))
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(habitsKey, ctx.prev)
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: habitsKey }),
+  })
+
+  /**
+   * "I slipped" — move day zero to now and bank the run just completed if it
+   * beat the record. The whole decision lives in slipPatch(); this is only the
+   * transport. Reuses updateHabit's optimistic path so the card's counter
+   * resets instantly instead of after a round trip.
+   */
+  const slip = useMutation({
+    mutationFn: async (habit: QuitHabit) => {
+      const patch = slipPatch(habit.quit_started_at, habit.longest_streak_days)
+      const { data, error } = await supabase
+        .from('quit_habits')
+        .update(patch)
+        .eq('id', habit.id)
+        .select('*')
+        .single()
+      if (error) throw error
+      return data as QuitHabit
+    },
+    onMutate: async (habit) => {
+      await qc.cancelQueries({ queryKey: habitsKey })
+      const prev = qc.getQueryData<HabitsCache>(habitsKey)
+      const patch = slipPatch(habit.quit_started_at, habit.longest_streak_days)
+      setHabits((p) => p.map((h) => (h.id === habit.id ? { ...h, ...patch } : h)))
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(habitsKey, ctx.prev)
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: habitsKey }),
+  })
+
+  const deleteHabit = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('quit_habits').delete().eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: habitsKey })
+      await qc.cancelQueries({ queryKey: checkinsKey })
+      const prevHabits = qc.getQueryData<HabitsCache>(habitsKey)
+      const prevCheckins = qc.getQueryData<QuitCheckin[]>(checkinsKey) ?? []
+      setHabits((p) => p.filter((h) => h.id !== id))
+      setCheckins((p) => p.filter((c) => c.habit_id !== id)) // DB cascades; mirror in UI
+      return { prevHabits, prevCheckins }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prevHabits) qc.setQueryData(habitsKey, ctx.prevHabits)
+      if (ctx?.prevCheckins) qc.setQueryData(checkinsKey, ctx.prevCheckins)
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: habitsKey })
+      void qc.invalidateQueries({ queryKey: checkinsKey })
+    },
+  })
+
+  /**
+   * "Still clean today". UNIQUE (habit_id, checked_on) means a double-tap is a
+   * duplicate-key error, not a duplicate row — so a same-day repeat is treated
+   * as already-done rather than surfaced as a failure.
+   */
+  const checkIn = useMutation({
+    mutationFn: async ({ habitId, day }: { habitId: string; day: string }) => {
+      const { data, error } = await supabase
+        .from('quit_checkins')
+        .insert({ user_id: userId, habit_id: habitId, checked_on: day })
+        .select('*')
+        .single()
+      if (error) {
+        if (error.code === '23505') return null // already checked in today
+        throw error
+      }
+      return data as QuitCheckin
+    },
+    onMutate: async ({ habitId, day }) => {
+      await qc.cancelQueries({ queryKey: checkinsKey })
+      const prev = qc.getQueryData<QuitCheckin[]>(checkinsKey) ?? []
+      const tempId = `optimistic-${crypto.randomUUID()}`
+      const optimistic: QuitCheckin = {
+        id: tempId,
+        user_id: userId,
+        habit_id: habitId,
+        checked_on: day,
+        created_at: new Date().toISOString(),
+      }
+      setCheckins((p) => [optimistic, ...p])
+      return { prev, tempId }
+    },
+    onSuccess: (real, _v, ctx) => {
+      // Swap in the real row so its id is available to undo immediately, before
+      // the settle refetch — closes a check-in → undo race.
+      if (real) setCheckins((p) => p.map((c) => (c.id === ctx?.tempId ? real : c)))
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(checkinsKey, ctx.prev)
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: checkinsKey }),
+    meta: { noRetry: true },
+  })
+
+  const undoCheckIn = useMutation({
+    mutationFn: async ({ ids }: { habitId: string; ids: string[] }) => {
+      const realIds = ids.filter((id) => !id.startsWith('optimistic-'))
+      if (realIds.length === 0) return
+      const { error } = await supabase.from('quit_checkins').delete().in('id', realIds)
+      if (error) throw error
+    },
+    onMutate: async ({ ids }) => {
+      await qc.cancelQueries({ queryKey: checkinsKey })
+      const prev = qc.getQueryData<QuitCheckin[]>(checkinsKey) ?? []
+      const remove = new Set(ids)
+      setCheckins((p) => p.filter((c) => !remove.has(c.id)))
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(checkinsKey, ctx.prev)
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: checkinsKey }),
+  })
+
+  return { createHabit, updateHabit, slip, deleteHabit, checkIn, undoCheckIn }
+}

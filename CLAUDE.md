@@ -93,7 +93,7 @@ src/
     calendar/  # .ics parsing + busy-minutes → capacity (FEATURES.calendarImport)
     billing/   # usePlan / planCore — the ONLY entitlement source
     settings/ marketing/ legal/ analytics/ onboarding/ auth/ workspace/
-    wellness/  # "Focus & Calm" suite — breathwork/ audio/ tracker/ + /wellness hub (FEATURES.wellness)
+    wellness/  # "Focus & Calm" suite — breathwork/ audio/ tracker/ quit/ + /wellness hub (FEATURES.wellness)
   lib/         # supabase, env, queryClient, queryKeys, config (FEATURES + caps), utils
   routes/      # AppRoutes
   types/       # database row types
@@ -174,6 +174,25 @@ card). Modules:
   **PERSONAL LOG ONLY** — no drug database, interaction/contraindication checks, or dosing logic;
   `dose`/`schedule` are free text — with a persistent, non-dismissible "not medical advice"
   disclaimer.
+- **Quit tracker** (`wellness/quit/`, `FEATURES.quitTracker`, default **ON**) — habits the user is
+  **breaking**, at `/wellness/quit`. The tracker above records what you *take*; this records what
+  you are deliberately *not doing*. **Day zero is a timestamp, never a counter**: the clean streak
+  is derived from `quit_habits.quit_started_at` on every render (the Focus timer's discipline), so
+  it cannot drift, needs no daily job, and *grows* while the app is closed. A slip is one UPDATE —
+  move day zero to now and raise `longest_streak_days` to the run just completed if it beat the
+  record. That number is the only denormalised value and **only ever goes up**, so a reset can
+  never erase what someone already proved they could do. Whole days are counted by **local
+  calendar-day** arithmetic (DST-safe), so the headline ("day 1") and the live clock ("2h 14m") can
+  differ by one within a day — deliberately. Presets are clinically neutral by rule (see the naming
+  rule atop `presets.ts`): no "bad habit", no warning-label iconography, nothing a user would be
+  embarrassed to see on their own screen. Check-ins (`quit_checkins`, UNIQUE per habit+day) are an
+  **optional** affirmation and never gate the streak — forgetting to open the app is not a relapse.
+  The **replacement action** ("do this instead", free text, optionally deep-linking to breathwork or
+  Focus) is surfaced on the card, inside the slip dialog, and again immediately *after* the reset,
+  which is the moment it exists for. Milestones 1/3/7/14/30/90/180/365 are marked calmly — no
+  confetti. Free tracks `FREE_QUIT_HABITS = 1`; the cap gates **creation only** and the copy says
+  so. A persistent, neutral (not amber, not alarming) note states plainly that this is a personal
+  tracker, not treatment. **Its migration is committed but NOT YET APPLIED — see §7.**
 
 A read-only **fake-door teaser** for Focus & Calm also lives on the `/welcome` marketing page
 (records `feature_intents`); it is independent of `FEATURES.wellness`.
@@ -309,6 +328,16 @@ select/update/delete policy, so the client can never read them back.
 `updated_at` trigger; logs: append-only select/insert/delete; `wellness_logs.item_id` cascades on
 item delete). See `supabase/migrations/`.
 
+**Quit tracker (owner-only, user-scoped):** `quit_habits` + `quit_checkins`. `quit_habits` gets
+full owner-only CRUD, the shared `set_updated_at` trigger, a `user_id` index and five size/shape
+CHECKs; `quit_checkins` is **append-only** (select/insert/delete, deliberately **no UPDATE** — a
+check-in is a fact about a day that already happened) with `UNIQUE (habit_id, checked_on)` so a
+same-day repeat is a no-op, and `habit_id` cascades on habit delete. Both cascade on user delete, so
+account deletion stays complete. Sensitive by nature (a preset may name a health or
+sexual-behaviour category): **no** anon grant, no sharing surface, no aggregate read, no
+service-role reader. `quitCaps.test.ts` pins the client caps to the CHECKs and pins the policy set
+itself shut. **NOT YET APPLIED — see §7.**
+
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs
 (title 1–80, description ≤280, ≤100 tasks, `pg_column_size(tasks) ≤ 64KB`) as a backstop for the
@@ -333,8 +362,19 @@ service-role client but filters by the JWT-verified caller.
 
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
-- **Migrations applied through `20260728120000_user_templates` — the cloud DB is FULLY migrated;
-  there is nothing pending.** Re-verified live 2026-07-25 via anon-key probes (RLS enforcing on
+
+> ### ⚠ PENDING MIGRATIONS — apply these, in this order
+> Everything **through `20260728120000_user_templates` is applied**. The following are **committed
+> but NOT applied**, so the features that need them render an honest "not switched on yet" state and
+> their E2E specs skip themselves (`tableExists()` probe) until the push lands:
+>
+> 1. `20260730120000_quit_habits.sql` — quit tracker (`quit_habits` + `quit_checkins`)
+>
+> Apply in a **real terminal** (non-TTY shells cannot `supabase login`):
+> `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+> Every file is idempotent, so a re-push is a no-op rather than an error.
+
+- **Migrations applied through `20260728120000_user_templates`.** Re-verified live 2026-07-25 via anon-key probes (RLS enforcing on
   every table: anon reads `[]`, anon writes `42501`), and `user_templates` itself was verified
   adversarially on 2026-07-30 (commit `3c355d2`): 15 checks, 0 failures — anon blocked, user B
   cannot read/update/delete user A's row nor insert a row owned by A, and an **unfiltered**
@@ -384,6 +424,16 @@ service-role client but filters by the JWT-verified caller.
   already up to date.
 
 ### Restoring a clean machine / fresh clone
+
+> **`git` itself is wiped too.** Deep Freeze restores the system partition, so `C:\Program Files\Git`
+> disappears while `Documents\projects\todonado` (working tree, `.git`, even `node_modules`) can
+> survive intact — the repo looks fine and every `git` command reports "not found". `gh` survives
+> (`C:\Program Files\GitHub CLI`) and its keyring token survives, so **install git with gh**:
+> `gh release download -R git-for-windows/git --pattern "*64-bit.exe"` then run it with
+> `/VERYSILENT /NORESTART`. The installer adds git to the **machine** PATH, but an already-running
+> agent shell will NOT see it — prepend `C:\Program Files\Git\cmd` to `$env:PATH` in each command
+> until a new shell is started. *(Verified on the 2026-07-30 restore.)*
+
 0. **Run `gh auth setup-git` BEFORE the first clone.** A wipe clears git's global credential-helper
    config *even though the `gh` keyring token survives*, so the clone otherwise dies instantly with:
    ```
@@ -407,10 +457,19 @@ service-role client but filters by the JWT-verified caller.
    `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. **Do NOT re-run migrations** — the cloud DB is already current (through
-   `20260728120000_user_templates`; nothing is pending). Only when adding a **new** migration, use a
-   **real terminal** (TTY — see CLI note): `supabase login` → `supabase link --project-ref
-   lplsbfduankkpglyusjp` → `supabase db push`.
+4. **Do not re-run applied migrations** — everything through `20260728120000_user_templates` is
+   already live. There ARE pending files: see the ⚠ PENDING MIGRATIONS box above for the exact
+   ordered list. Applying them needs a **real terminal** (TTY — see CLI note): `supabase login` →
+   `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+5. `npx playwright install chromium` — **a wipe also clears `~/AppData/Local/ms-playwright`**, so
+   `npm run e2e` dies with `Executable doesn't exist at …chrome-headless-shell.exe`. That is a
+   missing *browser*, not a broken suite. CI installs its own browsers, so this step is local-only.
+   *(Hit on the 2026-07-30 restore.)*
+6. Sanity-check the cloud is awake before assuming anything is broken: a bogus login should return
+   **HTTP 400** from GoTrue (`POST /auth/v1/token?grant_type=password` with the anon key). 400 =
+   the project is up and rejecting bad credentials. If `lplsbfduankkpglyusjp.supabase.co` is
+   **NXDOMAIN**, the project is paused — restore it from the Supabase dashboard first; no amount of
+   local work will fix that.
 
 ### Agent / CLI note (verified on this machine — Windows + PowerShell)
 - **`git push` from the agent's PowerShell tool relies on a VALID GitHub token** — supplied by
