@@ -67,6 +67,11 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
     "id": "seasonal",
     "label": "Seasonal",
     "icon": "Leaf"
+  },
+  {
+    "id": "checklists",
+    "label": "Routines & Checklists",
+    "icon": "ClipboardCheck"
   }
 ]
 
@@ -3429,6 +3434,419 @@ export const TEMPLATES: Template[] = [
         "title": "Check the car: tires, fluids, and AC before road trips",
         "effortMinutes": 30,
         "section": "Gear & getaways"
+      }
+    ]
+  },
+  {
+    "id": "checklists-gym-ppl-push",
+    "title": "Gym: Push Day (PPL)",
+    "description": "Chest, shoulders and triceps. Tick your way down the rack — no dates, just the session.",
+    "category": "checklists",
+    "icon": "Dumbbell",
+    "color": "#22D3A6",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Warm up: 5 min bike or rower",
+        "effortMinutes": 5,
+        "section": "Warm-up"
+      },
+      {
+        "title": "Shoulder dislocates and band pull-aparts",
+        "effortMinutes": 5,
+        "section": "Warm-up"
+      },
+      {
+        "title": "Bench press — 4 x 6",
+        "effortMinutes": 15,
+        "section": "Main lifts"
+      },
+      {
+        "title": "Overhead press — 3 x 8",
+        "effortMinutes": 12,
+        "section": "Main lifts"
+      },
+      {
+        "title": "Incline dumbbell press — 3 x 10",
+        "effortMinutes": 10,
+        "section": "Accessories"
+      },
+      {
+        "title": "Lateral raises — 3 x 15",
+        "effortMinutes": 8,
+        "section": "Accessories"
+      },
+      {
+        "title": "Triceps rope pushdown — 3 x 12",
+        "effortMinutes": 8,
+        "section": "Accessories"
+      },
+      {
+        "title": "Cool down and stretch",
+        "effortMinutes": 7,
+        "section": "Finish"
+      },
+      {
+        "title": "Log the weights you actually used",
+        "effortMinutes": 3,
+        "section": "Finish",
+        "note": "Next week's numbers come from this."
+      }
+    ]
+  },
+  {
+    "id": "checklists-gym-ppl-pull",
+    "title": "Gym: Pull Day (PPL)",
+    "description": "Back and biceps. The same list every pull day, so you never improvise at the rack.",
+    "category": "checklists",
+    "icon": "Dumbbell",
+    "color": "#22D3A6",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Warm up: 5 min easy cardio",
+        "effortMinutes": 5,
+        "section": "Warm-up"
+      },
+      {
+        "title": "Scapular pull-ups and band rows",
+        "effortMinutes": 5,
+        "section": "Warm-up"
+      },
+      {
+        "title": "Deadlift — 3 x 5",
+        "effortMinutes": 18,
+        "section": "Main lifts"
+      },
+      {
+        "title": "Pull-ups or assisted pull-ups — 4 x 8",
+        "effortMinutes": 12,
+        "section": "Main lifts"
+      },
+      {
+        "title": "Barbell row — 3 x 8",
+        "effortMinutes": 12,
+        "section": "Accessories"
+      },
+      {
+        "title": "Face pulls — 3 x 15",
+        "effortMinutes": 8,
+        "section": "Accessories"
+      },
+      {
+        "title": "Hammer curls — 3 x 12",
+        "effortMinutes": 8,
+        "section": "Accessories"
+      },
+      {
+        "title": "Cool down and stretch",
+        "effortMinutes": 7,
+        "section": "Finish"
+      },
+      {
+        "title": "Log the weights you actually used",
+        "effortMinutes": 3,
+        "section": "Finish"
+      }
+    ]
+  },
+  {
+    "id": "checklists-gym-ppl-legs",
+    "title": "Gym: Leg Day (PPL)",
+    "description": "Quads, hamstrings and calves — the day everyone skips, made harder to skip.",
+    "category": "checklists",
+    "icon": "Dumbbell",
+    "color": "#22D3A6",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Warm up: 5 min bike",
+        "effortMinutes": 5,
+        "section": "Warm-up"
+      },
+      {
+        "title": "Hip openers and bodyweight squats",
+        "effortMinutes": 6,
+        "section": "Warm-up"
+      },
+      {
+        "title": "Back squat — 4 x 6",
+        "effortMinutes": 20,
+        "section": "Main lifts"
+      },
+      {
+        "title": "Romanian deadlift — 3 x 8",
+        "effortMinutes": 12,
+        "section": "Main lifts"
+      },
+      {
+        "title": "Leg press — 3 x 12",
+        "effortMinutes": 10,
+        "section": "Accessories"
+      },
+      {
+        "title": "Walking lunges — 3 x 20 steps",
+        "effortMinutes": 10,
+        "section": "Accessories"
+      },
+      {
+        "title": "Standing calf raises — 4 x 15",
+        "effortMinutes": 8,
+        "section": "Accessories"
+      },
+      {
+        "title": "Cool down and stretch",
+        "effortMinutes": 8,
+        "section": "Finish"
+      },
+      {
+        "title": "Log the weights you actually used",
+        "effortMinutes": 3,
+        "section": "Finish"
+      }
+    ]
+  },
+  {
+    "id": "checklists-morning-pages",
+    "title": "Morning Pages",
+    "description": "Three pages, longhand, before the day starts talking. The same list every morning.",
+    "category": "checklists",
+    "icon": "Pencil",
+    "color": "#6C5CE7",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Glass of water, phone face down",
+        "effortMinutes": 3
+      },
+      {
+        "title": "Write page one — whatever is loudest",
+        "effortMinutes": 8,
+        "note": "No editing, no rereading. Volume beats quality here."
+      },
+      {
+        "title": "Write page two — what you are avoiding",
+        "effortMinutes": 8
+      },
+      {
+        "title": "Write page three — what you actually want from today",
+        "effortMinutes": 8
+      },
+      {
+        "title": "Underline anything that turned out to be a task",
+        "effortMinutes": 4,
+        "note": "Those belong in the Inbox, not back on the page."
+      },
+      {
+        "title": "Close the notebook and start the day",
+        "effortMinutes": 2
+      }
+    ]
+  },
+  {
+    "id": "checklists-weekly-shutdown",
+    "title": "Weekly Shutdown",
+    "description": "Close the week properly so Monday starts from a clean desk instead of a pile.",
+    "category": "checklists",
+    "icon": "ClipboardCheck",
+    "color": "#4EA8FF",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Empty the Inbox to zero",
+        "effortMinutes": 15,
+        "section": "Clear"
+      },
+      {
+        "title": "Reply to anything still owed an answer",
+        "effortMinutes": 20,
+        "section": "Clear"
+      },
+      {
+        "title": "Close every tab and file the desktop",
+        "effortMinutes": 10,
+        "section": "Clear"
+      },
+      {
+        "title": "Reschedule what did not get done, honestly",
+        "effortMinutes": 15,
+        "section": "Review",
+        "note": "Moving it is fine. Pretending next week has more hours is not."
+      },
+      {
+        "title": "Read back this week's completed work",
+        "effortMinutes": 10,
+        "section": "Review"
+      },
+      {
+        "title": "Pick the three things that matter next week",
+        "effortMinutes": 15,
+        "section": "Plan ahead"
+      },
+      {
+        "title": "Check next week's calendar for surprises",
+        "effortMinutes": 10,
+        "section": "Plan ahead"
+      },
+      {
+        "title": "Write one line about how the week actually felt",
+        "effortMinutes": 5,
+        "section": "Plan ahead"
+      }
+    ]
+  },
+  {
+    "id": "checklists-evening-shutdown",
+    "title": "Evening Shutdown",
+    "description": "A short end-of-day list that lets you stop thinking about work.",
+    "category": "checklists",
+    "icon": "Sunset",
+    "color": "#6C5CE7",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Capture every loose thought into the Inbox",
+        "effortMinutes": 8
+      },
+      {
+        "title": "Roll over anything unfinished to a real day",
+        "effortMinutes": 6
+      },
+      {
+        "title": "Glance at tomorrow's first task so you know where to start",
+        "effortMinutes": 4
+      },
+      {
+        "title": "Tidy the desk and shut the laptop",
+        "effortMinutes": 5
+      },
+      {
+        "title": "Say the day is over, out loud if it helps",
+        "effortMinutes": 2,
+        "note": "A deliberate stop is what stops the low-grade replaying."
+      }
+    ]
+  },
+  {
+    "id": "checklists-carry-on-packing",
+    "title": "Carry-On Packing List",
+    "description": "One bag, no checked luggage. Reuse it every trip instead of rebuilding it at midnight.",
+    "category": "checklists",
+    "icon": "Luggage",
+    "color": "#4EA8FF",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Passport, ID and boarding pass",
+        "effortMinutes": 5,
+        "section": "Documents"
+      },
+      {
+        "title": "Card, some cash, travel insurance details",
+        "effortMinutes": 5,
+        "section": "Documents"
+      },
+      {
+        "title": "Outfits counted against actual days away",
+        "effortMinutes": 20,
+        "section": "Clothes",
+        "note": "Count the days. Then take one fewer."
+      },
+      {
+        "title": "One warm layer and something waterproof",
+        "effortMinutes": 5,
+        "section": "Clothes"
+      },
+      {
+        "title": "Toiletries in under 100ml bottles",
+        "effortMinutes": 10,
+        "section": "Toiletries"
+      },
+      {
+        "title": "Any medication, in its original packaging",
+        "effortMinutes": 5,
+        "section": "Toiletries"
+      },
+      {
+        "title": "Chargers, cable, adapter, power bank",
+        "effortMinutes": 8,
+        "section": "Tech"
+      },
+      {
+        "title": "Headphones and something to read offline",
+        "effortMinutes": 5,
+        "section": "Tech"
+      },
+      {
+        "title": "Weigh the bag before you leave the house",
+        "effortMinutes": 5,
+        "section": "Last look"
+      },
+      {
+        "title": "Bins out, plants watered, heating down",
+        "effortMinutes": 10,
+        "section": "Last look"
+      }
+    ]
+  },
+  {
+    "id": "checklists-deep-clean-kitchen",
+    "title": "Kitchen Deep Clean",
+    "description": "The monthly pass that normal tidying never covers. Tick it, forget it, run it again.",
+    "category": "checklists",
+    "icon": "Brush",
+    "color": "#22D3A6",
+    "style": "checklist",
+    "tasks": [
+      {
+        "title": "Clear and wipe every counter",
+        "effortMinutes": 15,
+        "section": "Surfaces"
+      },
+      {
+        "title": "Degrease the hob and splashback",
+        "effortMinutes": 20,
+        "section": "Surfaces"
+      },
+      {
+        "title": "Wipe cupboard doors and handles",
+        "effortMinutes": 15,
+        "section": "Surfaces"
+      },
+      {
+        "title": "Empty the fridge, bin what has turned, wipe the shelves",
+        "effortMinutes": 30,
+        "section": "Appliances"
+      },
+      {
+        "title": "Run the dishwasher empty on a hot cycle",
+        "effortMinutes": 10,
+        "section": "Appliances"
+      },
+      {
+        "title": "Descale the kettle and clean the coffee machine",
+        "effortMinutes": 15,
+        "section": "Appliances"
+      },
+      {
+        "title": "Clean the oven racks and door glass",
+        "effortMinutes": 30,
+        "section": "Appliances"
+      },
+      {
+        "title": "Scrub the sink and unclog the drain",
+        "effortMinutes": 15,
+        "section": "Floor & bins"
+      },
+      {
+        "title": "Take out recycling and wash the bin",
+        "effortMinutes": 15,
+        "section": "Floor & bins"
+      },
+      {
+        "title": "Sweep and mop the floor",
+        "effortMinutes": 20,
+        "section": "Floor & bins"
       }
     ]
   }

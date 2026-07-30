@@ -11,14 +11,21 @@ import { useUserTemplates } from './api/useUserTemplates'
 import { personalToTemplate } from './personal'
 import { groupTemplateTasks } from './browse'
 import { useApplyTemplate } from './useApplyTemplate'
-import { applySuccessMessage, type ApplyTargetKind } from './apply'
+import {
+  applySuccessMessage,
+  applyTargetsFor,
+  defaultTargetFor,
+  type ApplyTargetKind,
+} from './apply'
 
-const TARGETS: { kind: ApplyTargetKind; label: string; hint: string; Icon: LucideIcon }[] = [
-  // Today first + default: it lights up the capacity meter immediately — the first "aha".
-  { kind: 'today', label: 'Today', hint: 'Plan it into today', Icon: Sun },
-  { kind: 'project', label: 'New project', hint: 'A project with these tasks', Icon: FolderPlus },
-  { kind: 'inbox', label: 'Inbox', hint: 'Capture for later', Icon: Inbox },
-]
+const TARGET_META: Record<ApplyTargetKind, { label: string; hint: string; Icon: LucideIcon }> = {
+  // Today first + default for a PLAN: it lights up the capacity meter
+  // immediately — the first "aha". `applyTargetsFor` drops it for a checklist,
+  // which by definition has no dates.
+  today: { label: 'Today', hint: 'Plan it into today', Icon: Sun },
+  project: { label: 'New project', hint: 'A project with these tasks', Icon: FolderPlus },
+  inbox: { label: 'Inbox', hint: 'Capture for later', Icon: Inbox },
+}
 
 function Loading() {
   return (
@@ -63,11 +70,19 @@ export function TemplateDetailPage() {
   const apply = useApplyTemplate(workspaceId)
   const toast = useToast()
   const navigate = useNavigate()
-  const [target, setTarget] = useState<ApplyTargetKind>('today')
+  const [chosenTarget, setChosenTarget] = useState<ApplyTargetKind | null>(null)
   const [busy, setBusy] = useState(false)
 
   // Don't flash "doesn't exist" while the personal list is still loading.
   if (!template) return personalPending ? <Loading /> : <NotFound />
+
+  // Which targets this template offers, and the one it opens on. A checklist
+  // never offers the dated target; `chosenTarget` is validated against the list
+  // so it can never hold a target this template doesn't support.
+  const targets = applyTargetsFor(template)
+  const target =
+    chosenTarget && targets.includes(chosenTarget) ? chosenTarget : defaultTargetFor(template)
+  const isChecklist = template.style === 'checklist'
 
   const Icon = templateIcon(template)
   const groups = groupTemplateTasks(template)
@@ -109,10 +124,11 @@ export function TemplateDetailPage() {
         <div className="min-w-0">
           <h2 className="font-display text-2xl font-bold">{template.title}</h2>
           <p className="mt-1 text-text-muted">{template.description}</p>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant="default">
               {count} {count === 1 ? 'task' : 'tasks'}
             </Badge>
+            {isChecklist && <Badge variant="outline">Checklist</Badge>}
             <span className="font-mono text-xs text-text-muted">~{formatEffort(total)} total effort</span>
           </div>
         </div>
@@ -121,28 +137,41 @@ export function TemplateDetailPage() {
       {/* Target chooser + apply */}
       <Card>
         <CardContent className="space-y-4">
-          <div role="group" aria-label="Where should these tasks go?" className="grid gap-2 sm:grid-cols-3">
-            {TARGETS.map((t) => (
-              <button
-                key={t.kind}
-                type="button"
-                onClick={() => setTarget(t.kind)}
-                aria-pressed={target === t.kind}
-                className={cn(
-                  'focus-ring rounded-xl border p-3 text-left transition-colors',
-                  target === t.kind
-                    ? 'border-brand/50 bg-brand-gradient-soft'
-                    : 'border-white/10 hover:bg-surface-2/60',
-                )}
-              >
-                <span className="flex items-center gap-2 font-medium text-text-primary">
-                  <t.Icon className="h-4 w-4 text-brand" aria-hidden />
-                  {t.label}
-                </span>
-                <span className="mt-0.5 block text-xs text-text-muted">{t.hint}</span>
-              </button>
-            ))}
+          <div
+            role="group"
+            aria-label="Where should these tasks go?"
+            className={cn('grid gap-2', targets.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}
+          >
+            {targets.map((kind) => {
+              const meta = TARGET_META[kind]
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setChosenTarget(kind)}
+                  aria-pressed={target === kind}
+                  className={cn(
+                    'focus-ring rounded-xl border p-3 text-left transition-colors',
+                    target === kind
+                      ? 'border-brand/50 bg-brand-gradient-soft'
+                      : 'border-white/10 hover:bg-surface-2/60',
+                  )}
+                >
+                  <span className="flex items-center gap-2 font-medium text-text-primary">
+                    <meta.Icon className="h-4 w-4 text-brand" aria-hidden />
+                    {meta.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-text-muted">{meta.hint}</span>
+                </button>
+              )
+            })}
           </div>
+          {isChecklist && (
+            <p className="text-xs leading-relaxed text-text-muted">
+              A checklist lands without dates, so it doesn&rsquo;t take a bite out of today&rsquo;s
+              capacity. Tick through it whenever, and apply it again next time.
+            </p>
+          )}
           <Button size="lg" className="w-full sm:w-auto" onClick={use} loading={busy}>
             Use this list
           </Button>

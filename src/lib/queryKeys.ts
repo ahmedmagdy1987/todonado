@@ -23,4 +23,6 @@ export const qk = {
   // Quit tracker — user-owned habits being broken + their optional check-ins.
   quitHabits: (userId: string) => ['quit-habits', userId] as const,
   quitCheckins: (userId: string) => ['quit-checkins', userId] as const,
+  // Vision cards — user-owned goals (keyed by user, not workspace).
+  visionCards: (userId: string) => ['vision-cards', userId] as const,
 }

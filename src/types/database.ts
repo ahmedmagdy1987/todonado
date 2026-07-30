@@ -13,7 +13,24 @@ export type MemberRole = 'owner' | 'admin' | 'member'
 export type TaskPriority = 0 | 1 | 2 | 3
 export type RecurrenceFreq = 'daily' | 'weekly' | 'monthly' | 'yearly'
 /** Fake-door demand-capture keys for unbuilt "Focus & Calm" wellness concepts. */
-export type FeatureKey = 'meditation' | 'sleep_sounds' | 'supplement_tracker'
+/**
+ * Fake-door interest keys. MUST stay in step with the CHECK on
+ * `feature_intents.feature_key` (widened by
+ * 20260730150000_feature_intents_keys.sql) — a key the DB rejects fails with a
+ * 23514 that `track`-style fire-and-forget callers never see.
+ */
+export type FeatureKey =
+  | 'meditation'
+  | 'sleep_sounds'
+  | 'supplement_tracker'
+  /** Image / photo vision boards — the Vision page ships text-first. */
+  | 'vision_images'
+  /** Referral rewards + discount codes — blocked on Stripe going live. */
+  | 'referral'
+  /** The AI coaching / suggestion layer — blocked on an AI API. */
+  | 'ai_coach'
+  /** Spoken journal entries with analysis — blocked on an AI API. */
+  | 'voice_journal'
 /** Subscription tier gate (see supabase/migrations/20260706130000_billing.sql). */
 export type BillingPlan = 'free' | 'pro'
 
@@ -378,6 +395,13 @@ export interface UserTemplate {
   /** Optional lucide icon name, validated against the client allow-list. */
   icon: string | null
   color: string | null
+  /**
+   * 'checklist' = a repeated-use list applied WITHOUT dates; null/'plan' = the
+   * original behaviour. Nullable and null-means-default, so every row that
+   * existed before the column did stays valid with no backfill.
+   * Added by 20260730130000_user_template_style.sql.
+   */
+  style: string | null
   tasks: UserTemplateTask[]
   created_at: string
   updated_at: string
@@ -388,11 +412,47 @@ export interface NewUserTemplateInput {
   description?: string | null
   icon?: string | null
   color?: string | null
+  style?: string | null
   tasks: UserTemplateTask[]
 }
 
 export type UserTemplatePatch = Partial<
-  Pick<UserTemplate, 'title' | 'description' | 'icon' | 'color' | 'tasks'>
+  Pick<UserTemplate, 'title' | 'description' | 'icon' | 'color' | 'style' | 'tasks'>
+>
+
+// ---------------------------------------------------------------------------
+//  Vision cards (the goals behind the work) — owner-only, user-scoped.
+//  Text-first by design: no image columns and no storage bucket, because images
+//  are a product question (upload limits, a storage policy, thumbnails, a bill)
+//  that the 'vision_images' fake door is there to answer first.
+//  See supabase/migrations/20260730140000_vision_cards.sql.
+// ---------------------------------------------------------------------------
+export interface VisionCard {
+  id: string
+  user_id: string
+  title: string
+  /** The reason. Free text, never interpreted. */
+  why: string | null
+  /** Soft target. A date that passes is not a failure and nothing expires. */
+  target_date: string | null
+  /** Fractional, so a drag is one UPDATE of one row (see lib/reorder.ts). */
+  position: number
+  /** "This project serves this goal". A deleted project unlinks, not deletes. */
+  project_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NewVisionCardInput {
+  title: string
+  why?: string | null
+  target_date?: string | null
+  position?: number
+  project_id?: string | null
+}
+
+export type VisionCardPatch = Partial<
+  Pick<VisionCard, 'title' | 'why' | 'target_date' | 'position' | 'project_id'>
 >
 
 export interface NewCalendarSourceInput {

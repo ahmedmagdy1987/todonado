@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { NewProjectInput, NewSectionInput, NewTaskInput, Project, Section, Task } from '@/types/database'
-import { applyTemplate, applySuccessMessage, type ApplyDeps } from './apply'
+import {
+  applySuccessMessage,
+  applyTargetsFor,
+  applyTemplate,
+  defaultTargetFor,
+  type ApplyDeps,
+} from './apply'
 import type { Template } from './types'
 
 const template: Template = {
@@ -103,6 +109,52 @@ describe('applyTemplate — partial failure', () => {
     expect(res.taskCount).toBe(3)
     expect(res.failedCount).toBe(1)
     expect(calls.tasks).toHaveLength(3)
+  })
+})
+
+describe('the checklist style', () => {
+  const checklist: Template = { ...template, style: 'checklist', title: 'Gym: Push Day' }
+
+  it('offers the dated target to a plan but never to a checklist', () => {
+    expect(applyTargetsFor(template)).toEqual(['today', 'project', 'inbox'])
+    expect(applyTargetsFor({ ...template, style: 'plan' })).toEqual(['today', 'project', 'inbox'])
+    expect(applyTargetsFor(checklist)).toEqual(['project', 'inbox'])
+    expect(applyTargetsFor(checklist)).not.toContain('today')
+  })
+
+  it('opens a plan on Today and a checklist on the named list', () => {
+    expect(defaultTargetFor(template)).toBe('today')
+    expect(defaultTargetFor(checklist)).toBe('project')
+  })
+
+  it('NORMALISES a dated request away, so the invariant holds for every caller', async () => {
+    // Defence in depth: the UI never offers 'today' for a checklist, but if some
+    // caller asked for it anyway, the tasks must still land undated — and the
+    // reported destination must be the truth, not "Today".
+    const { deps, calls } = makeDeps()
+    const res = await applyTemplate(deps, checklist, 'today', ctx)
+    expect(calls.tasks.every((t) => t.scheduled_for === null)).toBe(true)
+    expect(res.target).toBe('inbox')
+    expect(res.destinationLabel).toBe('Inbox')
+    expect(applySuccessMessage(res)).toBe('Added 4 tasks to Inbox')
+  })
+
+  it('still applies a checklist as a project, sections and effort intact', async () => {
+    const { deps, calls } = makeDeps()
+    const res = await applyTemplate(deps, checklist, 'project', ctx)
+    expect(calls.projects[0]).toMatchObject({ name: 'Gym: Push Day' })
+    expect(calls.sections.map((s) => s.name)).toEqual(['Before you go', 'Day of'])
+    expect(calls.tasks.map((t) => t.effort_minutes)).toEqual([10, 20, 30, 5])
+    // A checklist is dateless in EVERY target, not only the normalised one.
+    expect(calls.tasks.every((t) => t.scheduled_for === null)).toBe(true)
+    expect(res.target).toBe('project')
+  })
+
+  it('leaves a PLAN dated exactly as before — no behaviour change', async () => {
+    const { deps, calls } = makeDeps()
+    const res = await applyTemplate(deps, template, 'today', ctx)
+    expect(calls.tasks.every((t) => t.scheduled_for === '2026-06-22')).toBe(true)
+    expect(res.target).toBe('today')
   })
 })
 

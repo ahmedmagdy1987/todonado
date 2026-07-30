@@ -33,6 +33,24 @@ export interface ApplyResult {
   destinationLabel: string
 }
 
+/**
+ * The targets a template may be applied to.
+ *
+ * A checklist is a repeated-use list, so the DATED target is not offered for it:
+ * "Tuesday's gym split, scheduled for today" is a plan, not a checklist. The
+ * other two targets already produce exactly what a checklist wants — a named
+ * list you tick through, or undated capture.
+ */
+export function applyTargetsFor(template: Template): ApplyTargetKind[] {
+  return template.style === 'checklist' ? ['project', 'inbox'] : ['today', 'project', 'inbox']
+}
+
+/** The target a template opens on. Today first for plans — it lights up the
+ *  capacity meter, which is the first "aha". A checklist opens on the named list. */
+export function defaultTargetFor(template: Template): ApplyTargetKind {
+  return applyTargetsFor(template)[0]
+}
+
 /** Distinct section names in first-appearance order. */
 function sectionOrder(template: Template): string[] {
   const order: string[] = []
@@ -55,10 +73,17 @@ function sectionOrder(template: Template): string[] {
 export async function applyTemplate(
   deps: ApplyDeps,
   template: Template,
-  target: ApplyTargetKind,
+  requestedTarget: ApplyTargetKind,
   ctx: ApplyContext,
 ): Promise<ApplyResult> {
   const { workspaceId, today } = ctx
+
+  // A checklist has no dates BY DEFINITION, so the dated target is normalised
+  // away here as well as hidden in the UI. Doing it in the pure function means
+  // the invariant holds for every caller, and the reported destination stays
+  // truthful rather than claiming "Today" for undated tasks.
+  const target: ApplyTargetKind =
+    template.style === 'checklist' && requestedTarget === 'today' ? 'inbox' : requestedTarget
 
   let projectId: string | undefined
   let destinationLabel: string

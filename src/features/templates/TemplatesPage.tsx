@@ -17,6 +17,7 @@ import { useUserTemplates } from './api/useUserTemplates'
 import {
   canCreatePersonalTemplate,
   personalToTemplate,
+  toTemplateStyle,
   toUserTemplateTasks,
   type PersonalTemplateDraft,
 } from './personal'
@@ -83,6 +84,7 @@ export function TemplatesPage() {
         description: editing.description,
         icon: editing.icon,
         color: editing.color,
+        style: toTemplateStyle(editing.style),
         tasks: personalToTemplate(editing).tasks,
       }
     : undefined
@@ -115,30 +117,29 @@ export function TemplatesPage() {
       description: draft.description,
       icon: draft.icon,
       color: draft.color,
+      style: draft.style,
       tasks: toUserTemplateTasks(draft.tasks),
     }
     const onError = () => toast.show('Couldn’t save that template — please try again.')
+    // Saved either way; the message just stops short of claiming the checklist
+    // style stuck when the `style` column isn't there yet (see useUserTemplates).
+    const done = (verb: string) => (result: { styleDropped: boolean }) => {
+      closeEditor()
+      toast.show(
+        result.styleDropped
+          ? `${verb} — checklist mode isn’t switched on yet, so it saved as a plan.`
+          : verb,
+      )
+    }
 
     if (editingId) {
       updateTemplate.mutate(
         { id: editingId, patch: payload },
-        {
-          onSuccess: () => {
-            closeEditor()
-            toast.show('Template updated')
-          },
-          onError,
-        },
+        { onSuccess: done('Template updated'), onError },
       )
       return
     }
-    createTemplate.mutate(payload, {
-      onSuccess: () => {
-        closeEditor()
-        toast.show('Template saved')
-      },
-      onError,
-    })
+    createTemplate.mutate(payload, { onSuccess: done('Template saved'), onError })
   }
 
   function remove() {

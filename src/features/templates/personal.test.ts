@@ -42,6 +42,8 @@ const row = (over: Partial<UserTemplate> = {}): UserTemplate => ({
   description: 'How I start the week',
   icon: 'Rocket',
   color: '#4EA8FF',
+  // null is what every row written before the `style` column existed holds.
+  style: null,
   tasks: [{ title: 'Inbox zero', effortMinutes: 30 }],
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
@@ -225,6 +227,7 @@ describe('validatePersonalTemplate', () => {
     description: null,
     icon: null,
     color: null,
+    style: 'plan',
     tasks: [{ title: 'Tag the release', effortMinutes: 15 }],
     ...over,
   })

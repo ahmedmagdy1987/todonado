@@ -45,6 +45,17 @@ export const FREE_PERSONAL_TEMPLATES = 3
 export const FREE_QUIT_HABITS = 1
 
 /**
+ * How many VISION cards a Free plan may CREATE. Pro (and Founding) are
+ * unlimited. Tunable — this is the only place the number lives.
+ *
+ * Same principle as FREE_PERSONAL_TEMPLATES and FREE_QUIT_HABITS: the limit
+ * gates CREATION only. Every goal already written stays visible, editable and
+ * linkable forever. Holding someone's goals hostage would be a grim way to sell
+ * a subscription.
+ */
+export const FREE_VISION_CARDS = 3
+
+/**
  * Supabase realtime sync for the active workspace. Safe to disable if it ever
  * causes instability — the app remains fully functional via TanStack Query.
  */
@@ -148,4 +159,14 @@ export const FEATURES = {
    * FEATURES.wellness, so switching the wellness suite off still removes it.)
    */
   getToWork: true,
+  /**
+   * Vision — a /vision page of goal cards (title + why + optional target date),
+   * reorderable, each optionally linked to the project that serves it. TEXT-FIRST
+   * on purpose: no image uploads, because images mean a storage bucket, upload
+   * limits, a storage policy and a bill, and the honest way to decide that is to
+   * measure demand first (the 'vision_images' fake door). Owner-only data in
+   * `vision_cards`. Default ON; set to false to remove the route and the nav
+   * entry with no other behaviour change.
+   */
+  vision: true,
 } as const

@@ -6,7 +6,7 @@ import type {
   UserTemplateTask,
 } from '@/types/database'
 import { TEMPLATE_ICONS, type TemplateIconName } from './icons'
-import type { Template, TemplateTask } from './types'
+import type { Template, TemplateStyle, TemplateTask } from './types'
 
 /**
  * Personal-template logic: capturing a project into a template, adapting a
@@ -38,7 +38,19 @@ export interface PersonalTemplateDraft {
   description: string | null
   icon: string | null
   color: string | null
+  /** Absent/'plan' = a dated plan; 'checklist' = a dateless repeated-use list. */
+  style: TemplateStyle
   tasks: TemplateTask[]
+}
+
+/**
+ * Narrow the stored `style` column to the type. Anything unrecognised — a null
+ * from a row saved before the column existed, or a value from a newer build —
+ * reads as 'plan', which is the behaviour every personal template had before
+ * checklists, so an unknown value can never make a template unusable.
+ */
+export function toTemplateStyle(raw: string | null | undefined): TemplateStyle {
+  return raw === 'checklist' ? 'checklist' : 'plan'
 }
 
 function toTemplateTask(task: Task, section?: string): TemplateTask {
@@ -95,6 +107,9 @@ export function captureProjectAsTemplate(args: {
     description: null,
     icon: null,
     color: project.color ?? null,
+    // A captured project is a plan — it came from dated, scheduled work. The
+    // user can switch it to a checklist in the editor if that's what it really is.
+    style: 'plan',
     tasks: out.slice(0, MAX_TEMPLATE_TASKS),
   }
 }
@@ -145,6 +160,9 @@ export function personalToTemplate(row: UserTemplate): Template {
     category: 'personal',
     icon: isTemplateIconName(row.icon) ? row.icon : 'ListChecks',
     ...(row.color ? { color: row.color } : {}),
+    // Only set when it is actually a checklist, so a plan-style personal
+    // template is byte-for-byte the object it produced before this field existed.
+    ...(toTemplateStyle(row.style) === 'checklist' ? { style: 'checklist' as const } : {}),
     tasks: sanitizeTemplateTasks(row.tasks),
   }
 }

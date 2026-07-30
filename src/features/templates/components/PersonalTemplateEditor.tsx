@@ -35,6 +35,7 @@ const emptyDraft = (): PersonalTemplateDraft => ({
   description: null,
   icon: null,
   color: null,
+  style: 'plan',
   tasks: [{ title: '', effortMinutes: CAPTURE_FALLBACK_EFFORT }],
 })
 
@@ -154,6 +155,38 @@ export function PersonalTemplateEditor({
               </Select>
             </div>
           </div>
+
+          <fieldset className="space-y-1.5">
+            <legend className="mb-1 block text-xs font-medium text-text-muted">How you use it</legend>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: 'plan', label: 'A plan for a day', hint: 'Schedule it into a day' },
+                  {
+                    value: 'checklist',
+                    label: 'A checklist',
+                    hint: 'Tick through it, no dates',
+                  },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => set({ style: opt.value })}
+                  aria-pressed={draft.style === opt.value}
+                  className={cn(
+                    'focus-ring flex-1 rounded-xl border px-3 py-2 text-left transition-colors',
+                    draft.style === opt.value
+                      ? 'border-brand/50 bg-brand-gradient-soft'
+                      : 'border-white/10 hover:bg-surface-2/60',
+                  )}
+                >
+                  <span className="block text-sm font-medium text-text-primary">{opt.label}</span>
+                  <span className="block text-xs text-text-muted">{opt.hint}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
         </div>
 
         <div>

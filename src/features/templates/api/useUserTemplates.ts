@@ -5,6 +5,15 @@ import { useAuth } from '@/features/auth/auth-context'
 import type { NewUserTemplateInput, UserTemplate, UserTemplatePatch } from '@/types/database'
 
 /**
+ * What a write reports back. `styleDropped` is true when a checklist style was
+ * asked for but the `style` column does not exist yet — the template itself was
+ * still saved. Callers use it to say so instead of implying the style stuck.
+ */
+export interface WriteResult {
+  styleDropped: boolean
+}
+
+/**
  * Owner-only personal templates (RLS: user_id = auth.uid()). Mirrors the
  * wellness tracker's user-scoped query/mutation shape.
  *
@@ -23,6 +32,18 @@ export function useUserTemplates() {
 
   /** PostgREST / Postgres codes for "that table isn't there". */
   const TABLE_MISSING = new Set(['PGRST205', '42P01'])
+  /**
+   * PostgREST / Postgres codes for "that COLUMN isn't there".
+   *
+   * A missing column is a DIFFERENT failure from a missing table, and it is the
+   * one that bites on deploy order: `style` ships in a migration that may not be
+   * applied yet, and naming an unknown column in an insert fails outright. So
+   * `style` is only ever named when it carries a non-default value, and a
+   * missing column falls back to saving WITHOUT it — the template is kept and
+   * the caller is told the style was dropped, rather than the user losing work
+   * or being told a lie.
+   */
+  const COLUMN_MISSING = new Set(['PGRST204', '42703'])
 
   const query = useQuery({
     queryKey: key,
@@ -46,21 +67,31 @@ export function useUserTemplates() {
   const invalidate = () => void qc.invalidateQueries({ queryKey: key })
 
   const createTemplate = useMutation({
-    mutationFn: async (input: NewUserTemplateInput): Promise<UserTemplate> => {
-      const { data, error } = await supabase
-        .from('user_templates')
-        .insert({
-          user_id: userId,
-          title: input.title,
-          description: input.description ?? null,
-          icon: input.icon ?? null,
-          color: input.color ?? null,
-          tasks: input.tasks,
-        })
-        .select('*')
-        .single()
+    mutationFn: async (input: NewUserTemplateInput): Promise<WriteResult> => {
+      const base = {
+        user_id: userId,
+        title: input.title,
+        description: input.description ?? null,
+        icon: input.icon ?? null,
+        color: input.color ?? null,
+        tasks: input.tasks,
+      }
+      const wantsStyle = input.style === 'checklist'
+
+      if (wantsStyle) {
+        const withStyle = await supabase
+          .from('user_templates')
+          .insert({ ...base, style: 'checklist' })
+          .select('*')
+          .single()
+        if (!withStyle.error) return { styleDropped: false }
+        if (!COLUMN_MISSING.has(withStyle.error.code)) throw withStyle.error
+        // Column not there yet — fall through and save the template anyway.
+      }
+
+      const { error } = await supabase.from('user_templates').insert(base).select('*').single()
       if (error) throw error
-      return data as UserTemplate
+      return { styleDropped: wantsStyle }
     },
     onSuccess: invalidate,
     // Non-idempotent insert: no one-click retry (it could double-save).
@@ -68,9 +99,25 @@ export function useUserTemplates() {
   })
 
   const updateTemplate = useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: UserTemplatePatch }) => {
-      const { error } = await supabase.from('user_templates').update(patch).eq('id', id)
+    mutationFn: async ({
+      id,
+      patch,
+    }: {
+      id: string
+      patch: UserTemplatePatch
+    }): Promise<WriteResult> => {
+      const wantsStyle = 'style' in patch
+      if (wantsStyle) {
+        const withStyle = await supabase.from('user_templates').update(patch).eq('id', id)
+        if (!withStyle.error) return { styleDropped: false }
+        if (!COLUMN_MISSING.has(withStyle.error.code)) throw withStyle.error
+      }
+      // Same fallback as the insert: keep the edit, drop only the style.
+      const rest = { ...patch }
+      delete rest.style
+      const { error } = await supabase.from('user_templates').update(rest).eq('id', id)
       if (error) throw error
+      return { styleDropped: wantsStyle }
     },
     onSuccess: invalidate,
   })

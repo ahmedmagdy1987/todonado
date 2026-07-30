@@ -90,6 +90,7 @@ src/
     inbox/ projects/ insights/          # feature pages
     focus/     # Focus Mode + the Pomodoro cadence (FEATURES.pomodoro)
     work/      # "Get to Work" — /work, one tap from wanting to start to starting
+    vision/    # /vision — the goals behind the work (FEATURES.vision)
     templates/ # catalog (built-in) + personal (user_templates), one shared apply path
     history/   # the Free rolling history window (view-layer only)
     calendar/  # .ics parsing + busy-minutes → capacity (FEATURES.calendarImport)
@@ -297,6 +298,30 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    `/wellness/breathe` route chunk along; it stays gated by `FEATURES.wellness` so switching the
    suite off really removes it. Guided-meditation **audio** remains honestly "coming soon"
    (licensing) — unchanged. No migration.
+3. **Checklists + Vision** (`FEATURES.vision`, default **ON**).
+   **Checklists are templates, not a second system.** `Template.style` is one OPTIONAL field —
+   absent means `'plan'`, which is what every template, every stored row and every fixture already
+   was, so nothing needed changing. `'checklist'` means a repeated-use list applied WITHOUT dates,
+   so `applyTargetsFor()` drops the dated target for it **and** `applyTemplate` normalises a dated
+   request away, keeping the invariant true for any caller and the reported destination truthful
+   rather than claiming "Today" for undated tasks. Eight new built-ins under a 13th category,
+   **Routines & Checklists** (a PPL gym split ×3, morning pages, weekly + evening shutdown,
+   carry-on packing, kitchen deep clean) — still effort-tagged, because a checklist is not an
+   excuse to drop the differentiator. Personal templates persist it in a new **nullable** `style`
+   column; `toTemplateStyle()` reads null *and anything unrecognised* as `'plan'`, so a value from
+   a future build can never make a saved template unusable, and the write path only NAMES the
+   column when a checklist is actually being saved (falling back, and saying so, if it isn't there
+   yet) — which is what makes the migration safe in both deploy directions.
+   **Vision** (`vision_cards`) is the goals behind the work: title + why + optional target date,
+   dnd-kit reorderable through the SAME `SortableList` + single fractional `position` write every
+   other list uses, optionally linked to the project that serves it. That link is **guarded in
+   RLS**, not merely nullable — this table is user-scoped while `projects` are workspace-scoped, so
+   both write policies also require `can_access_project(project_id)` — and a deleted project
+   **unlinks** rather than cascading, because losing someone's goal over an archived project would
+   be indefensible. Text-first on purpose: images mean a storage bucket, upload limits, a storage
+   policy and a bill, so one `feature_intents` chip measures the demand before any of that is
+   built. A target date that passes is *stated*, never scolded — no red, no "overdue" — because a
+   goal is not a task. `FREE_VISION_CARDS = 3`, creation-gated only. Three migrations (§7).
 
 ---
 
@@ -372,6 +397,15 @@ sexual-behaviour category): **no** anon grant, no sharing surface, no aggregate 
 service-role reader. `quitCaps.test.ts` pins the client caps to the CHECKs and pins the policy set
 itself shut. **NOT YET APPLIED — see §7.**
 
+**Vision cards (owner-only, user-scoped):** `vision_cards` — full owner-only CRUD, the shared
+`set_updated_at` trigger, indexes on `user_id` and `project_id`, and title/why size CHECKs.
+`position` is **double precision** so a drag is one UPDATE of one row (`lib/reorder.ts`), never a
+reindex. `project_id` is nullable, `on delete set null` (a deleted project unlinks, it does not
+delete the goal), and — because this table is user-scoped while `projects` are workspace-scoped —
+the insert **and** update policies additionally require `public.can_access_project(project_id)`, so
+owner-only RLS can't be used to store a project id the caller cannot read. No image columns by
+design. **NOT YET APPLIED — see §7.**
+
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs
 (title 1–80, description ≤280, ≤100 tasks, `pg_column_size(tasks) ≤ 64KB`) as a backstop for the
@@ -403,6 +437,15 @@ service-role client but filters by the JWT-verified caller.
 > their E2E specs skip themselves (`tableExists()` probe) until the push lands:
 >
 > 1. `20260730120000_quit_habits.sql` — quit tracker (`quit_habits` + `quit_checkins`)
+> 2. `20260730130000_user_template_style.sql` — `user_templates.style` (the checklist style).
+>    **Safe in both deploy directions**: the client only NAMES this column when a checklist is
+>    actually being saved and treats a missing column (PGRST204 / 42703) as "save it as a plan and
+>    say so", so nothing breaks before it is applied.
+> 3. `20260730140000_vision_cards.sql` — the Vision page (`vision_cards`)
+> 4. `20260730150000_feature_intents_keys.sql` — widens the `feature_key` CHECK for the four new
+>    fake doors (`vision_images`, `referral`, `ai_coach`, `voice_journal`). Until this lands those
+>    chips fail their insert with a `23514` and honestly say the vote wasn't recorded; every OTHER
+>    part of the features they sit beside works.
 >
 > Apply in a **real terminal** (non-TTY shells cannot `supabase login`):
 > `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
