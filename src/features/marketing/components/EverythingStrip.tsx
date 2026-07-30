@@ -49,6 +49,23 @@ const ITEMS: Item[] = [
   { icon: BarChart3, label: 'Insights', blurb: 'Planned versus actual' },
   { icon: Flame, label: 'Streaks', blurb: 'Gentle, never shaming' },
   { icon: HeartPulse, label: 'Focus & Calm', blurb: 'Breathwork and tracking' },
+  // ── PREPARED, DELIBERATELY NOT LIVE ───────────────────────────────────────
+  // Mind maps, the journal and challenges are all BUILT, and all three are
+  // behind committed-but-unapplied migrations. A visitor who signed up today
+  // would find an honest "not switched on yet" page instead of the feature this
+  // strip promised — which is the exact bar written at the top of this file,
+  // and the same reason Quit tracker and Vision waited here in July.
+  //
+  // Challenges nearly went in above on the grounds that its table only records
+  // that you joined. That reasoning is wrong: with the table missing, /challenges
+  // shows the not-switched-on card like the other two, so a visitor could not
+  // join anything. The bar is what a stranger can DO, not how small the row is.
+  //
+  // AFTER `supabase db push`, uncomment these three lines and add the matching
+  // entries to OnePlaceStrip's CATEGORIES ('A journal', 'A mind-map canvas'):
+  // { icon: Network, label: 'Mind maps', blurb: 'Think it out first' },
+  // { icon: NotebookPen, label: 'Journal', blurb: 'How today went' },
+  // { icon: Flag, label: 'Challenges', blurb: 'A short, structured push' },
 ]
 
 export function EverythingStrip() {

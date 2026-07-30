@@ -2,8 +2,10 @@ import {
   BarChart3,
   ClipboardCheck,
   Compass,
+  Flag,
   HeartPulse,
   LayoutTemplate,
+  Network,
   NotebookPen,
   Play,
   Settings as SettingsIcon,
@@ -124,15 +126,28 @@ export function hubTiles(): HubTile[] {
     ...(FEATURES.vision
       ? [{ id: 'vision', label: 'Vision', hint: 'what all of this is for', icon: Compass, to: '/vision' }]
       : []),
-    {
-      id: 'journal',
-      label: 'Journal',
-      hint: 'not built yet',
-      icon: NotebookPen,
-      intentKey: 'voice_journal',
-      soonReason:
-        'A journal that just stores text would be a worse notes app. The version worth building reads back what you wrote and spots the patterns — and that needs an AI service this app does not have yet.',
-    },
+    ...(FEATURES.vision && FEATURES.mindMaps
+      ? [
+          {
+            id: 'mindmaps',
+            label: 'Mind maps',
+            hint: 'think it out first',
+            icon: Network,
+            to: '/vision/maps',
+          },
+        ]
+      : []),
+    // WAS A FAKE DOOR. It said a journal needed an AI service, which was true of
+    // the version that reads you back and false of the one that simply lets you
+    // write. The writing half now ships (text always, voice on Pro) and the AI
+    // half is stated as unbuilt ON the journal page itself, where someone can
+    // actually see what does and does not exist.
+    ...(FEATURES.journal
+      ? [{ id: 'journal', label: 'Journal', hint: 'how today went', icon: NotebookPen, to: '/journal' }]
+      : []),
+    ...(FEATURES.challenges
+      ? [{ id: 'challenges', label: 'Challenges', hint: 'a short, structured push', icon: Flag, to: '/challenges' }]
+      : []),
     { id: 'insights', label: 'Insights', hint: 'where the time actually went', icon: BarChart3, to: '/insights' },
     ...(FEATURES.wellness
       ? [{ id: 'wellness', label: 'Wellness', hint: 'the calmer side', icon: HeartPulse, to: '/wellness' }]

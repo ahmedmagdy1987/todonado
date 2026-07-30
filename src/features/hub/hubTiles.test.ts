@@ -25,6 +25,9 @@ const MOUNTED_ROUTES = new Set(
     ...(FEATURES.week ? ['/week'] : []),
     ...(FEATURES.getToWork ? ['/work'] : []),
     ...(FEATURES.vision ? ['/vision'] : []),
+    ...(FEATURES.vision && FEATURES.mindMaps ? ['/vision/maps'] : []),
+    ...(FEATURES.journal ? ['/journal'] : []),
+    ...(FEATURES.challenges ? ['/challenges'] : []),
     ...(FEATURES.hub ? ['/hub'] : []),
     ...(FEATURES.wellness
       ? [
@@ -74,8 +77,12 @@ describe('every tile goes somewhere real', () => {
 
 describe('the grid stays a grid', () => {
   it('holds a workable number of tiles', () => {
+    // Raised from 15 when mind maps and challenges shipped. The bound exists so
+    // the Hub stays a glanceable grid rather than becoming a second sidebar —
+    // it is a real limit, not a formality, and the next feature to want a tile
+    // should have to argue that it earns one.
     expect(tiles.length).toBeGreaterThanOrEqual(10)
-    expect(tiles.length).toBeLessThanOrEqual(15)
+    expect(tiles.length).toBeLessThanOrEqual(17)
   })
 
   it('has unique ids and unique destinations', () => {

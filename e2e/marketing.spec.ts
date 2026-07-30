@@ -51,6 +51,14 @@ const SHIPPED = [
   'Checklists',
   'Get to work',
   'capacity meter',
+  // Added when they shipped. All three are BUILT but behind unapplied
+  // migrations, so none is claimed on the landing yet — the loop below skips a
+  // feature the page does not mention, which means these are dormant guards that
+  // arm themselves the moment the strip lines are uncommented. That is the point:
+  // the rule should already be in place before the claim is.
+  'Mind maps',
+  'Journal',
+  'Challenges',
 ]
 
 /**
@@ -59,7 +67,18 @@ const SHIPPED = [
  * provider), referral codes (billing not live), image boards (storage), and the
  * Team tier (no sharing UI).
  */
-const NOT_BUILT = ['Sleep sounds', 'Guided meditation', 'AI coach', 'voice journal', 'Referral', 'Image vision boards', 'Team']
+const NOT_BUILT = [
+  'Sleep sounds',
+  'Guided meditation',
+  'AI coach',
+  // NOT 'voice journal' any more — voice notes ship. What does not exist is the
+  // layer that READS the journal back, and /pricing had to be corrected to say
+  // so the day the journal landed.
+  'AI review of your journal',
+  'Referral',
+  'Image vision boards',
+  'Team',
+]
 
 test('landing: the breadth section is real, and every surface on it is live', async ({ page }) => {
   await page.goto('/welcome')
@@ -93,6 +112,37 @@ test('landing: the breadth section is real, and every surface on it is live', as
   // ordinary English in "the things you keep doing".
   expect(text).not.toMatch(/todoist|ticktick|asana|trello|sunsama|[^a-z]notion[^a-z]|[^a-z]motion[^a-z]/i)
   expect(text).not.toMatch(/replaces?\s+\d+\s+apps?/i)
+})
+
+test('landing: the all-in-one claim is categories only, and every one of them is live', async ({
+  page,
+}) => {
+  await page.goto('/welcome')
+  await mountLazySections(page)
+
+  const section = page.getByRole('region', { name: /One place for your day/i })
+  await expect(section.getByText('One app instead of several')).toBeVisible()
+
+  // Categories, never brands, and never a countable claim.
+  for (const category of [
+    'A day planner',
+    'A focus & pomodoro timer',
+    'A habit & quit tracker',
+    'A breathing coach',
+  ]) {
+    await expect(section.getByText(category, { exact: true })).toBeVisible()
+  }
+
+  const text = (await section.textContent()) ?? ''
+  expect(text).not.toMatch(/replaces?\s+\d+\s+apps?/i)
+  expect(text).not.toMatch(/\d+\s+apps? in one/i)
+  expect(text).not.toMatch(/todoist|ticktick|asana|trello|sunsama|evernote|[^a-z]notion[^a-z]/i)
+
+  // THE LOAD-BEARING ONE: a category may only be claimed if a stranger who
+  // signs up right now can use it. The journal and mind maps are built but sit
+  // behind unapplied migrations, so they must NOT be advertised here yet.
+  expect(text, 'the journal is not switched on yet').not.toMatch(/a journal/i)
+  expect(text, 'mind maps are not switched on yet').not.toMatch(/mind.map/i)
 })
 
 test('landing: the week board is on the page and runs the real planner', async ({ page }) => {

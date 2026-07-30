@@ -501,6 +501,35 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    itself once the table exists.
 
 
+10. **All-in-one framing + the new Hub tiles** (`marketing/`, `hub/`). COPY AND TILES ONLY — no
+    landing redesign, no new visual system.
+    The all-in-one claim is made in **CATEGORY** terms and extends the existing `OnePlaceStrip`
+    rather than adding a section: "One app instead of several" over a row of chips — *a day
+    planner · a focus & pomodoro timer · a habit & quit tracker · a breathing coach* — plus the
+    identical row on `/pricing`. **No brand names and no "replaces N apps"**: a number invites
+    arithmetic nobody wins, and naming competitors makes the page about them. The two lists are
+    deliberately identical, because two surfaces phrasing a claim slightly differently is how it
+    stops being checkable.
+    **THE JOURNAL AND MIND MAPS ARE ABSENT FROM BOTH LISTS ON PURPOSE.** They are built, but their
+    migrations are unapplied, so a stranger who signed up right now would meet the honest
+    "not switched on yet" page instead of the category the line promised. The bar is what a visitor
+    can DO, not whether the code is merged — the same bar Quit tracker and Vision waited behind in
+    July. Challenges nearly went into the strip on the grounds that its table only records that you
+    joined; that reasoning is wrong for the same reason and it is written down in the file. The
+    exact lines to uncomment after `supabase db push` are in `EverythingStrip` and `OnePlaceStrip`.
+    **The Hub's Journal tile stopped being a fake door.** It used to say a journal needs an AI
+    service — true of the version that reads you back, false of the one that lets you write, and
+    the writing half now ships. The unbuilt AI layer is stated ON the journal page instead, next to
+    the thing it is missing from. `/pricing`'s not-built list was corrected the same way: "an AI
+    coach and a voice journal" became "an AI coach, and AI review of your journal", because voice
+    notes ship. New tiles for Mind maps and Challenges, each gated by its own flag exactly like the
+    rest; `hubTiles.test.ts`'s grid bound went 15 → 17, which is still a real limit rather than a
+    formality.
+    `e2e/marketing.spec.ts` gained the rule that matters: the all-in-one claim is categories only,
+    carries no number and no brand, and **may not mention the journal or mind maps while their
+    migrations are pending**. Its `SHIPPED` list gained all three new features, so the
+    never-labelled-unbuilt guard is already armed for the day the strip lines are uncommented.
+
 ---
 
 ## 4. Roadmap (3 phases)

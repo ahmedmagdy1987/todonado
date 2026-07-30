@@ -27,8 +27,12 @@ const NOT_BUILT: { what: string; why: string }[] = [
     why: 'The players are built. No audio is licensed yet, and we would rather ship silence than something we do not have the rights to.',
   },
   {
-    what: 'An AI coach and a voice journal',
-    why: 'Both need an AI provider this app is not wired to. A journal that only stored text would be a worse notes app.',
+    // CORRECTED when the journal shipped. This used to say "an AI coach and a
+    // voice journal", which stopped being true the day voice notes landed —
+    // exactly the drift this whole list exists to prevent. The journal is real;
+    // the layer that READS it back is what does not exist.
+    what: 'An AI coach, and AI review of your journal',
+    why: 'The journal itself ships — write it or say it. Reading a fortnight back and naming the pattern would need an AI provider this app is not wired to, so there is no summary rather than a made-up one.',
   },
   {
     what: 'Referral rewards & discount codes',
@@ -134,6 +138,26 @@ export function PricingPage() {
             roll-over included. Pro adds the week ahead and the record of how your days actually
             went.
           </p>
+          {/* The same all-in-one framing as the landing, in the same terms:
+              CATEGORIES, never brand names, and no "replaces N apps". The list
+              is deliberately identical to OnePlaceStrip's — two surfaces saying
+              slightly different things is how a claim stops being checkable. */}
+          <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
+            {['A day planner', 'A focus & pomodoro timer', 'A habit & quit tracker', 'A breathing coach'].map(
+              (c) => (
+                <li
+                  key={c}
+                  className="rounded-full border border-white/10 bg-surface-2/50 px-3 py-1 text-xs text-text-muted"
+                >
+                  {c}
+                </li>
+              ),
+            )}
+          </ul>
+          <p className="mt-3 text-xs text-text-muted/80">
+            One app instead of several — and one price, not one per category.
+          </p>
+
           <p className="mx-auto mt-4 inline-flex max-w-xl items-start gap-2 rounded-xl border border-white/10 bg-surface-2/50 px-3 py-2 text-left text-xs text-text-muted">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
             <span>{PRICING_DISCLAIMER}</span>

@@ -61,7 +61,7 @@ test('hub: renders every tile and each one goes where it says', async ({ page })
   await deleteTestAccount(account, 'hub')
 })
 
-test('hub: "Build my day" opens the planner, and Journal is an honest fake door', async ({
+test('hub: "Build my day" opens the planner, and the Journal tile is now real', async ({
   page,
 }) => {
   const account = await createTestAccount('hub deep links', 480)
@@ -73,17 +73,26 @@ test('hub: "Build my day" opens the planner, and Journal is an honest fake door'
   await expect(page).toHaveURL(/\/today\?plan=1$/)
   await expect(page.getByRole('dialog', { name: 'Plan my day' })).toBeVisible({ timeout: 20_000 })
 
-  // --- Journal navigates NOWHERE and promises NOTHING ----------------------
+  // --- Journal WAS a fake door. It isn't one any more ----------------------
+  //
+  // The tile used to be a button that navigated nowhere and explained that a
+  // journal needs an AI service. That was true of the version which reads you
+  // back and false of the one that simply lets you write, and the writing half
+  // now ships. So the assertion is inverted: a tile for a built feature must be
+  // a LINK, and the "needs an AI service" copy must be gone from the Hub — the
+  // unbuilt AI layer is stated on the journal page itself, next to the thing it
+  // is missing from.
   await page.goto('/hub')
-  const journal = page.getByRole('button', { name: /^Journal — / })
-  await expect(journal, 'a not-built tile is a button, never a link').toBeVisible()
-  await expect(page.getByRole('link', { name: /^Journal — / })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Journal — / })).toHaveCount(0)
+  const journal = page.getByRole('link', { name: /^Journal — / })
+  await expect(journal).toBeVisible()
+  await expect(page.getByText(/needs an AI service this app does not have yet/i)).toHaveCount(0)
   await journal.click()
-  await expect(page).toHaveURL(/\/hub$/)
-  await expect(page.getByText(/needs an AI service this app does not have yet/i)).toBeVisible()
-  // NOTE: the interest chip is deliberately NOT clicked — feature_intents has no
-  // delete policy, so a click would leave an undeletable row on every CI run.
-  await expect(page.getByRole('button', { name: /I.d want journal/i })).toBeVisible()
+  await expect(page).toHaveURL(/\/journal$/)
+  await expect(page.getByRole('heading', { name: 'Journal', level: 2 })).toBeVisible()
+  // …and the honest line lives HERE now, where it can be checked against what
+  // the page does and does not do.
+  await expect(page.getByText(/AI review of your entries isn.t built yet/i)).toBeVisible()
 
   await deleteTestAccount(account, 'hub deep links')
 })

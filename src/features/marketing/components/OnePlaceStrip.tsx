@@ -29,6 +29,27 @@ interface Surface {
  * NO NAMED COMPETITORS AND NO "REPLACES N APPS". The claim is only that these
  * live together; the list is the argument.
  */
+/**
+ * The all-in-one claim, in category terms.
+ *
+ * THE BAR FOR THIS LIST IS THE SAME AS EVERYWHERE ELSE ON THE LANDING: not "the
+ * code is merged" but "a stranger who signs up right now can use it". The
+ * journal and mind maps are both built and both behind committed-but-unapplied
+ * migrations, so a visitor who signed up today would find an honest "not
+ * switched on yet" page instead of the category this line promised.
+ *
+ * The exact two lines to add once `supabase db push` has run:
+ *   'A journal',
+ *   'A mind-map canvas',
+ * — and the matching rows in EverythingStrip. Nothing else needs to change.
+ */
+const CATEGORIES = [
+  'A day planner',
+  'A focus & pomodoro timer',
+  'A habit & quit tracker',
+  'A breathing coach',
+] as const
+
 const SURFACES: Surface[] = [
   {
     name: 'Plan',
@@ -102,6 +123,27 @@ export function OnePlaceStrip() {
           <p className="mt-3 text-text-muted">
             Plan it, focus on it, keep the habits around it, come back down, and see what it
             actually cost. Every one of these is live — open any of them.
+          </p>
+
+          {/* The all-in-one claim, as CATEGORIES. No brand names and no
+              "replaces N apps": a number invites arithmetic nobody wins, and
+              naming competitors makes the page about them. The list is the
+              claim, and every entry on it is something a stranger who signs up
+              right now can open — which is why the journal and mind maps are
+              NOT here yet (see the note below). */}
+          <p className="mt-6 text-sm font-medium text-text-primary">One app instead of several</p>
+          <ul className="mt-3 flex flex-wrap justify-center gap-2">
+            {CATEGORIES.map((c) => (
+              <li
+                key={c}
+                className="rounded-full border border-white/10 bg-surface-2/50 px-3 py-1 text-xs text-text-muted"
+              >
+                {c}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-text-muted/80">
+            Same account, same plan, same data. None of them is a separate subscription.
           </p>
         </Reveal>
 
