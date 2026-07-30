@@ -3,10 +3,12 @@ import {
   CalendarClock,
   CalendarRange,
   ClipboardCheck,
+  Compass,
   Flame,
   HeartPulse,
   LayoutList,
   Play,
+  Sprout,
   Timer,
   type LucideIcon,
 } from 'lucide-react'
@@ -24,16 +26,16 @@ interface Item {
 /**
  * EVERYTHING HERE SHIPS TODAY. Nothing aspirational in this strip.
  *
- * That rule is why the Quit tracker and Vision are NOT listed even though both
- * are built: their tables ship as committed-but-unapplied migrations, so a
- * visitor who signed up today would find an honest "not switched on yet" page
- * instead of the feature this strip promised.
+ * That rule is load-bearing, and it is why the Quit tracker and Vision were held
+ * back from this list until 2026-07-30 even though the code had shipped: their
+ * tables were committed-but-unapplied migrations, so a visitor who signed up
+ * would have found an honest "not switched on yet" page instead of the feature
+ * the landing page promised. `20260730120000_quit_habits.sql` and
+ * `20260730140000_vision_cards.sql` are now applied and live-verified (tables
+ * present, anon reads `[]`, anon writes `42501`), so both are claimable.
  *
- * ONCE `20260730120000_quit_habits.sql` AND `20260730140000_vision_cards.sql`
- * HAVE BEEN APPLIED, add exactly these two lines:
- *   { icon: Sprout, label: 'Quit tracker', blurb: 'Days since you stopped' },
- *   { icon: Compass, label: 'Vision', blurb: 'The goals behind it' },
- * (and import Sprout + Compass from lucide-react.)
+ * Anything added here in future must clear the same bar: not "the code is
+ * merged" but "a stranger who signs up right now can use it".
  */
 const ITEMS: Item[] = [
   { icon: Play, label: 'Get to work', blurb: 'One tap to start' },
@@ -42,6 +44,8 @@ const ITEMS: Item[] = [
   { icon: ClipboardCheck, label: 'Checklists', blurb: 'Repeat lists, no dates' },
   { icon: CalendarRange, label: 'Week planning', blurb: 'Seven days at once' },
   { icon: CalendarClock, label: 'Calendar-aware', blurb: 'Meetings shrink capacity' },
+  { icon: Sprout, label: 'Quit tracker', blurb: 'Days since you stopped' },
+  { icon: Compass, label: 'Vision', blurb: 'The goals behind it' },
   { icon: BarChart3, label: 'Insights', blurb: 'Planned versus actual' },
   { icon: Flame, label: 'Streaks', blurb: 'Gentle, never shaming' },
   { icon: HeartPulse, label: 'Focus & Calm', blurb: 'Breathwork and tracking' },

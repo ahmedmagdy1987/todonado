@@ -14,12 +14,11 @@ import {
 /**
  * Stage 3 — the checklist template style and the Vision page.
  *
- * The CHECKLIST tests need no migration at all: the new "Routines & Checklists"
- * catalog entries are plain typed data, so they run for real in CI today. The
- * VISION journey probes for `vision_cards` and skips until the migration lands,
- * the same deploy gate the personal-templates test established; the route-render
- * test runs either way, because the honest "not switched on yet" state is a
- * shipped state and deserves an assertion of its own.
+ * The CHECKLIST tests need no migration at all — the new "Routines & Checklists"
+ * catalog entries are plain typed data. `vision_cards` and `user_templates.style`
+ * are both APPLIED now (CLAUDE.md §7), so every test here RUNS; the `tableExists`
+ * / `columnExists` probes stay as deploy gates for a fresh project, and the
+ * route-render test asserts whichever state is live so it is honest either way.
  */
 
 /** Does a COLUMN exist? A missing one makes PostgREST reject the select. */
@@ -87,7 +86,7 @@ test('checklists: a checklist template never offers the dated target and lands u
   await deleteTestAccount(account, 'checklists')
 })
 
-test('checklists: saving a personal checklist keeps the template even before the column exists', async ({
+test('checklists: a personal checklist saves, and never lies about the style sticking', async ({
   page,
 }) => {
   const ready = await tableExists('user_templates')

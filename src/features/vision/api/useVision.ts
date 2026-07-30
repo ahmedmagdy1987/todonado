@@ -55,6 +55,17 @@ export function useVisionMutations(userId: string) {
   }
   const settle = () => void qc.invalidateQueries({ queryKey: key })
 
+  /**
+   * Create a card.
+   *
+   * DELIBERATELY NOT OPTIMISTIC, for the same reason `createHabit` isn't: an
+   * optimistic row needs a temporary id, and update / reorder / delete all
+   * address the row BY that id against a `uuid` column. Editing or dragging a
+   * card in the few hundred milliseconds before the settle refetch would send a
+   * synthetic `optimistic-…` id and fail. Awaiting the insert means the card only
+   * ever renders with its real id — the trade `useFocusSessions.startSession`
+   * documents.
+   */
   const createCard = useMutation({
     mutationFn: async (input: NewVisionCardInput) => {
       const { data, error } = await supabase
@@ -72,25 +83,10 @@ export function useVisionMutations(userId: string) {
       if (error) throw error
       return data as VisionCard
     },
-    onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: key })
-      const prev = snapshot()
-      const now = new Date().toISOString()
-      const optimistic: VisionCard = {
-        id: `optimistic-${crypto.randomUUID()}`,
-        user_id: userId,
-        title: input.title,
-        why: input.why ?? null,
-        target_date: input.target_date ?? null,
-        position: input.position ?? 0,
-        project_id: input.project_id ?? null,
-        created_at: now,
-        updated_at: now,
-      }
-      setCards((p) => [...p, optimistic])
-      return { prev }
+    onSuccess: (row) => {
+      // The real row, with its real id, straight into the cache.
+      setCards((p) => [...p.filter((c) => c.id !== row.id), row])
     },
-    onError: (_e, _v, ctx) => restore(ctx?.prev),
     onSettled: settle,
     // Non-idempotent insert: don't offer a one-click Retry (could double-insert).
     meta: { noRetry: true },

@@ -9,8 +9,8 @@ import { MAX_VISION_TITLE, MAX_VISION_WHY } from './vision'
  * cosmetic — owner-only RLS, no anon grant, and the guard that stops a
  * user-scoped row pointing at a workspace-scoped project the caller cannot read.
  *
- * NOTE: this migration is committed but NOT YET APPLIED (CLAUDE.md §7). The test
- * reads the FILE, so it is meaningful before the push.
+ * It reads the migration FILE, which is what makes it meaningful both before and
+ * after a push. (Applied and live-verified 2026-07-30 — see CLAUDE.md §7.)
  */
 
 const MIGRATION = '20260730140000_vision_cards.sql'

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useIsMutating } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Plus, Sprout, X } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
@@ -9,7 +10,7 @@ import { FREE_QUIT_HABITS } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import type { QuitHabit } from '@/types/database'
 import { useQuitCheckins, useQuitHabits } from './api/useQuit'
-import { useQuitMutations } from './api/useQuitMutations'
+import { quitCreateKey, useQuitMutations } from './api/useQuitMutations'
 import { checkedDaysForHabit, checkinStreak } from './quitMath'
 import { replacementLink } from './presets'
 import { QuitHabitCard } from './components/QuitHabitCard'
@@ -53,7 +54,12 @@ export function QuitPage() {
   const [justSlippedId, setJustSlippedId] = useState<string | null>(null)
 
   const today = todayISO()
-  const canCreate = isPro || habits.length < FREE_QUIT_HABITS
+  // An in-flight create occupies a slot. `createHabit` is awaited (not
+  // optimistic), so for one round trip `habits` does not include it yet — and the
+  // Free cap is client-side only, so without this a fast second tap could create
+  // a second habit past a one-habit limit.
+  const creating = useIsMutating({ mutationKey: quitCreateKey(userId) }) > 0
+  const canCreate = isPro || habits.length + (creating ? 1 : 0) < FREE_QUIT_HABITS
   const justSlipped = habits.find((h) => h.id === justSlippedId) ?? null
 
   function openAdd() {
@@ -273,10 +279,10 @@ function AfterSlipCard({
 }
 
 /**
- * The honest state when `quit_habits` does not exist yet. The migration ships
- * committed but unapplied (CLAUDE.md §7), so this is what the page shows until
- * `supabase db push` runs — an explanation rather than an Add button that could
- * only ever fail. It disappears by itself the moment the table exists.
+ * The honest state when `quit_habits` does not exist. The migration is applied
+ * (CLAUDE.md §7), so this is DORMANT rather than dead — it is kept as the safe
+ * default for a fresh Supabase project or a half-applied push, and shows an
+ * explanation rather than an Add button that could only ever fail.
  */
 function NotSwitchedOnCard() {
   return (

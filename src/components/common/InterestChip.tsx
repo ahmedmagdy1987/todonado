@@ -32,10 +32,10 @@ function markClaimed(key: string): void {
  * is for "and also, would you want X?" beside a shipped feature.
  *
  * IT NEVER LIES. A failed insert shows a failure, not a thank-you — the same
- * rule InterestCard follows. That matters more than usual right now: the keys
- * these chips use are widened by a migration that is committed but NOT YET
- * APPLIED, so until it is pushed the insert is rejected by the CHECK and the
- * chip says so rather than quietly claiming the vote was counted.
+ * rule InterestCard follows. The CHECK that gates these keys is applied now, so
+ * the failure path should be rare; it stays because the alternative is a UI that
+ * claims a vote was counted when the database refused it, and because the next
+ * new key will be one migration behind the code again.
  *
  * It shares InterestCard's sessionStorage key namespace on purpose, so a user
  * who registered interest on one surface isn't asked again on another.

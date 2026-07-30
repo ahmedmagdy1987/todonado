@@ -23,10 +23,9 @@ import {
  *      completely untouched by the gate.
  *   4. The page does not scroll sideways at 390px.
  *
- * The migration ships committed but NOT applied (CLAUDE.md §7), so the
- * interactive tests probe for the table and skip until `supabase db push` has
- * run — the same deploy gate the personal-templates test uses. They then run for
- * real with no code change.
+ * The migration is APPLIED (CLAUDE.md §7), so the interactive journey RUNS. The
+ * `tableExists` probe stays as a deploy gate for a fresh project — it is exactly
+ * what let this spec be written before the push and run unchanged after it.
  *
  * OUT OF SCOPE: milestone days (1/3/7/… ) cannot be reached in a browser test
  * without backdating day zero, which the UI deliberately refuses to allow. The
@@ -101,10 +100,23 @@ test('quit tracker: create → check in → slip → the replacement action is r
   await page.getByRole('button', { name: 'Still clean today' }).click()
   await expect(page.getByRole('button', { name: 'Checked in today' })).toBeVisible()
 
-  const rows = (await rest('quit_checkins?select=checked_on', account.token)) as {
-    checked_on: string
-  }[]
-  expect(rows, 'one check-in row for today').toHaveLength(1)
+  // THIS IS A REGRESSION GUARD, and it has already earned its keep. The click
+  // above deliberately happens IMMEDIATELY after the habit is created, with no
+  // wait — which is what caught `createHabit` inserting an optimistic row with a
+  // synthetic `optimistic-…` id. A check-in fired in that window sent the fake id
+  // as `habit_id`, failed the uuid cast, and was silently never written. Do not
+  // "stabilise" this test by waiting for the habit to settle first; the tight
+  // window is the point.
+  //
+  // Polled only for network latency, and still asserting EXACTLY one row so a
+  // double-insert fails here rather than being tolerated.
+  await expect
+    .poll(
+      async () =>
+        (await rest('quit_checkins?select=checked_on', account.token)) as { checked_on: string }[],
+      { timeout: 15_000 },
+    )
+    .toHaveLength(1)
 
   // --- "I slipped": what you keep first, then the replacement -------------
   await page.getByRole('button', { name: 'I slipped' }).click()
@@ -132,15 +144,20 @@ test('quit tracker: create → check in → slip → the replacement action is r
   await expect(doItNow).toHaveAttribute('href', '/wellness/breathe')
 
   // The reset banked the run and moved day zero — the record survived.
-  const habits = (await rest(
-    'quit_habits?select=longest_streak_days,quit_started_at,replacement_action',
-    account.token,
-  )) as { longest_streak_days: number; replacement_action: string }[]
-  expect(habits).toHaveLength(1)
-  // Slipped on day zero, so the record is still 0 — and crucially NOT negative
-  // and NOT lowered. The chain-of-slips case is unit-tested.
-  expect(habits[0].longest_streak_days).toBe(0)
-  expect(habits[0].replacement_action).toBe('Breathe for 60 seconds')
+  // Polled for the same reason: `slip` is optimistic too, so the after-slip card
+  // is on screen before the UPDATE lands. Slipped on day zero, so the record is
+  // still 0 — and crucially NOT negative and NOT lowered. (The chain-of-slips
+  // case is unit-tested; this only proves the write reached the database.)
+  await expect
+    .poll(
+      async () =>
+        (await rest(
+          'quit_habits?select=longest_streak_days,replacement_action',
+          account.token,
+        )) as { longest_streak_days: number; replacement_action: string }[],
+      { timeout: 15_000 },
+    )
+    .toEqual([{ longest_streak_days: 0, replacement_action: 'Breathe for 60 seconds' }])
 
   // --- Free stops at one, and the running habit is untouched --------------
   await page.getByRole('button', { name: 'Add habit' }).click()

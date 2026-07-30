@@ -17,8 +17,8 @@ import { QUIT_PRESETS } from './presets'
  * no UPDATE on the check-in log, and the UNIQUE that makes a double check-in a
  * no-op instead of a duplicate row.
  *
- * NOTE: the migration is committed but NOT YET APPLIED to the cloud DB (see
- * CLAUDE.md §7). This test reads the FILE, so it is meaningful before the push.
+ * It reads the migration FILE, which is what makes it meaningful both before and
+ * after a push. (Applied and live-verified 2026-07-30 — see CLAUDE.md §7.)
  */
 
 const MIGRATION = '20260730120000_quit_habits.sql'

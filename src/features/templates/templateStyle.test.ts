@@ -13,8 +13,8 @@ import { personalToTemplate, toTemplateStyle } from './personal'
  * because that is what lets the column be added with no backfill and lets the
  * app work before the migration is applied.
  *
- * NOTE: this migration is committed but NOT YET APPLIED (CLAUDE.md §7). The test
- * reads the FILE, so it is meaningful before the push.
+ * It reads the migration FILE, which is what makes it meaningful both before and
+ * after a push. (Applied and live-verified 2026-07-30 — see CLAUDE.md §7.)
  */
 
 const MIGRATION = '20260730130000_user_template_style.sql'

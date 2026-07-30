@@ -55,7 +55,12 @@ export function VisionPage() {
   const [showLimit, setShowLimit] = useState(false)
 
   const today = todayISO()
-  const canCreate = canCreateVisionCard(cards.length, isPro, FREE_VISION_CARDS)
+  // An in-flight create occupies a slot: `createCard` is awaited (not optimistic,
+  // see the hook), so for one round trip `cards` does not include it yet, and the
+  // Free cap is client-side only. Without this a fast second tap could add a
+  // fourth goal past a three-goal limit.
+  const pendingCreate = createCard.isPending ? 1 : 0
+  const canCreate = canCreateVisionCard(cards.length + pendingCreate, isPro, FREE_VISION_CARDS)
 
   function openAdd() {
     if (!canCreate) {
@@ -244,9 +249,9 @@ function VisionLimitUpsell({ limit }: { limit: number }) {
 }
 
 /**
- * The honest state when `vision_cards` does not exist yet. The migration ships
- * committed but unapplied (CLAUDE.md §7), so this is what the page shows until
- * `supabase db push` runs. It disappears by itself once the table exists.
+ * The honest state when `vision_cards` does not exist. The migration is applied
+ * (CLAUDE.md §7), so this is DORMANT rather than dead — kept as the safe default
+ * for a fresh Supabase project or a half-applied push.
  */
 function NotSwitchedOnCard() {
   return (

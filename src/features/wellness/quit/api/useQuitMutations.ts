@@ -20,6 +20,20 @@ import { slipPatch } from '../quitMath'
  * pure, unit-tested `slipPatch`, so the no-shame rule (the record only ever
  * goes UP) is enforced by a tested function rather than by a component.
  */
+/**
+ * Mutation key for "a habit is being created".
+ *
+ * The dialog owns the `createHabit` instance, so the page cannot read its
+ * `isPending` — a separate component gets a separate mutation object. Since the
+ * insert is awaited (no optimistic row), there is a round trip during which the
+ * page still counts zero habits, and the Free cap is enforced ONLY in the client.
+ * Without this the user could tap "Add habit" again in that window and get a
+ * second habit past a one-habit limit. The page watches this key instead.
+ */
+export function quitCreateKey(userId: string) {
+  return ['quit-habits', 'create', userId] as const
+}
+
 export function useQuitMutations(userId: string) {
   const qc = useQueryClient()
   const habitsKey = qk.quitHabits(userId)
@@ -35,6 +49,22 @@ export function useQuitMutations(userId: string) {
   const setCheckins = (u: (p: QuitCheckin[]) => QuitCheckin[]) =>
     qc.setQueryData<QuitCheckin[]>(checkinsKey, (p) => u(p ?? []))
 
+  /**
+   * Create a habit.
+   *
+   * DELIBERATELY NOT OPTIMISTIC — this is the one mutation here that must not be.
+   * An optimistic row needs a temporary id, and EVERY other action on a habit
+   * addresses it by that id: `checkIn` sends it as `habit_id`, and slip / update /
+   * delete send it as `id`. Both columns are `uuid`, so a synthetic
+   * `optimistic-…` id doesn't even survive the type cast (22P02) — which is not
+   * the `23505` the check-in path knows how to forgive, so it threw, rolled back,
+   * and the check-in was silently never written. A user who tapped "still clean
+   * today" in the few hundred milliseconds before the settle refetch lost it.
+   *
+   * Awaiting the insert means the card only ever renders with the row's REAL id.
+   * Same reasoning, and the same trade (a ~200ms wait for correctness), as
+   * `useFocusSessions.startSession`, whose comment says the same thing.
+   */
   const createHabit = useMutation({
     mutationFn: async (input: NewQuitHabitInput) => {
       const { data, error } = await supabase
@@ -54,29 +84,15 @@ export function useQuitMutations(userId: string) {
       if (error) throw error
       return data as QuitHabit
     },
-    onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: habitsKey })
-      const prev = qc.getQueryData<HabitsCache>(habitsKey)
-      const now = new Date().toISOString()
-      const optimistic: QuitHabit = {
-        id: `optimistic-${crypto.randomUUID()}`,
-        user_id: userId,
-        name: input.name,
-        preset_key: input.preset_key ?? 'custom',
-        quit_started_at: input.quit_started_at ?? now,
-        longest_streak_days: 0,
-        replacement_action: input.replacement_action ?? null,
-        notes: input.notes ?? null,
-        created_at: now,
-        updated_at: now,
-      }
-      setHabits((p) => [...p, optimistic])
-      return { prev }
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(habitsKey, ctx.prev)
+    onSuccess: (row) => {
+      // Put the real row straight into the cache so the card appears without
+      // waiting for the settle refetch — the id is already correct.
+      setHabits((p) => [...p.filter((h) => h.id !== row.id), row])
     },
     onSettled: () => void qc.invalidateQueries({ queryKey: habitsKey }),
+    // Keyed so the PAGE can tell a create is in flight even though the DIALOG
+    // owns this mutation instance — see `quitCreateKey` below.
+    mutationKey: quitCreateKey(userId),
     // Non-idempotent insert: don't offer a one-click Retry (could double-insert).
     meta: { noRetry: true },
   })

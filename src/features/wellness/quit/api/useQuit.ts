@@ -10,12 +10,12 @@ const TABLE_MISSING = new Set(['PGRST205', '42P01'])
  * Owner-only quit habits + their check-ins (RLS: user_id = auth.uid()).
  * Mirrors the wellness tracker's user-scoped query shape.
  *
- * DEGRADES GRACEFULLY WHEN THE TABLES ARE ABSENT. The migration ships
- * committed but unapplied, so until `supabase db push` runs the read returns []
- * and marks itself unavailable — the page then shows an honest "not switched on
- * yet" state instead of an Add button that could only ever fail. Exactly the
- * posture useUserTemplates takes for `user_templates`. It switches itself on the
- * moment the tables exist: no code change, no redeploy.
+ * DEGRADES GRACEFULLY WHEN THE TABLES ARE ABSENT. The tables are applied now, so
+ * this path is DORMANT rather than dead — keep it. It is what makes a fresh
+ * Supabase project, a half-applied push, or the next committed-but-unapplied
+ * migration safe by default: the read returns [] and marks itself unavailable, so
+ * the page shows an honest "not switched on yet" state instead of an Add button
+ * that could only ever fail. Exactly the posture useUserTemplates takes.
  */
 export function useQuitHabits(userId: string) {
   return useQuery({

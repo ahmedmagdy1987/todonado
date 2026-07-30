@@ -14,9 +14,10 @@ import { buildFeatureIntent } from './api/featureIntents'
  * the only thing that catches a key added to the TypeScript union but not to the
  * migration.
  *
- * NOTE: the widening migration is committed but NOT YET APPLIED (CLAUDE.md §7),
- * which is exactly why this reads the FILE — the check is meaningful before the
- * push, and the four new keys are inert until it lands.
+ * This reads the migration FILE, which is the ONLY way to check it: the table has
+ * no select policy, so the live CHECK cannot be read back, and a probe insert
+ * would leave an undeletable fake demand row behind. (The widening is applied —
+ * see CLAUDE.md §7.)
  */
 
 const MIGRATIONS = [

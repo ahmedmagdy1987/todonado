@@ -161,7 +161,7 @@ Verified by anon-key probes against `lplsbfduankkpglyusjp`:
   resolve), and **`20260622160000_lock_complete_task_to_authenticated` (F1)** is
   applied (anon `complete_task` → `42501 permission denied`, not the old 500).
   `resolve_login_email` is gone (404, as intended).
-- **NOT applied — the only pending migration:**
+- **Applied (nothing pending):**
   `20260706120000_delete_own_account.sql` (see §0).
 
 > CLAUDE.md §7 was stale (it listed F1 as pending and understated the applied set);

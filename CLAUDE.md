@@ -198,7 +198,7 @@ card). Modules:
   which is the moment it exists for. Milestones 1/3/7/14/30/90/180/365 are marked calmly — no
   confetti. Free tracks `FREE_QUIT_HABITS = 1`; the cap gates **creation only** and the copy says
   so. A persistent, neutral (not amber, not alarming) note states plainly that this is a personal
-  tracker, not treatment. **Its migration is committed but NOT YET APPLIED — see §7.**
+  tracker, not treatment. Its migration is **applied** (§7).
 
 A read-only **fake-door teaser** for Focus & Calm also lives on the `/welcome` marketing page
 (records `feature_intents`); it is independent of `FEATURES.wellness`.
@@ -454,7 +454,7 @@ same-day repeat is a no-op, and `habit_id` cascades on habit delete. Both cascad
 account deletion stays complete. Sensitive by nature (a preset may name a health or
 sexual-behaviour category): **no** anon grant, no sharing surface, no aggregate read, no
 service-role reader. `quitCaps.test.ts` pins the client caps to the CHECKs and pins the policy set
-itself shut. **NOT YET APPLIED — see §7.**
+itself shut. **APPLIED** (live-verified 2026-07-30: table present, anon read `[]`, anon write `42501`).
 
 **Vision cards (owner-only, user-scoped):** `vision_cards` — full owner-only CRUD, the shared
 `set_updated_at` trigger, indexes on `user_id` and `project_id`, and title/why size CHECKs.
@@ -463,7 +463,7 @@ reindex. `project_id` is nullable, `on delete set null` (a deleted project unlin
 delete the goal), and — because this table is user-scoped while `projects` are workspace-scoped —
 the insert **and** update policies additionally require `public.can_access_project(project_id)`, so
 owner-only RLS can't be used to store a project id the caller cannot read. No image columns by
-design. **NOT YET APPLIED — see §7.**
+design. **APPLIED** (live-verified 2026-07-30: table present, anon read `[]`, anon write `42501`).
 
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs
@@ -490,25 +490,28 @@ service-role client but filters by the JWT-verified caller.
 ### Supabase (already provisioned)
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
-> ### ⚠ PENDING MIGRATIONS — apply these, in this order
-> Everything **through `20260728120000_user_templates` is applied**. The following are **committed
-> but NOT applied**, so the features that need them render an honest "not switched on yet" state and
-> their E2E specs skip themselves (`tableExists()` probe) until the push lands:
 >
-> 1. `20260730120000_quit_habits.sql` — quit tracker (`quit_habits` + `quit_checkins`)
-> 2. `20260730130000_user_template_style.sql` — `user_templates.style` (the checklist style).
->    **Safe in both deploy directions**: the client only NAMES this column when a checklist is
->    actually being saved and treats a missing column (PGRST204 / 42703) as "save it as a plan and
->    say so", so nothing breaks before it is applied.
-> 3. `20260730140000_vision_cards.sql` — the Vision page (`vision_cards`)
-> 4. `20260730150000_feature_intents_keys.sql` — widens the `feature_key` CHECK for the four new
->    fake doors (`vision_images`, `referral`, `ai_coach`, `voice_journal`). Until this lands those
->    chips fail their insert with a `23514` and honestly say the vote wasn't recorded; every OTHER
->    part of the features they sit beside works.
+> ### ✅ NOTHING PENDING — the cloud DB is fully migrated
+> **Migrations are applied through `20260730150000_feature_intents_keys`.** Do **NOT** run
+> `supabase db push`; it should report the remote already up to date.
 >
-> Apply in a **real terminal** (non-TTY shells cannot `supabase login`):
-> `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
-> Every file is idempotent, so a re-push is a no-op rather than an error.
+> The four files from the 2026-07-30 expansion were applied that day and verified live:
+>
+> | Migration | Evidence |
+> | --- | --- |
+> | `20260730120000_quit_habits` | `quit_habits` + `quit_checkins` present; anon read `[]`, anon write `42501`; insert 201, same-day repeat `409 / 23505` (the UNIQUE doing its job); slip PATCH 204 |
+> | `20260730130000_user_template_style` | `select=style` on `user_templates` returns 200 |
+> | `20260730140000_vision_cards` | table present; anon read `[]`, anon write `42501` |
+> | `20260730150000_feature_intents_keys` | an invalid key is still rejected `23514`. **Which keys the CHECK allows cannot be read back** — `feature_intents` has no select policy by design, and a probe insert would leave an undeletable fake demand row. `featureIntentKeys.test.ts` pins the union against the migration file instead |
+>
+> Both previously-skipping E2E journeys now RUN against the live tables (quit: create → check in →
+> slip → replacement; vision: add → link a project → reorder → Free limit).
+>
+> **The graceful-degradation paths are now DORMANT, not removed** — `useQuitHabits` /
+> `useVisionCards` still mark themselves unavailable on `PGRST205`/`42P01`, `useUserTemplates` still
+> falls back when the `style` column is missing, and both pages still have a "not switched on yet"
+> card. Keep them: they are what makes a fresh Supabase project, or the next
+> committed-but-unapplied migration, safe by default.
 
 - **Migrations applied through `20260728120000_user_templates`.** Re-verified live 2026-07-25 via anon-key probes (RLS enforcing on
   every table: anon reads `[]`, anon writes `42501`), and `user_templates` itself was verified
@@ -593,10 +596,10 @@ service-role client but filters by the JWT-verified caller.
    `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. **Do not re-run applied migrations** — everything through `20260728120000_user_templates` is
-   already live. There ARE pending files: see the ⚠ PENDING MIGRATIONS box above for the exact
-   ordered list. Applying them needs a **real terminal** (TTY — see CLI note): `supabase login` →
-   `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+4. **Do NOT re-run migrations** — the cloud DB is current through
+   `20260730150000_feature_intents_keys` and nothing is pending (see the box above).
+   Only when adding a **new** migration, use a **real terminal** (TTY — see CLI note):
+   `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
 5. `npx playwright install chromium` — **a wipe also clears `~/AppData/Local/ms-playwright`**, so
    `npm run e2e` dies with `Executable doesn't exist at …chrome-headless-shell.exe`. That is a
    missing *browser*, not a broken suite. CI installs its own browsers, so this step is local-only.
