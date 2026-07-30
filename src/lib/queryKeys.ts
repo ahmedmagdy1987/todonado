@@ -33,4 +33,9 @@ export const qk = {
   // Challenges — user-owned. The row records only that you JOINED; progress is
   // derived from the caches the app already holds, so there is nothing else here.
   userChallenges: (userId: string) => ['user-challenges', userId] as const,
+  // Journal — user-owned. The audio key is the STORAGE PATH, not the entry id:
+  // the signed URL belongs to the object, and caching it per entry would hand
+  // out a stale link the moment a recording is replaced.
+  journalEntries: (userId: string) => ['journal-entries', userId] as const,
+  journalAudio: (path: string) => ['journal-audio', path] as const,
 }

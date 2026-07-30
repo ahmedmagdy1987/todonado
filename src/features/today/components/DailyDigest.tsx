@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { Badge, Button } from '@/components/ui'
+import { FEATURES } from '@/lib/config'
 import { formatMinutes } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Digest } from '../digest'
@@ -253,6 +254,23 @@ export function DailyDigest({
               </Badge>
             )}
           </div>
+        )}
+
+        {/* The other end of the day. This card is the one thing a user reliably
+            reads before starting, so it is also where they'll look when they
+            stop — a quiet link, never a prompt, and never a nag about a day
+            that isn't over. */}
+        {FEATURES.journal && (
+          <p className="text-xs text-text-muted">
+            Finishing up?{' '}
+            <Link
+              to="/journal"
+              className="focus-ring rounded text-accent underline-offset-4 hover:underline"
+            >
+              Write down how today went
+            </Link>
+            .
+          </p>
         )}
       </div>
     </section>

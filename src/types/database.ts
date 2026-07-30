@@ -545,6 +545,41 @@ export interface UserChallenge {
   created_at: string
 }
 
+// ---------------------------------------------------------------------------
+//  Journal — owner-only, user-scoped. ONE ENTRY PER LOCAL DAY.
+//  `text` holds the whole entry, prompts and all: the form is prompt-guided but
+//  the prompts are scaffolding for writing, not a schema, and three columns
+//  would make changing them a migration. `journal.ts` serialises the sections
+//  into one document and parses them back defensively.
+//  Audio lives in the PRIVATE `journal-audio` bucket, keyed `<user_id>/<file>`
+//  because the storage policy checks that first path segment.
+//  See supabase/migrations/20260731140000_journal_entries.sql.
+// ---------------------------------------------------------------------------
+export interface JournalEntry {
+  id: string
+  user_id: string
+  /** The LOCAL day the entry is about (`yyyy-MM-dd`). Unique per user. */
+  entry_date: string
+  text: string | null
+  /** Storage object key, always `<user_id>/…`. Null = no recording. */
+  audio_path: string | null
+  /** Whole seconds, so a duration can be shown before the audio is fetched. */
+  audio_seconds: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NewJournalEntryInput {
+  entry_date: string
+  text: string | null
+  audio_path?: string | null
+  audio_seconds?: number | null
+}
+
+export type JournalEntryPatch = Partial<
+  Pick<JournalEntry, 'text' | 'audio_path' | 'audio_seconds'>
+>
+
 export interface NewCalendarSourceInput {
   kind: CalendarSourceKind
   label: string

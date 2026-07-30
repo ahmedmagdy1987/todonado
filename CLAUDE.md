@@ -464,6 +464,43 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    tasks over REST and asserts the bars against them, so if progress ever started being stored the
    numbers would stop matching the work behind them.
 
+9. **Daily journal, text + voice** (`FEATURES.journal`, `src/features/journal/`, `/journal`).
+   Two prompts and a blank space, one entry per LOCAL day, reachable from the nav and from a quiet
+   line at the bottom of the daily briefing — the card people already read before starting is also
+   where they look when they stop.
+   **THE AI LAYER IS NOT BUILT AND THE PAGE SAYS SO**, in every state including the unmigrated one:
+   reading a fortnight back and naming the pattern needs a provider this app does not have, so
+   there is no placeholder summary and no invented insight, only the honest line and the existing
+   `ai_coach` chip. A journal that pretends to read you back is worse than one that admits it can't.
+   **The entry is ONE text column, not three.** The prompts are scaffolding for writing, not a
+   schema — three columns would bake today's prompts into the database and make changing them a
+   migration. `journal.ts` serialises the sections into one plain-markdown document and parses them
+   back, and the invariant the tests pin is that NO KEYSTROKE IS EVER LOST: text above the first
+   heading, an entry with no headings at all, a heading this build does not know, and the same
+   section written twice all survive a round trip. A user's own `## Ideas` is kept verbatim rather
+   than flattened, so editing an entry never destroys structure the app did not invent.
+   **PAST ENTRIES ARE READ-ONLY** (and deletable). The value of "what could go better" is that it
+   is what you thought at the time; a review you can quietly revise next week has stopped being a
+   record of anything.
+   **VOICE (Pro)** uses MediaRecorder with elapsed time DERIVED FROM A TIMESTAMP, never
+   tick-counted — the same rule as the Focus timer, and it matters more here because a phone dims
+   the screen while you talk. `unsupported`, `denied` and Free are three different situations with
+   three different honest answers rather than one greyed-out button. Audio lives in the PRIVATE
+   `journal-audio` bucket keyed `<user_id>/<file>`, because the storage policy checks that first
+   path segment — the key shape IS the authorisation. Playback is a short-lived signed URL; the
+   bucket carries its own size and MIME limits so the caps hold even if a client forgets them; and
+   the `on conflict` clause RE-ASSERTS `public = false`, so re-running the migration repairs a
+   bucket someone flipped public in the dashboard. `journalMigration.test.ts` pins all of that,
+   because none of it would fail a TypeScript build if it were wrong.
+   Save order with a recording is deliberate: upload the new object, write the row, and only then
+   remove the one it replaced — a failure in the middle deletes the object just uploaded, so a
+   failed save never leaves a file nobody can reach and everybody pays for.
+   Free gets the text journal and the same `FREE_HISTORY_DAYS` window every other history surface
+   uses (nothing deleted, the hidden count stated); Pro gets voice and unlimited history.
+   One migration (§7, pending). It also completes the `journal_7` challenge, which appears by
+   itself once the table exists.
+
+
 ---
 
 ## 4. Roadmap (3 phases)
@@ -562,6 +599,17 @@ index, `UNIQUE (user_id, challenge_key, started_at)`, and CHECKs on status, key 
 completed-shape (a row claiming `completed` must carry a `completed_at`). **There is no progress
 column and there must never be one** — see the migration header and `challengeMigration.test.ts`.
 `started_at` is a `date` because every metric counts whole local calendar days.
+
+**Journal (owner-only, user-scoped) + private storage:** `journal_entries` — full owner-only CRUD,
+`set_updated_at`, a `user_id` index, `UNIQUE (user_id, entry_date)` (one entry per local day), and
+CHECKs on text length, audio duration, and the audio SHAPE (`audio_path` and `audio_seconds` are
+null together or set together). The whole entry lives in one `text` column; see the migration
+header. Recordings live in the **private** `journal-audio` bucket, keyed `<user_id>/<file>`, with
+four `storage.objects` policies requiring `(storage.foldername(name))[1] = auth.uid()::text` — the
+key shape is the authorisation. The bucket carries its own `file_size_limit` and
+`allowed_mime_types`, and the `on conflict` clause re-asserts `public = false` so re-running repairs
+a bucket made public by hand. `journalMigration.test.ts` pins the caps, the privacy flag and every
+policy.
 
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs

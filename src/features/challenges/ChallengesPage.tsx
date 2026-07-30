@@ -29,6 +29,7 @@ import {
   progressLabel,
 } from './challenges'
 import { useChallengeMutations, useUserChallenges } from './api/useChallenges'
+import { useJournalEntries } from '@/features/journal/api/useJournal'
 
 /**
  * Challenges — a structured push you opt into, and nothing you are opted into.
@@ -67,9 +68,9 @@ export function ChallengesPage() {
   const [sharing, setSharing] = useState<Challenge | null>(null)
 
   const quitHabits = useMemo(() => quit?.rows ?? [], [quit])
-  // Wired in the journal stage. Until then `journal_7` is simply not offered —
   // `offerableChallenges` hides a challenge whose source does not exist rather
-  // than showing it locked, because a locked card reads as a nag.
+  // than showing it locked, because a locked card reads as a nag. An unmigrated
+  // or switched-off journal therefore simply removes `journal_7` from the list.
   const journal = useJournalSource()
 
   const challengeData: ChallengeData = useMemo(
@@ -264,9 +265,12 @@ export function ChallengesPage() {
  * "no source", and `offerableChallenges` then hides `journal_7` entirely.
  */
 function useJournalSource(): { days: string[]; available: boolean } {
-  // STAGE SEAM: the journal ships in the next stage. Until it does there is no
-  // source, so `journal_7` is not offered at all.
-  return NO_JOURNAL
+  const { user } = useAuth()
+  const { data } = useJournalEntries(user?.id ?? '')
+  // Hooks first, then the flag — an early return above `useJournalEntries` would
+  // change the hook order when the flag is flipped.
+  if (!FEATURES.journal) return NO_JOURNAL
+  return { days: (data?.rows ?? []).map((e) => e.entry_date), available: data?.available ?? false }
 }
 
 const NO_JOURNAL = { days: [] as string[], available: false }

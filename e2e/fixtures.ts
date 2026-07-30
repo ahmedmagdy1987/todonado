@@ -21,6 +21,35 @@ export const SUPABASE_URL = 'https://lplsbfduankkpglyusjp.supabase.co'
 export const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbHNiZmR1YW5ra3BnbHl1c2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDkzMzksImV4cCI6MjA5NTkyNTMzOX0.lVX3cKJWiQYlUWGUE35sui45NKgVLWhBBX4ju-o5_OY'
 
+/**
+ * `fetch`, but a transient CONNECT failure is retried instead of failing a test.
+ *
+ * These calls are infrastructure, not assertions: seeding a row, probing whether
+ * a migration has been applied, deleting an account afterwards. When one of them
+ * dies with `ConnectTimeoutError` the report says a feature is broken, which is
+ * simply false — and it wastes the reader's time on a red suite that means
+ * nothing. The suite doubled in size across the 2026-07-31 session, and three
+ * separate specs failed that way in one run, each on its very first request.
+ *
+ * ONLY NETWORK-LEVEL FAILURES ARE RETRIED. An HTTP response of any status is
+ * returned untouched, so a 404 still means "the migration is not applied" and a
+ * 401 still means the token is wrong. Retrying those would hide real failures,
+ * which is the trap this kind of helper usually falls into.
+ */
+async function fetchWithRetry(url: string, init?: RequestInit, attempts = 3): Promise<Response> {
+  let lastError: unknown
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fetch(url, init)
+    } catch (e) {
+      lastError = e
+      // 400ms, then 1200ms. Long enough for a blip, short enough not to matter.
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 400 * 3 ** i))
+    }
+  }
+  throw lastError
+}
+
 /** A unique throwaway identity per run (timestamp + random suffix). */
 export function uniqueIdentity() {
   const stamp = Date.now()
@@ -38,7 +67,7 @@ export async function rest(
   token: string,
   init: { method?: string; body?: unknown; prefer?: string } = {},
 ) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+  const res = await fetchWithRetry(`${SUPABASE_URL}/rest/v1/${path}`, {
     method: init.method ?? 'GET',
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -65,7 +94,7 @@ export async function rest(
  * real flow with no further changes. The skip is a deploy gate, not an excuse.
  */
 export async function tableExists(table: string): Promise<boolean> {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`, {
+  const res = await fetchWithRetry(`${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`, {
     headers: { apikey: SUPABASE_ANON_KEY },
   })
   return res.status !== 404
@@ -92,7 +121,7 @@ export async function createTestAccount(
   capacityMinutes = 360,
 ): Promise<TestAccount> {
   const id = uniqueIdentity()
-  const signUp = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+  const signUp = await fetchWithRetry(`${SUPABASE_URL}/auth/v1/signup`, {
     method: 'POST',
     headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: id.email, password: id.password }),
@@ -121,7 +150,7 @@ export async function createTestAccount(
 
 /** Delete a throwaway account (and everything it cascades to). Fails loudly. */
 export async function deleteTestAccount(account: TestAccount, label: string): Promise<void> {
-  const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+  const del = await fetchWithRetry(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_ANON_KEY,
@@ -143,7 +172,7 @@ export async function deleteTestAccount(account: TestAccount, label: string): Pr
 export async function cleanupLeftoverAccounts(): Promise<void> {
   const failures: string[] = []
   for (const [userId, creds] of pending) {
-    const signIn = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    const signIn = await fetchWithRetry(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: creds.email, password: creds.password }),
@@ -153,7 +182,7 @@ export async function cleanupLeftoverAccounts(): Promise<void> {
       continue
     }
     const { access_token: token } = (await signIn.json()) as { access_token: string }
-    const del = await fetch(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
+    const del = await fetchWithRetry(`${SUPABASE_URL}/rest/v1/rpc/delete_own_account`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,

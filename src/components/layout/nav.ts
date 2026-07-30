@@ -7,6 +7,7 @@ import {
   HeartPulse,
   Inbox,
   LayoutGrid,
+  NotebookPen,
   LayoutTemplate,
   Sun,
   Timer,
@@ -45,6 +46,10 @@ export const NAV_ITEMS: NavItem[] = [
   // Vision — only present when the feature flag is on. Not `primary`, so the
   // mobile bottom bar keeps its 5 slots.
   ...(FEATURES.vision ? [{ to: '/vision', label: 'Vision', icon: Compass }] : []),
+  // Journal — only present when the feature flag is on. Not `primary`: it is an
+  // end-of-day surface rather than a daily tab, so it lives in the mobile More
+  // sheet and the bottom bar keeps its 5 slots.
+  ...(FEATURES.journal ? [{ to: '/journal', label: 'Journal', icon: NotebookPen }] : []),
   // Challenges — only present when the feature flag is on. Not `primary`: it is
   // something you visit occasionally, not a daily tab, so it lives in the mobile
   // More sheet and the bottom bar keeps its 5 slots.
