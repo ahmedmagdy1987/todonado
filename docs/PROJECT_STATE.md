@@ -1,7 +1,36 @@
 # Todonado — Whole-project state & honest assessment
 
-> **Date:** 2026-06-23 · **Commit:** `bd2db67` (`main`) · **Scope:** the entire repo as it stands today.
-> Assessment only — no app code changed.
+> # ⚠️ HISTORICAL SNAPSHOT — DO NOT READ THIS AS CURRENT STATE
+> **This file describes the repo on 2026-06-23 (`bd2db67`) and has not been maintained since.**
+> Roughly forty commits and five weeks separate it from `main`. It is kept because the *reasoning*
+> in it — why decisions were made, what the trade-offs were — is still worth reading, and rewriting
+> that would destroy the record rather than update it.
+>
+> **The current sources of truth are:**
+> | Question | Read this |
+> | --- | --- |
+> | What is built, and how does it work? | `CLAUDE.md` §3 (What's built) and the per-session lists |
+> | Which migrations are applied? | `CLAUDE.md` §7 — **nothing is pending; do NOT run `supabase db push`** |
+> | What is left before launch? | `docs/LAUNCH_CHECKLIST.md` |
+> | What did the security review find? | `docs/AUDIT_2026-07-31_final.md` |
+>
+> **Specific claims below that are now FALSE** (each shipped after this snapshot): account deletion
+> is called "an honest stub" — the `delete_own_account` RPC is applied and live-verified;
+> `LEGAL_CONTACT` is called an unfilled placeholder — it is `support@todonado.com`; "no `.github/`"
+> — `.github/workflows/ci.yml` runs on every push; "no Stripe, no entitlement column, no
+> server-side gating" — `api/create-checkout-session.ts`, `api/stripe-webhook.ts`,
+> `api/_lib/entitlement.ts` and the `billing` table all exist; "no service worker" —
+> `src/pwa/registerPwa.ts` ships and `dist/sw.js` is generated; and migration
+> `20260622160000` is listed as unapplied when it is applied.
+>
+> Marked rather than refreshed **deliberately**: this file's value is that it is a dated
+> assessment. A snapshot edited to look current is a snapshot of nothing, and the drift it caused
+> was that nobody could tell which parts had aged. Now they can.
+>
+> ---
+>
+> **Date:** 2026-06-23 · **Commit:** `bd2db67` (`main`) · **Scope:** the entire repo as it stood on
+> that date. Assessment only — no app code changed.
 >
 > **Why this doc exists:** `docs/PRODUCT_AUDIT.md` and `docs/READINESS_CHECKLIST.md` (both dated
 > 2026-06-15, baseline `538bb6d`) are now **substantially stale** — **32 commits** shipped since,

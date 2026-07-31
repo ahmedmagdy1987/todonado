@@ -64,7 +64,7 @@ Full detail, severities and evidence: **`docs/AUDIT_2026-07-31_final.md`**. Summ
 
 ### Gates
 
-`typecheck` · `lint` · **1106 unit tests** · `build` · **64 Playwright E2E** — green. Every push to
+`typecheck` · `lint` · **1127 unit tests** · `build` · **74 Playwright E2E** — green. Every push to
 `main` re-runs all of it in GitHub Actions against the real cloud Supabase, so a green push is
 validated even when this machine's local gates are skipped.
 

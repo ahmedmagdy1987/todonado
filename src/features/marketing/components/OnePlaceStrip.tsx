@@ -132,8 +132,11 @@ export function OnePlaceStrip() {
               "replaces N apps": a number invites arithmetic nobody wins, and
               naming competitors makes the page about them. The list is the
               claim, and every entry on it is something a stranger who signs up
-              right now can open — which is why the journal and mind maps are
-              NOT here yet (see the note below). */}
+              right now can open. The journal and the mind-map canvas joined the
+              list in 47b795f, when their migrations were applied and the
+              "not switched on yet" page stopped being what a new account met.
+              The bar is what a visitor can DO, not whether the code is
+              merged. */}
           <p className="mt-6 text-sm font-medium text-text-primary">One app instead of several</p>
           <ul className="mt-3 flex flex-wrap justify-center gap-2">
             {CATEGORIES.map((c) => (

@@ -275,7 +275,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
 
 ### Shipped in the 2026-07-30 session
 
-1. **Quit tracker** — see the wellness-suite list above. Migration pending (§7).
+1. **Quit tracker** — see the wellness-suite list above. Its migration is **APPLIED** (§7).
 2. **"Get to Work" + Pomodoro** (`FEATURES.getToWork`, `FEATURES.pomodoro`, both default **ON**).
    `/work` is composition only: it ranks what is already in the cache (`work/pickWork.ts` — resume
    what's in progress → overdue → planned for today → backlog, tie-broken by the same
@@ -326,7 +326,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    be indefensible. Text-first on purpose: images mean a storage bucket, upload limits, a storage
    policy and a bill, so one `feature_intents` chip measures the demand before any of that is
    built. A target date that passes is *stated*, never scolded — no red, no "overdue" — because a
-   goal is not a task. `FREE_VISION_CARDS = 3`, creation-gated only. Three migrations (§7).
+   goal is not a task. `FREE_VISION_CARDS = 3`, creation-gated only. Three migrations, all **APPLIED** (§7).
 4. **Points, share cards, invite groundwork, sound settings** (`FEATURES.points`,
    `FEATURES.shareCards`, both default **ON**). **No migration, no table, no column.**
    **Points are DERIVED, never stored** — recomputed from the tasks and focus sessions already in
@@ -435,7 +435,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    Accessibility is not the canvas's problem alone: every node is a focusable button (arrows move,
    Enter opens, Delete removes) AND the page renders the same map as a plain list with the same
    actions, so nothing depends on pointing at SVG. `FREE_MIND_MAPS = 1`, creation-gated only.
-   One migration (§7, pending). `e2e/mindmaps.spec.ts` additionally runs the whole journey against
+   One migration, **APPLIED** (§7). `e2e/mindmaps.spec.ts` additionally runs the whole journey against
    an INTERCEPTED table, because the real journey self-skips until the migration lands and a
    skipping test verifies nothing at all.
 
@@ -462,7 +462,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    that will grow, and an unknown key is handled kindly in the client instead.
    The completion share card carries the challenge's LENGTH and never which challenge it was —
    the same rule as the quit card, and for the same reason: one of them counts clean days.
-   `FREE_ACTIVE_CHALLENGES = 1`. One migration (§7, pending). `e2e/challenges.spec.ts` seeds REAL
+   `FREE_ACTIVE_CHALLENGES = 1`. One migration, **APPLIED** (§7). `e2e/challenges.spec.ts` seeds REAL
    tasks over REST and asserts the bars against them, so if progress ever started being stored the
    numbers would stop matching the work behind them.
 
@@ -499,7 +499,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    failed save never leaves a file nobody can reach and everybody pays for.
    Free gets the text journal and the same `FREE_HISTORY_DAYS` window every other history surface
    uses (nothing deleted, the hidden count stated); Pro gets voice and unlimited history.
-   One migration (§7, pending). It also completes the `journal_7` challenge, which appears by
+   One migration, **APPLIED** (§7). It also completes the `journal_7` challenge, which appears by
    itself once the table exists.
 
 
@@ -512,13 +512,13 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
     arithmetic nobody wins, and naming competitors makes the page about them. The two lists are
     deliberately identical, because two surfaces phrasing a claim slightly differently is how it
     stops being checkable.
-    **THE JOURNAL AND MIND MAPS ARE ABSENT FROM BOTH LISTS ON PURPOSE.** They are built, but their
-    migrations are unapplied, so a stranger who signed up right now would meet the honest
-    "not switched on yet" page instead of the category the line promised. The bar is what a visitor
-    can DO, not whether the code is merged — the same bar Quit tracker and Vision waited behind in
-    July. Challenges nearly went into the strip on the grounds that its table only records that you
-    joined; that reasoning is wrong for the same reason and it is written down in the file. The
-    exact lines to uncomment after `supabase db push` are in `EverythingStrip` and `OnePlaceStrip`.
+    **THE JOURNAL AND MIND MAPS WERE HELD OUT OF BOTH LISTS UNTIL THEIR MIGRATIONS LANDED, AND ARE
+    NOW IN THEM** (uncommented in `47b795f`; see `EverythingStrip` and `OnePlaceStrip`). While the
+    tables were unapplied a stranger who signed up would have met the honest "not switched on yet"
+    page instead of the category the line promised. The bar is what a visitor can DO, not whether
+    the code is merged — the same bar Quit tracker and Vision waited behind in July. Challenges
+    nearly went into the strip on the grounds that its table only records that you joined; that
+    reasoning is wrong for the same reason and it is written down in the file.
     **The Hub's Journal tile stopped being a fake door.** It used to say a journal needs an AI
     service — true of the version that reads you back, false of the one that lets you write, and
     the writing half now ships. The unbuilt AI layer is stated ON the journal page instead, next to
@@ -530,7 +530,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
     `e2e/marketing.spec.ts` gained the rule that matters: the all-in-one claim is categories only,
     carries no number and no brand, and **names every category it claims**, each of which must be a page a
     signed-up user can actually open. Its `SHIPPED` list gained all three new features, so the
-    never-labelled-unbuilt guard is already armed for the day the strip lines are uncommented.
+    never-labelled-unbuilt guard has been armed since the strip lines were uncommented.
 
 ---
 
