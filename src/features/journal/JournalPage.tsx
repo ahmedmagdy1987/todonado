@@ -31,7 +31,7 @@ import {
   useJournalMutations,
 } from './api/useJournal'
 import { useRecorder } from './useRecorder'
-import { AiNotBuiltNote, VoiceNote } from './components/VoiceNote'
+import { VoiceNote } from './components/VoiceNote'
 
 /**
  * The daily journal.
@@ -41,9 +41,12 @@ import { AiNotBuiltNote, VoiceNote } from './components/VoiceNote'
  * week is not a review, and the value of "what could go better" comes entirely
  * from it being what you actually thought at the time.
  *
- * THE AI LAYER IS NOT BUILT AND SAYS SO. See `AiNotBuiltNote` — there is no
- * placeholder summary and no invented insight, because a journal that pretends
- * to read you back is worse than one that admits it doesn't.
+ * THE JOURNAL IS COMPLETE ON ITS OWN TERMS. It used to carry a card saying an
+ * AI review layer "isn't built yet", with a chip to vote for it. AI IS NOW
+ * CANCELLED as a product decision, not deferred: nothing in this app will call
+ * a paid model provider. A page that keeps apologising for the absence of
+ * something nobody is going to build is not honesty, it is an advert for a
+ * competitor. Two prompts and a blank space is the product.
  */
 export function JournalPage() {
   const { user } = useAuth()
@@ -294,10 +297,6 @@ export function JournalPage() {
         </>
       )}
 
-      {/* OUTSIDE the availability branch on purpose: "the AI layer isn't built"
-          is true whether or not the table exists, and a visitor who lands on the
-          unmigrated page deserves the same honest answer as everyone else. */}
-      <AiNotBuiltNote />
     </div>
   )
 }

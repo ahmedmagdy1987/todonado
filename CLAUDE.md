@@ -366,9 +366,9 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    statically and `e2e/hub.spec.ts` clicks **every** live tile and asserts the destination.
    Two tiles deep-link rather than inventing a page: "Build my day" opens Today with the planner's
    preview already up (`/?plan=1`, a `defaultOpen` prop on the existing `PlanMyDay`), and
-   "Checklists" opens the filtered catalog (`/templates?category=checklists`). "Journal" is a
-   **button, not a link** — it navigates nowhere, explains that a journal worth building needs an
-   AI service the app doesn't have, and offers an interest chip.
+   "Checklists" opens the filtered catalog (`/templates?category=checklists`). "Journal" was
+   originally a **button, not a link** — it navigated nowhere and explained that a journal worth
+   building needed a service the app did not have. It became a real link when the journal shipped.
    In the nav it sits at the **top of the desktop sidebar** but is deliberately NOT `primary`: the
    mobile bottom bar's four primary slots + More already fill its documented five, so on mobile it
    lives in the More sheet.
@@ -470,10 +470,10 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    Two prompts and a blank space, one entry per LOCAL day, reachable from the nav and from a quiet
    line at the bottom of the daily briefing — the card people already read before starting is also
    where they look when they stop.
-   **THE AI LAYER IS NOT BUILT AND THE PAGE SAYS SO**, in every state including the unmigrated one:
-   reading a fortnight back and naming the pattern needs a provider this app does not have, so
-   there is no placeholder summary and no invented insight, only the honest line and the existing
-   `ai_coach` chip. A journal that pretends to read you back is worse than one that admits it can't.
+   **THE JOURNAL IS COMPLETE ON ITS OWN TERMS.** It used to carry a card saying an AI review layer
+   "isn't built yet", with a chip to vote for it. AI is now CANCELLED (§5), so the card and the chip
+   are gone: a page that keeps apologising for the absence of something nobody will build is an
+   advert for a competitor. Two prompts and a blank space is the product.
    **The entry is ONE text column, not three.** The prompts are scaffolding for writing, not a
    schema — three columns would bake today's prompts into the database and make changing them a
    migration. `journal.ts` serialises the sections into one plain-markdown document and parses them
@@ -519,12 +519,9 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
     the code is merged — the same bar Quit tracker and Vision waited behind in July. Challenges
     nearly went into the strip on the grounds that its table only records that you joined; that
     reasoning is wrong for the same reason and it is written down in the file.
-    **The Hub's Journal tile stopped being a fake door.** It used to say a journal needs an AI
-    service — true of the version that reads you back, false of the one that lets you write, and
-    the writing half now ships. The unbuilt AI layer is stated ON the journal page instead, next to
-    the thing it is missing from. `/pricing`'s not-built list was corrected the same way: "an AI
-    coach and a voice journal" became "an AI coach, and AI review of your journal", because voice
-    notes ship. New tiles for Mind maps and Challenges, each gated by its own flag exactly like the
+    **The Hub's Journal tile stopped being a fake door** when the journal shipped: it is a real
+    link to a real page. (The AI review layer it once pointed at is now cancelled outright, §5, and
+    every trace of it has been removed from the journal, `/pricing` and the FAQ.) New tiles for Mind maps and Challenges, each gated by its own flag exactly like the
     rest; `hubTiles.test.ts`'s grid bound went 15 → 17, which is still a real limit rather than a
     formality.
     `e2e/marketing.spec.ts` gained the rule that matters: the all-in-one claim is categories only,
@@ -568,10 +565,30 @@ manifest, docs. No full features.
 
 Out of scope until explicitly prioritized — do not start these:
 - **External-tool integrations beyond calendar** (Slack, Jira, Notion, email, etc.).
-- **AI features** (auto-planning, summarization, NL capture, suggestions).
 - **Native apps** (iOS/Android/desktop). PWA only for now.
 - **Two-way calendar sync** (writing events back). V1 is read-only busy import at most.
 - **Team admin** (roles UI, billing, SSO, member management screens).
+
+### CANCELLED, not deferred
+
+**Anything that requires a paid third-party model provider is OUT OF THE PRODUCT PERMANENTLY**
+(2026-07-31 owner decision): an AI coach, AI review or summarisation of the journal,
+natural-language capture, AI suggestions, and text-to-speech.
+
+This is a stronger statement than the list above, and the difference matters. "Not yet" invites the
+next session to build it, and it left the product APOLOGISING on four surfaces for a gap nobody was
+going to close. A page that keeps explaining why it has not built something is advertising the gap.
+
+Everything referencing it is gone: the journal's "AI review isn't built yet" card, the `ai_coach`
+and `voice_journal` interest chips, and the `/pricing` and FAQ entries. The `feature_key` CHECK
+still permits the two retired keys, deliberately: narrowing it is a migration, nothing is pending,
+and the rows already collected are real signal that should not be rewritten to match a later
+decision. `featureIntentKeys.test.ts` lists them as RETIRED and fails if either goes live again, and
+`e2e/marketing.spec.ts` fails if any public page so much as mentions one.
+
+The planner, the estimator, the digest and the weekly review are PURE, DETERMINISTIC, UNIT-TESTED
+logic and always were. None of them is affected by this, and none of them may ever be described as
+AI.
 
 If a request implies one of these, pause and confirm scope before building.
 

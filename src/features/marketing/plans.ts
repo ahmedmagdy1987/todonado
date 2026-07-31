@@ -11,7 +11,9 @@
 /** Tiers a user can express purchase intent for. MUST match the DB check in
  *  supabase/migrations/20260615120000_upgrade_intents.sql (tier in ('pro','team')). */
 import {
+  FREE_ACTIVE_CHALLENGES,
   FREE_HISTORY_DAYS,
+  FREE_MIND_MAPS,
   FREE_PERSONAL_TEMPLATES,
   FREE_QUIT_HABITS,
   FREE_VISION_CARDS,
@@ -56,7 +58,11 @@ export const PLANS: Plan[] = [
       'A catalog of effort-tagged templates & checklists',
       'Daily briefing: what carried over and what’s free today',
       // Templated from the constants so the copy can never drift from behaviour.
+      // EVERY capped surface, not a selection of them. Mind maps and challenges
+      // were both missing here while the app capped them at one each, so a Free
+      // user met a limit the pricing page had never mentioned.
       `${FREE_PERSONAL_TEMPLATES} personal templates · ${FREE_QUIT_HABITS} quit habit · ${FREE_VISION_CARDS} vision goals`,
+      `${FREE_MIND_MAPS} mind map · ${FREE_ACTIVE_CHALLENGES} challenge at a time · the daily journal, in text`,
       'Breathwork, and a supplement & medication log',
       `Completed history for the last ${FREE_HISTORY_DAYS} days`,
       'Calendar import (.ics file)',
@@ -88,7 +94,8 @@ export const PLANS: Plan[] = [
       'Unlimited history: every completed task, kept forever',
       'Live calendar sync (URL): paste a link once, meetings stay fresh daily',
       'Unlimited personal templates & checklists',
-      'Unlimited quit habits and vision goals',
+      'Unlimited quit habits, vision goals, mind maps and challenges',
+      'Voice notes in the daily journal',
       'Everything in Free, unlimited',
     ],
   },

@@ -49,10 +49,12 @@ test('journal: the route renders and states its case honestly', async ({ page })
   await page.goto('/journal')
   await expect(page.getByRole('heading', { name: 'Journal', level: 2 })).toBeVisible()
 
-  // The AI line is present in EVERY state, because it is true in every state.
-  await expect(page.getByText(/AI review of your entries isn.t built yet/i)).toBeVisible()
-  // …and there is no fake analysis anywhere near it.
+  // AI IS CANCELLED, so the page does not mention it at all: not as a feature,
+  // and not as an apology for its absence. The card that used to read "AI review
+  // of your entries isn't built yet" is gone along with the plan to build it.
   const body = (await page.locator('main').textContent()) ?? ''
+  expect(body, 'the journal must not mention AI in any form').not.toMatch(/\bAI\b/i)
+  // …and there is still no fake analysis, which was always the real rule.
   expect(body).not.toMatch(/your patterns|we noticed|insight:/i)
 
   if (await tableExists('journal_entries')) {

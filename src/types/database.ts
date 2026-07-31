@@ -27,10 +27,6 @@ export type FeatureKey =
   | 'vision_images'
   /** Referral rewards + discount codes — blocked on Stripe going live. */
   | 'referral'
-  /** The AI coaching / suggestion layer — blocked on an AI API. */
-  | 'ai_coach'
-  /** Spoken journal entries with analysis — blocked on an AI API. */
-  | 'voice_journal'
 /** Subscription tier gate (see supabase/migrations/20260706130000_billing.sql). */
 export type BillingPlan = 'free' | 'pro'
 

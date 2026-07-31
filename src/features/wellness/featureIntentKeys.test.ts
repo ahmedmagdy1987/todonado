@@ -57,9 +57,24 @@ const CLIENT_KEYS: FeatureKey[] = [
   'supplement_tracker',
   'vision_images',
   'referral',
-  'ai_coach',
-  'voice_journal',
 ]
+
+/**
+ * Keys the database CHECK still permits but the client must never write again.
+ *
+ * AI IS CANCELLED, not deferred: no part of this product will call a paid model
+ * provider, so measuring demand for one is measuring demand for something
+ * nobody intends to build. The two chips are gone, and the union in
+ * `database.ts` no longer contains their keys.
+ *
+ * The CHECK is deliberately NOT narrowed to match. Dropping a value from a CHECK
+ * is a migration, and the cloud database is fully applied with nothing pending;
+ * a permissive constraint costs nothing, while an unapplied migration would
+ * leave the app writing keys the database rejects. Any rows already recorded
+ * stay exactly where they are: they are real signal about what people wanted,
+ * and deleting them would be rewriting history to match a later decision.
+ */
+const RETIRED_KEYS = ['ai_coach', 'voice_journal']
 
 describe('feature_intents keys', () => {
   const allowed = allowedKeys()
@@ -70,11 +85,22 @@ describe('feature_intents keys', () => {
     }
   })
 
-  it('the client can produce every key the database allows', () => {
-    // A key allowed by the DB but absent from the union is dead weight that will
-    // confuse the next person reading either file.
+  it('every key the database allows is either live or explicitly retired', () => {
+    // A key allowed by the DB and absent from BOTH lists is dead weight that
+    // will confuse the next person reading either file.
+    const accounted = [...(CLIENT_KEYS as string[]), ...RETIRED_KEYS]
     for (const key of allowed) {
-      expect(CLIENT_KEYS as string[], `'${key}' is allowed by the DB but unused`).toContain(key)
+      expect(
+        accounted,
+        `'${key}' is allowed by the DB but is neither produced by the client nor listed as retired`,
+      ).toContain(key)
+    }
+  })
+
+  it('a retired key is never produced by the client again', () => {
+    // The chips are deleted; this is what stops one coming back by copy-paste.
+    for (const key of RETIRED_KEYS) {
+      expect(CLIENT_KEYS as string[], `'${key}' is cancelled and must not be live`).not.toContain(key)
     }
   })
 

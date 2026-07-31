@@ -76,12 +76,10 @@ test('hub: "Build my day" opens the planner, and the Journal tile is now real', 
   // --- Journal WAS a fake door. It isn't one any more ----------------------
   //
   // The tile used to be a button that navigated nowhere and explained that a
-  // journal needs an AI service. That was true of the version which reads you
-  // back and false of the one that simply lets you write, and the writing half
-  // now ships. So the assertion is inverted: a tile for a built feature must be
-  // a LINK, and the "needs an AI service" copy must be gone from the Hub — the
-  // unbuilt AI layer is stated on the journal page itself, next to the thing it
-  // is missing from.
+  // journal needs an AI service. The writing half shipped, so the tile became a
+  // real link; the reading-back half is now CANCELLED outright, so AI is not
+  // mentioned on the Hub OR on the journal page. A tile for a built feature
+  // must be a LINK, and neither page may name a capability nobody will build.
   await page.goto('/hub')
   await expect(page.getByRole('button', { name: /^Journal: / })).toHaveCount(0)
   const journal = page.getByRole('link', { name: /^Journal: / })
@@ -90,9 +88,9 @@ test('hub: "Build my day" opens the planner, and the Journal tile is now real', 
   await journal.click()
   await expect(page).toHaveURL(/\/journal$/)
   await expect(page.getByRole('heading', { name: 'Journal', level: 2 })).toBeVisible()
-  // …and the honest line lives HERE now, where it can be checked against what
-  // the page does and does not do.
-  await expect(page.getByText(/AI review of your entries isn.t built yet/i)).toBeVisible()
+  // Nothing about AI, on the Hub or on the page it opens.
+  const journalBody = (await page.locator('main').textContent()) ?? ''
+  expect(journalBody, 'the journal must not mention AI in any form').not.toMatch(/\bAI\b/i)
 
   await deleteTestAccount(account, 'hub deep links')
 })

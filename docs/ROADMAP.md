@@ -50,10 +50,14 @@ explicitly re-prioritizing. See `CLAUDE.md` for the "DO NOT BUILD YET" guardrail
 ## V2 — Depth & collaboration 🤝
 - [ ] Shared workspaces (the `workspace_members` table is already collaboration-ready).
 - [ ] Recurring tasks & templates.
-- [ ] Smarter recovery suggestions (still rules-based, not AI).
+- [ ] Smarter recovery suggestions (rules-based, like everything else here).
 
 ---
 
 ## Deferred / explicitly out of scope
-AI features · native apps · two-way calendar sync · external integrations beyond calendar ·
+Native apps · two-way calendar sync · external integrations beyond calendar ·
 team admin (roles UI, billing, SSO) · offline service worker (revisit after MVP).
+
+**CANCELLED permanently (2026-07-31):** anything needing a paid third-party model provider, meaning
+an AI coach, AI review of the journal, natural-language capture and text-to-speech. Not deferred and
+not "revisit later": out of the product. See CLAUDE.md §5.

@@ -23,7 +23,7 @@ const FAQ: Qa[] = [
   },
   {
     q: 'What isn’t built yet?',
-    a: 'Sleep sounds and guided meditation (the players exist; no audio is licensed yet), an AI coach and voice journal (they need an AI provider we are not wired to), referral discount codes (billing has to go live first) and image vision boards (pictures need storage). Everything else on this page you can use right now.',
+    a: 'Two things, and both are on their way. Sleep sounds and guided meditation: the players are built and we are licensing the audio. Referral discount codes: billing has to go live first, and until then the share link already works. Everything else on this page you can use right now.',
   },
   {
     q: 'Does it work on my phone?',

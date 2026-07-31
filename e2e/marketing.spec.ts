@@ -62,21 +62,19 @@ const SHIPPED = [
 ]
 
 /**
- * The ONLY things allowed to carry an unbuilt label, each with a real blocker.
- * Sleep sounds + guided meditation (no licensed audio), the AI pair (no
- * provider), referral codes (billing not live), image boards (storage), and the
- * Team tier (no sharing UI).
+ * The ONLY things /pricing may present as not-built-yet.
+ *
+ * The list shrank rather than grew. AI (a coach, and review of the journal) is
+ * CANCELLED, not deferred, so it belongs on no page at all — see the cancelled
+ * test below. Image vision boards were described as a deliberate wait, which is
+ * an honest description of a maybe and not something to promise a stranger.
+ * What is left is two commitments with real, nameable blockers, plus the Team
+ * tier the page already sells.
  */
 const NOT_BUILT = [
   'Sleep sounds',
   'Guided meditation',
-  'AI coach',
-  // NOT 'voice journal' any more — voice notes ship. What does not exist is the
-  // layer that READS the journal back, and /pricing had to be corrected to say
-  // so the day the journal landed.
-  'AI review of your journal',
   'Referral',
-  'Image vision boards',
   'Team',
 ]
 
@@ -209,6 +207,52 @@ test('landing: no shipped feature is ever labelled unbuilt', async ({ page }) =>
   }
 })
 
+/**
+ * CANCELLED IS NOT "COMING SOON".
+ *
+ * Anything requiring a paid third-party model provider — an AI coach, AI review
+ * of the journal, text-to-speech — is out of the product permanently. The old
+ * copy handled it the careful way, naming the blocker and offering a vote, and
+ * that was right while it was still a maybe. It stops being right the moment
+ * the answer is no: a page that keeps explaining why it has not built something
+ * is advertising the gap, and an interest chip for it collects votes nobody
+ * will ever act on into a table with no delete policy.
+ *
+ * So the rule is now absence, not honesty-about-absence, and it is checked on
+ * every public page rather than only the landing.
+ */
+const CANCELLED = [
+  'ai coach',
+  'ai review',
+  'ai-powered',
+  'ai powered',
+  'artificial intelligence',
+  'text-to-speech',
+  'read your journal back',
+]
+
+test('no cancelled capability is mentioned anywhere a visitor can read', async ({ page }) => {
+  for (const route of ['/welcome', '/pricing', '/about']) {
+    await page.goto(route)
+    if (route === '/welcome') await mountLazySections(page)
+    const body = ((await page.locator('main').textContent()) ?? '').toLowerCase()
+
+    for (const phrase of CANCELLED) {
+      expect(
+        body,
+        `${route} mentions "${phrase}", which is cancelled and must not be promised or apologised for`,
+      ).not.toContain(phrase)
+    }
+
+    // The bare word is allowed only where it cannot read as a promise: the FAQ
+    // says plainly that there is no AI and there will not be. Anything that
+    // pairs it with a future tense is the failure this test exists to catch.
+    expect(body, `${route} implies AI is coming`).not.toMatch(
+      /ai (is )?(coming|soon|planned|on the roadmap)|coming soon.{0,30}\bai\b/,
+    )
+  }
+})
+
 test('pricing: the tiers match the real gates, and "not built" means not built', async ({
   page,
 }) => {
@@ -244,15 +288,10 @@ test('pricing: the tiers match the real gates, and "not built" means not built',
     expect(lower, `"${item}" should be listed as unbuilt`).toContain(item.toLowerCase())
   }
   await expect(main.getByText(/no audio is licensed yet/i)).toBeVisible()
-  await expect(main.getByText(/need an AI provider/i)).toBeVisible()
   await expect(main.getByText(/billing switched on/i)).toBeVisible()
-  // Image boards: this assertion USED to pin "Pictures need storage, upload
-  // limits and a bill" — and that reason expired when journal voice notes
-  // shipped private storage with exactly those limits and that bill. A test
-  // that pins a stale reason keeps the stale reason alive, so it now pins the
-  // honest one: the wait is a deliberate product choice, not a blocker.
-  await expect(main.getByText(/not a technical blocker any more/i)).toBeVisible()
-  await expect(main.getByText(/until enough people ask for images/i)).toBeVisible()
+  // Image boards used to be pinned here with their reason. The entry is gone:
+  // "a deliberate wait" is a maybe, and this list is for commitments.
+  expect(lower, 'image vision boards are no longer promised').not.toContain('image vision board')
 })
 
 test('landing: OG tags and the zero-database guarantee still hold', async ({ page }) => {

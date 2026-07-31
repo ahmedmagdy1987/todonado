@@ -64,7 +64,7 @@ Full detail, severities and evidence: **`docs/AUDIT_2026-07-31_final.md`**. Summ
 
 ### Gates
 
-`typecheck` · `lint` · **1127 unit tests** · `build` · **74 Playwright E2E** — green. Every push to
+`typecheck` · `lint` · **1164 unit tests** · `build` · **79 Playwright E2E** — green. Every push to
 `main` re-runs all of it in GitHub Actions against the real cloud Supabase, so a green push is
 validated even when this machine's local gates are skipped.
 
@@ -157,14 +157,17 @@ state. **No copyrighted audio is bundled and none is claimed.** Drop licensed or
 The landing page's fake-door for these two concepts matches: it says the player is built and the
 audio is not licensed.
 
-### 3.7 AI provider — not wired, and the app says so everywhere
+### 3.7 AI is CANCELLED, and there is nothing to do here
 
-The journal's review layer and an AI coach are the only AI features named anywhere, and both are
-listed as unbuilt on `/pricing` **with their real reason**. The journal page states it next to the
-thing it is missing from. There is no placeholder summary and no invented insight.
+Kept as a numbered item because this used to be an owner action, and its silent disappearance would
+read as an oversight. It is not: anything requiring a paid third-party model provider is out of the
+product permanently (2026-07-31 owner decision).
 
-If you wire a provider later, note that `CLAUDE.md §5` currently lists AI features as out of scope —
-a scope decision to make deliberately, not to drift into.
+Every mention has been removed from the journal, `/pricing`, the FAQ and the Hub, along with both
+interest chips. `e2e/marketing.spec.ts` fails if one comes back on any public page.
+
+Nothing to verify, nothing to sign up for, no key to set. The planning and estimation logic is
+deterministic and unit-tested, and must never be marketed as AI.
 
 ### 3.8 Supabase platform settings — THE ONE PART OF THE SECURITY AUDIT NOBODY COULD REACH
 

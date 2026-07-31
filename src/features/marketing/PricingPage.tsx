@@ -19,7 +19,16 @@ import { PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
  * on the page worth less.
  *
  * The rule for this list: it may only contain things that genuinely do not
- * exist, and each has to name the real blocker rather than say "soon".
+ * exist, that WE ARE ACTUALLY GOING TO SHIP, and each has to name the real
+ * blocker rather than say "soon".
+ *
+ * The second clause is new and it is the one that does the work. A list of
+ * everything absent is not honesty, it is a wish-list with citations: the
+ * reader cannot tell a commitment from a maybe. Two entries were removed
+ * rather than reworded. AI (a coach, and review of your journal) is CANCELLED
+ * as a product decision, not deferred, so it has no place on a page about what
+ * is coming. Image vision boards were described as "a deliberate wait", which
+ * is a fair description of a maybe and not something to promise anyone.
  */
 const NOT_BUILT: { what: string; why: string }[] = [
   {
@@ -27,24 +36,8 @@ const NOT_BUILT: { what: string; why: string }[] = [
     why: 'The players are built. No audio is licensed yet, and we would rather ship silence than something we do not have the rights to.',
   },
   {
-    // CORRECTED when the journal shipped. This used to say "an AI coach and a
-    // voice journal", which stopped being true the day voice notes landed —
-    // exactly the drift this whole list exists to prevent. The journal is real;
-    // the layer that READS it back is what does not exist.
-    what: 'An AI coach, and AI review of your journal',
-    why: 'The journal itself ships: write it or say it. Reading a fortnight back and naming the pattern would need an AI provider this app is not wired to, so there is no summary rather than a made-up one.',
-  },
-  {
     what: 'Referral rewards & discount codes',
     why: 'Real discounts need billing switched on properly first. Until then there is a plain share link that actually works.',
-  },
-  {
-    // The REASON here went stale even though the feature did not: this used to
-    // say pictures need storage, upload limits and a bill, and all three now
-    // exist for journal voice notes. A list whose whole promise is "the actual
-    // reason" cannot keep quoting a blocker that has been cleared.
-    what: 'Image vision boards',
-    why: 'Not a technical blocker any more. Private storage exists for voice notes. It is a deliberate wait: the Vision page ships text-first until enough people ask for images to justify the storage bill for everyone.',
   },
   {
     what: 'Shared workspaces & team capacity',

@@ -139,9 +139,9 @@ export function hubTiles(): HubTile[] {
       : []),
     // WAS A FAKE DOOR. It said a journal needed an AI service, which was true of
     // the version that reads you back and false of the one that simply lets you
-    // write. The writing half now ships (text always, voice on Pro) and the AI
-    // half is stated as unbuilt ON the journal page itself, where someone can
-    // actually see what does and does not exist.
+    // write. The writing half ships (text always, voice on Pro); the reading-back
+    // half is CANCELLED rather than pending (CLAUDE.md §5), so nothing here
+    // mentions it any more.
     ...(FEATURES.journal
       ? [{ id: 'journal', label: 'Journal', hint: 'how today went', icon: NotebookPen, to: '/journal' }]
       : []),

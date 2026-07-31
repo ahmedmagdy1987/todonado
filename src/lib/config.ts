@@ -263,10 +263,10 @@ export const FEATURES = {
    * notes (Pro). Owner-only data in `journal_entries`, audio in the private
    * `journal-audio` storage bucket behind signed URLs.
    *
-   * NO AI. The reading-back-and-spotting-patterns layer needs an AI provider the
-   * app does not have; the page says so plainly and offers the existing
-   * interest chip rather than shipping a placeholder that pretends. Default ON;
-   * set to false to remove the route, the nav entry and the hub tile.
+   * NO AI, PERMANENTLY (see CLAUDE.md §5). The reading-back-and-spotting-patterns
+   * layer is cancelled rather than pending, so the page no longer mentions it at
+   * all: it is a place to write, and that is the whole feature. Default ON; set
+   * to false to remove the route, the nav entry and the hub tile.
    */
   journal: true,
 } as const

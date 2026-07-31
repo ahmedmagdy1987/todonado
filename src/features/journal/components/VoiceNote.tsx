@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Loader2, Mic, Square, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { InterestChip } from '@/components/common/InterestChip'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '../journal'
 import { useAudioUrl } from '../api/useJournal'
@@ -168,34 +167,5 @@ export function VoiceNote({
         </div>
       )}
     </section>
-  )
-}
-
-/**
- * The AI layer, stated plainly and not built.
- *
- * A journal that reads itself back and finds the patterns is the version worth
- * having, and it needs a provider this app does not have. So this says exactly
- * that and offers a vote — no placeholder "insights", no fake summary, and no
- * date it cannot keep.
- */
-export function AiNotBuiltNote() {
-  return (
-    <div className="flex flex-col items-start gap-2 rounded-2xl border border-white/5 bg-surface-2/30 p-4">
-      <p className="text-sm font-medium text-text-primary">
-        AI review of your entries isn&rsquo;t built yet
-      </p>
-      <p className="text-xs leading-relaxed text-text-muted">
-        Reading a fortnight back and telling you what keeps going wrong needs an AI provider
-        Todonado doesn&rsquo;t have yet. Rather than ship a summary that isn&rsquo;t really reading
-        anything, there&rsquo;s nothing here. One tap registers a vote for building it properly.
-      </p>
-      <InterestChip
-        featureKey="ai_coach"
-        source="journal"
-        label="I’d want this"
-        className="mt-1"
-      />
-    </div>
   )
 }
