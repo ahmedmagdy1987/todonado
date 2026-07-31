@@ -29,6 +29,8 @@ import { DayColumn } from './components/DayColumn'
 import { WeekTaskItem } from './components/WeekTaskItem'
 import { WeekTaskCard } from './components/WeekTaskCard'
 import { WeekQuickAdd } from './components/WeekQuickAdd'
+import { useAuth } from '@/features/auth/auth-context'
+import { usePlanScope } from '@/features/today/usePlanScope'
 import { PlanMyWeek } from './components/PlanMyWeek'
 import type { WeekPlanPick } from './planWeek'
 import { WeekStrip } from './components/WeekStrip'
@@ -42,6 +44,9 @@ interface WeekUndo {
 
 export function WeekPage() {
   const { isPro, billingLoading } = usePlan()
+  const { user } = useAuth()
+  // The same per-user memory the day planner uses, so the two controls agree.
+  const [planScope, setPlanScope] = usePlanScope(user?.id ?? '')
   const { workspaceId, capacityMinutes } = useWorkspace()
   const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
   // Delete lives in the shared TaskDialog, so the board doesn't need it here.
@@ -162,6 +167,8 @@ export function WeekPage() {
             todayStr={today}
             estimate={estimateCost}
             busyByDate={byDate}
+            scope={planScope}
+            onScopeChange={setPlanScope}
             onApply={applyWeekPlan}
           />
           <Link to="/today">

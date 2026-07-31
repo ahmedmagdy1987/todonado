@@ -39,6 +39,9 @@ const dayPlan = (over: Partial<DayPlan> = {}): DayPlan => ({
   capacityFull: false,
   candidateCount: 5,
   skipped: 3,
+  scope: 'all',
+  excludedByScope: 0,
+  alreadyPlanned: 0,
   ...over,
 })
 

@@ -1,5 +1,12 @@
 import type { Task } from '@/types/database'
 import { DEFAULT_DAILY_CAPACITY_MINUTES } from '@/lib/config'
+import {
+  DEFAULT_PLAN_SCOPE,
+  censusFor,
+  comparePlanOrder,
+  isPlannable,
+  type PlanScope,
+} from './planScope'
 
 /**
  * Deterministic auto-plan-my-day. Pure, no React, no I/O — fully unit-tested.
@@ -27,26 +34,35 @@ export interface DayPlan {
   candidateCount: number
   /** Eligible candidates that didn't fit and stay in the backlog. */
   skipped: number
+  /** Which pool this plan drew from. */
+  scope: PlanScope
+  /**
+   * Open tasks only the WIDER scope would have considered. Non-zero means an
+   * empty plan has a one-tap fix rather than being a dead end.
+   */
+  excludedByScope: number
+  /** Open tasks already sitting on today or a future day. */
+  alreadyPlanned: number
 }
 
 const isOpen = (t: Task) => t.status === 'todo' || t.status === 'in_progress'
 
 /**
- * Eligible to be auto-planned into today: an OPEN task NOT already on today and
- * available to pull — either project-less (an Inbox task) or due/overdue. A task
- * scheduled for a FUTURE day is left alone (we never disturb an existing plan).
+ * Eligible to be auto-planned into today.
+ *
+ * The rule now lives in `planScope.ts`, shared with `planWeek`, because the two
+ * had drifted into different answers to the same question. See that file for
+ * why "project work with no deadline" used to be excluded and why it no longer
+ * is — it is the whole reason this planner reported an empty day on a full
+ * workspace.
  */
-export function isPlanCandidate(t: Task, todayStr: string): boolean {
-  if (!isOpen(t)) return false
-  if (t.scheduled_for === todayStr) return false // already on today
-  if (t.scheduled_for != null && t.scheduled_for > todayStr) return false // future plan
-  const projectless = t.project_id == null
-  const overdue = t.scheduled_for != null && t.scheduled_for < todayStr
-  const due = t.due_date != null && t.due_date <= todayStr
-  return projectless || overdue || due
+export function isPlanCandidate(
+  t: Task,
+  todayStr: string,
+  scope: PlanScope = DEFAULT_PLAN_SCOPE,
+): boolean {
+  return isPlannable(t, todayStr, scope, todayStr)
 }
-
-const UNDATED = '9999-12-31'
 
 /**
  * Build today's plan. Greedy over a FIXED, explainable sort — priority (high
@@ -63,6 +79,7 @@ export function planDay(
   capacityMinutes: number,
   todayStr: string,
   estimate: (task: Task) => number,
+  scope: PlanScope = DEFAULT_PLAN_SCOPE,
 ): DayPlan {
   // `>= 0`, NOT `> 0`. This receives a DERIVED REMAINDER, not a raw setting:
   // TodayPage passes `cal.effectiveCapacity`, which is `max(0, capacity − busy)`
@@ -97,6 +114,7 @@ export function planDay(
       return sum + (real == null ? Math.max(1, Math.round(estimate(t))) : Math.max(0, Math.round(real)))
     }, 0)
   const remainingCapacity = Math.max(0, capacity - plannedToday)
+  const census = censusFor(tasks, todayStr, scope, todayStr)
 
   if (remainingCapacity <= 0) {
     return {
@@ -106,11 +124,14 @@ export function planDay(
       capacityFull: true,
       candidateCount: 0,
       skipped: 0,
+      scope,
+      excludedByScope: census.excludedByScope,
+      alreadyPlanned: census.alreadyPlanned,
     }
   }
 
   const candidates = tasks
-    .filter((t) => isPlanCandidate(t, todayStr))
+    .filter((t) => isPlanCandidate(t, todayStr, scope))
     .map((t) => {
       const real = t.effort_minutes
       const estimated = real == null
@@ -118,14 +139,7 @@ export function planDay(
       return { task: t, cost, estimated }
     })
 
-  candidates.sort((a, b) => {
-    if (b.task.priority !== a.task.priority) return b.task.priority - a.task.priority // priority desc
-    const ad = a.task.due_date ?? UNDATED
-    const bd = b.task.due_date ?? UNDATED
-    if (ad !== bd) return ad < bd ? -1 : 1 // due date asc (undated last)
-    if (a.cost !== b.cost) return a.cost - b.cost // effort asc (fit more)
-    return a.task.id < b.task.id ? -1 : a.task.id > b.task.id ? 1 : 0 // stable
-  })
+  candidates.sort((a, b) => comparePlanOrder(a, b, todayStr))
 
   const picks: PlanPick[] = []
   let totalMinutes = 0
@@ -146,5 +160,8 @@ export function planDay(
     capacityFull: false,
     candidateCount: candidates.length,
     skipped,
+    scope,
+    excludedByScope: census.excludedByScope,
+    alreadyPlanned: census.alreadyPlanned,
   }
 }

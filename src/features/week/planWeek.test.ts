@@ -26,14 +26,31 @@ describe('isWeekCandidate — eligibility', () => {
     expect(isWeekCandidate(makeTask({ project_id: 'p1', due_date: LAST }), TODAY, LAST)).toBe(true)
   })
 
-  it('LEAVES a project task with no deadline alone — planning a week must not dump a backlog', () => {
-    expect(isWeekCandidate(makeTask({ project_id: 'p1' }), TODAY, LAST)).toBe(false)
+  /**
+   * THE REGRESSION, and the assertion that hid it. This test used to read
+   * "LEAVES a project task with no deadline alone" and expect `false`, on the
+   * grounds that planning a week must not dump a backlog. Per-day CAPACITY is
+   * what prevents that, and it prevents it regardless of what the planner is
+   * allowed to consider. The rule as written made a deadline-free project
+   * permanently unplannable.
+   */
+  it('TAKES a project task with no deadline — the "nothing to plan" bug', () => {
+    expect(isWeekCandidate(makeTask({ project_id: 'p1' }), TODAY, LAST)).toBe(true)
   })
 
-  it('leaves a deadline beyond the window alone', () => {
+  it('takes a deadline beyond the window: it is still work you could do now', () => {
     expect(isWeekCandidate(makeTask({ project_id: 'p1', due_date: '2026-07-30' }), TODAY, LAST)).toBe(
-      false,
+      true,
     )
+  })
+
+  it('the narrow scope still exists, and is opt-in', () => {
+    const undated = makeTask({ project_id: 'p1' })
+    expect(isWeekCandidate(undated, TODAY, LAST, 'dated')).toBe(false)
+    expect(isWeekCandidate(undated, TODAY, LAST, 'all')).toBe(true)
+    // A deadline inside the window survives the narrow scope; one beyond it does not.
+    expect(isWeekCandidate(makeTask({ due_date: LAST }), TODAY, LAST, 'dated')).toBe(true)
+    expect(isWeekCandidate(makeTask({ due_date: '2026-07-30' }), TODAY, LAST, 'dated')).toBe(false)
   })
 
   it('never disturbs work already scheduled, in or beyond the week', () => {
@@ -133,13 +150,13 @@ describe('planWeek — ordering is explainable and deterministic', () => {
     makeTask({ id: 'mid-small', priority: 2, effort_minutes: 15 }),
   ]
 
-  it('sorts by priority, then due date, then effort', () => {
+  it('sorts by tier first, then priority, due date and effort inside it', () => {
     expect(plan(tasks).picks.map((p) => p.task.id)).toEqual([
-      'high',
-      'mid-soon',
-      'mid-later',
-      'mid-small',
-      'low',
+      'mid-soon', // dated, 06-23
+      'mid-later', // dated, 06-26
+      'high', // undated, priority 3
+      'mid-small', // undated, priority 2
+      'low', // undated, priority 0
     ])
   })
 
@@ -168,9 +185,19 @@ describe('planWeek — estimates are for the calculation only', () => {
 
 describe('planWeek — kind empty states', () => {
   it('handles nothing eligible', () => {
-    const result = plan([makeTask({ project_id: 'p1' })]) // project task, no deadline
+    // Everything open is already on a day, so there is genuinely nothing to place.
+    const result = plan([makeTask({ project_id: 'p1', scheduled_for: '2026-06-25' })])
     expect(result).toMatchObject({ taskCount: 0, candidateCount: 0, skipped: 0, weekFull: false })
     expect(result.days).toHaveLength(7)
+    expect(result.alreadyPlanned).toBe(1)
+  })
+
+  it('an empty NARROW plan reports the backlog it is ignoring', () => {
+    const result = plan([makeTask({ id: 'u', project_id: 'p1' })], { scope: 'dated' })
+    expect(result.candidateCount).toBe(0)
+    expect(result.excludedByScope).toBe(1)
+    // The same task, one tap later.
+    expect(plan([makeTask({ id: 'u', project_id: 'p1' })], { scope: 'all' }).taskCount).toBe(1)
   })
 
   it('handles no tasks at all', () => {

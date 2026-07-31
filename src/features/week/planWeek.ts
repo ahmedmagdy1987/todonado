@@ -1,5 +1,12 @@
 import { DEFAULT_DAILY_CAPACITY_MINUTES } from '@/lib/config'
 import type { Task } from '@/types/database'
+import {
+  DEFAULT_PLAN_SCOPE,
+  censusFor,
+  comparePlanOrder,
+  isPlannable,
+  type PlanScope,
+} from '@/features/today/planScope'
 import { WEEK_LENGTH, weekDates } from './week'
 
 /**
@@ -42,10 +49,15 @@ export interface WeekPlan {
   skipped: number
   /** True when no day had a single free minute to begin with. */
   weekFull: boolean
+  /** Which pool this plan drew from. */
+  scope: PlanScope
+  /** Open tasks only the WIDER scope would have considered. */
+  excludedByScope: number
+  /** Open tasks already sitting on today or a future day. */
+  alreadyPlanned: number
 }
 
 const isOpen = (t: Task) => t.status === 'todo' || t.status === 'in_progress'
-const UNDATED = '9999-12-31'
 
 export interface PlanWeekArgs {
   tasks: Task[]
@@ -57,6 +69,7 @@ export interface PlanWeekArgs {
   /** Calendar busy per date; those minutes are unavailable for tasks. */
   busyByDate?: Map<string, number> | Record<string, number>
   count?: number
+  scope?: PlanScope
 }
 
 function busyFor(source: PlanWeekArgs['busyByDate'], date: string): number {
@@ -66,24 +79,22 @@ function busyFor(source: PlanWeekArgs['busyByDate'], date: string): number {
 }
 
 /**
- * Eligible to be planned into the week: an OPEN task that is NOT already placed
- * on a day (we never disturb an existing plan, in or beyond the week), and is
- * either project-less (an Inbox task), already overdue, or carries a deadline
- * that falls inside the window.
+ * Eligible to be planned into the week.
  *
- * That's `isPlanCandidate`'s rule widened from one day to seven: a project task
- * with no deadline still isn't dragged in, so planning a week can't dump an
- * entire backlog onto someone.
+ * The rule is `planScope.ts`, shared with `planDay`, with the seventh day as
+ * the horizon. It used to say "project-less, overdue, or due inside the window"
+ * and justify the omission as protection against dumping a backlog on someone —
+ * but PER-DAY CAPACITY is what prevents that, and it prevents it whatever the
+ * planner is allowed to look at. What the narrow rule actually did was make a
+ * deadline-free project permanently unplannable.
  */
-export function isWeekCandidate(task: Task, todayStr: string, lastDay: string): boolean {
-  if (!isOpen(task)) return false
-  const scheduled = task.scheduled_for
-  // Already scheduled for today or later — leave it exactly where it is.
-  if (scheduled != null && scheduled >= todayStr) return false
-  const overdue = scheduled != null && scheduled < todayStr
-  const projectless = task.project_id == null
-  const dueInWindow = task.due_date != null && task.due_date <= lastDay
-  return projectless || overdue || dueInWindow
+export function isWeekCandidate(
+  task: Task,
+  todayStr: string,
+  lastDay: string,
+  scope: PlanScope = DEFAULT_PLAN_SCOPE,
+): boolean {
+  return isPlannable(task, todayStr, scope, lastDay)
 }
 
 /**
@@ -95,7 +106,14 @@ export function isWeekCandidate(task: Task, todayStr: string, lastDay: string): 
  * deadline has space, it is skipped rather than quietly scheduled late.
  */
 export function planWeek(args: PlanWeekArgs): WeekPlan {
-  const { tasks, todayStr, estimate, busyByDate, count = WEEK_LENGTH } = args
+  const {
+    tasks,
+    todayStr,
+    estimate,
+    busyByDate,
+    count = WEEK_LENGTH,
+    scope = DEFAULT_PLAN_SCOPE,
+  } = args
   const capacity =
     Number.isFinite(args.capacityMinutes) && args.capacityMinutes > 0
       ? args.capacityMinutes
@@ -123,17 +141,10 @@ export function planWeek(args: PlanWeekArgs): WeekPlan {
   }
 
   const candidates = tasks
-    .filter((t) => isWeekCandidate(t, todayStr, lastDay))
+    .filter((t) => isWeekCandidate(t, todayStr, lastDay, scope))
     .map((t) => ({ task: t, ...costOf(t) }))
 
-  candidates.sort((a, b) => {
-    if (b.task.priority !== a.task.priority) return b.task.priority - a.task.priority
-    const ad = a.task.due_date ?? UNDATED
-    const bd = b.task.due_date ?? UNDATED
-    if (ad !== bd) return ad < bd ? -1 : 1
-    if (a.cost !== b.cost) return a.cost - b.cost
-    return a.task.id < b.task.id ? -1 : a.task.id > b.task.id ? 1 : 0
-  })
+  candidates.sort((a, b) => comparePlanOrder(a, b, todayStr))
 
   const byDate = new Map<string, WeekPlanPick[]>(dates.map((d) => [d, []]))
   const picks: WeekPlanPick[] = []
@@ -178,6 +189,8 @@ export function planWeek(args: PlanWeekArgs): WeekPlan {
     }
   })
 
+  const census = censusFor(tasks, todayStr, scope, lastDay)
+
   return {
     days,
     picks,
@@ -186,5 +199,8 @@ export function planWeek(args: PlanWeekArgs): WeekPlan {
     candidateCount: candidates.length,
     skipped,
     weekFull: days.every((d) => d.remainingBefore <= 0),
+    scope,
+    excludedByScope: census.excludedByScope,
+    alreadyPlanned: census.alreadyPlanned,
   }
 }

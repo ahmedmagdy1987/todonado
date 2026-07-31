@@ -134,6 +134,16 @@ export interface Digest {
   proTeaser: boolean
   /** Today is already at capacity — the CTA becomes informational. */
   dayAlreadyPlanned: boolean
+  /**
+   * Open work not yet on any day, INCLUDING whatever the current scope is
+   * ignoring.
+   *
+   * The briefing has to be able to say a number here. Its weakest moment was
+   * offering no suggestion to someone with a full backlog — technically silent
+   * rather than wrong, but it read as "you have nothing", which was the same
+   * lie the planner was telling. A count cannot be misread.
+   */
+  unplanned: number
 }
 
 /** True when the planner actually produced something worth offering. */
@@ -202,5 +212,6 @@ export function composeDigest(input: DigestInput): Digest {
     alerts: isPro ? selectPriorityAlerts(tasks, todayStr) : [],
     proTeaser: !isPro && offerable,
     dayAlreadyPlanned: plan?.capacityFull ?? false,
+    unplanned: plan ? plan.candidateCount + plan.excludedByScope : 0,
   }
 }

@@ -6,7 +6,7 @@ const TODAY = '2026-06-23'
 const flat = () => 30 // constant estimator for effortless tasks
 
 describe('isPlanCandidate', () => {
-  it('includes open project-less and due/overdue tasks, excludes the rest', () => {
+  it('includes open work that is not already on a day', () => {
     expect(isPlanCandidate(makeTask({ project_id: null }), TODAY)).toBe(true) // inbox
     expect(
       isPlanCandidate(makeTask({ project_id: 'p', scheduled_for: '2026-06-20' }), TODAY),
@@ -16,7 +16,31 @@ describe('isPlanCandidate', () => {
     expect(isPlanCandidate(makeTask({ status: 'done' }), TODAY)).toBe(false)
     expect(isPlanCandidate(makeTask({ scheduled_for: TODAY }), TODAY)).toBe(false) // already today
     expect(isPlanCandidate(makeTask({ scheduled_for: '2026-06-30' }), TODAY)).toBe(false) // future
-    expect(isPlanCandidate(makeTask({ project_id: 'p' }), TODAY)).toBe(false) // project backlog, not due
+  })
+
+  /**
+   * THE REGRESSION. This file used to assert the opposite:
+   *
+   *     expect(isPlanCandidate(makeTask({ project_id: 'p' }), TODAY)).toBe(false)
+   *                                                    // "project backlog, not due"
+   *
+   * which is exactly the rule that made "Plan my day" report an empty day to
+   * someone with a full project. It was not an oversight — it was deliberate,
+   * and it was wrong. Capacity is what stops a backlog being dumped on anyone.
+   */
+  it('PLANS PROJECT WORK THAT HAS NO DEADLINE — the "nothing to plan" bug', () => {
+    expect(isPlanCandidate(makeTask({ project_id: 'p' }), TODAY)).toBe(true)
+  })
+
+  it('the narrow scope is still available, and is opt-in', () => {
+    const undatedProjectTask = makeTask({ project_id: 'p' })
+    expect(isPlanCandidate(undatedProjectTask, TODAY, 'dated')).toBe(false)
+    expect(isPlanCandidate(undatedProjectTask, TODAY, 'all')).toBe(true)
+    // Overdue and due-today survive the narrow scope, which is the point of it.
+    expect(isPlanCandidate(makeTask({ project_id: 'p', due_date: TODAY }), TODAY, 'dated')).toBe(true)
+    expect(
+      isPlanCandidate(makeTask({ project_id: 'p', scheduled_for: '2026-06-01' }), TODAY, 'dated'),
+    ).toBe(true)
   })
 })
 
@@ -35,18 +59,43 @@ describe('planDay', () => {
     expect(plan.capacityFull).toBe(false)
   })
 
-  it('orders priority → due date (soonest first) → effort (smaller first)', () => {
+  /**
+   * Tiers before attributes: overdue, then dated, then undated project work,
+   * then loose capture. Priority, deadline and effort break ties INSIDE a tier.
+   *
+   * This replaces a pure "priority first" order. A high-priority task with no
+   * date used to outrank a deadline landing tomorrow, which is the wrong answer
+   * when one of them can actually be late.
+   */
+  it('orders by tier first: overdue → dated → project backlog → inbox', () => {
     const tasks = [
-      makeTask({ id: 'low-soon', priority: 1, due_date: '2026-06-20', effort_minutes: 20 }),
-      makeTask({ id: 'high-late', priority: 3, due_date: '2026-06-30', effort_minutes: 20 }),
-      makeTask({ id: 'p1-late', priority: 1, due_date: '2026-06-28', effort_minutes: 20 }),
-      makeTask({ id: 'p1-soon-big', priority: 1, due_date: '2026-06-20', effort_minutes: 50 }),
+      makeTask({ id: 'inbox-high', priority: 3, project_id: null }),
+      makeTask({ id: 'proj-undated', priority: 0, project_id: 'p' }),
+      makeTask({ id: 'dated-late', priority: 0, due_date: '2026-06-30' }),
+      makeTask({ id: 'overdue', priority: 0, due_date: '2026-06-01' }),
     ]
     const plan = planDay(tasks, 1000, TODAY, flat)
     expect(plan.picks.map((p) => p.task.id)).toEqual([
+      'overdue', // late beats everything
+      'dated-late', // a deadline beats no deadline, whatever the priority
+      'proj-undated', // deliberate work
+      'inbox-high', // loose capture last, even at priority 3
+    ])
+  })
+
+  it('inside a tier: priority → due date (soonest first) → effort (smaller first)', () => {
+    const tasks = [
+      makeTask({ id: 'low-soon', priority: 1, due_date: '2026-06-25', effort_minutes: 20 }),
+      makeTask({ id: 'high-late', priority: 3, due_date: '2026-06-30', effort_minutes: 20 }),
+      makeTask({ id: 'p1-late', priority: 1, due_date: '2026-06-28', effort_minutes: 20 }),
+      makeTask({ id: 'p1-soon-big', priority: 1, due_date: '2026-06-25', effort_minutes: 50 }),
+    ]
+    const plan = planDay(tasks, 1000, TODAY, flat)
+    // All four are `dated` (none late), so the old tiebreakers decide.
+    expect(plan.picks.map((p) => p.task.id)).toEqual([
       'high-late', // priority 3 wins
-      'low-soon', // p1, due 06-20, 20m
-      'p1-soon-big', // p1, due 06-20, 50m (same due, larger effort after)
+      'low-soon', // p1, due 06-25, 20m
+      'p1-soon-big', // p1, due 06-25, 50m (same due, larger effort after)
       'p1-late', // p1, due 06-28
     ])
   })
@@ -79,17 +128,36 @@ describe('planDay', () => {
     expect(plan.skipped).toBe(1)
   })
 
-  it('returns no candidates when the backlog is empty/ineligible', () => {
+  it('returns no candidates only when there is genuinely nothing left', () => {
     const tasks = [
       makeTask({ status: 'done' }),
       makeTask({ scheduled_for: '2026-06-30' }), // future
       makeTask({ scheduled_for: TODAY }), // already today
-      makeTask({ project_id: 'p', effort_minutes: 30 }), // project backlog, not due
     ]
     const plan = planDay(tasks, 360, TODAY, flat)
     expect(plan.candidateCount).toBe(0)
     expect(plan.picks).toHaveLength(0)
     expect(plan.capacityFull).toBe(false)
+    // ...and it can SAY so: two open tasks are already on a day.
+    expect(plan.alreadyPlanned).toBe(2)
+    expect(plan.excludedByScope).toBe(0)
+  })
+
+  it('an empty NARROW plan reports the backlog it is ignoring, so the UI can offer it', () => {
+    const tasks = [
+      makeTask({ id: 'a', project_id: 'p', effort_minutes: 30 }),
+      makeTask({ id: 'b', project_id: 'p', effort_minutes: 30 }),
+      makeTask({ id: 'c', scheduled_for: TODAY }),
+    ]
+    const narrow = planDay(tasks, 360, TODAY, flat, 'dated')
+    expect(narrow.candidateCount).toBe(0)
+    expect(narrow.excludedByScope, 'the two undated project tasks').toBe(2)
+    expect(narrow.alreadyPlanned).toBe(1)
+
+    // One tap later, the same tasks are a real plan.
+    const wide = planDay(tasks, 360, TODAY, flat, 'all')
+    expect(wide.picks.map((p) => p.task.id)).toEqual(['a', 'b'])
+    expect(wide.excludedByScope).toBe(0)
   })
 
   it('never exceeds remaining capacity even with one huge task', () => {

@@ -3,7 +3,15 @@ import { CalendarCheck, Wand2 } from 'lucide-react'
 import { Button, Modal } from '@/components/ui'
 import { formatMinutes } from '@/lib/format'
 import type { Task } from '@/types/database'
+import { cn } from '@/lib/utils'
 import { planWeek, type WeekPlanPick } from '../planWeek'
+import {
+  DEFAULT_PLAN_SCOPE,
+  PLAN_SCOPES,
+  PLAN_SCOPE_HINT,
+  PLAN_SCOPE_LABEL,
+  type PlanScope,
+} from '@/features/today/planScope'
 import { weekdayLabel } from '../week'
 
 interface PlanMyWeekProps {
@@ -14,14 +22,58 @@ interface PlanMyWeekProps {
   busyByDate?: Map<string, number>
   /** Schedule the picks (parent owns the mutations, batch undo + analytics). */
   onApply: (picks: WeekPlanPick[]) => void
+  /** Which pool to draw from. Remembered per user by the parent. */
+  scope?: PlanScope
+  onScopeChange?: (scope: PlanScope) => void
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string
+  body: string
+  action?: { label: string; onClick: () => void }
+}) {
   return (
     <div className="text-center">
       <h3 className="font-display text-lg font-semibold">{title}</h3>
       <p className="mt-1 text-sm text-text-muted">{body}</p>
+      {action && (
+        <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
+  )
+}
+
+/** Two choices, stated plainly. Mirrors the day planner exactly. */
+function ScopePicker({ scope, onChange }: { scope: PlanScope; onChange: (next: PlanScope) => void }) {
+  return (
+    <fieldset>
+      <legend className="text-xs font-medium text-text-muted">Pull from</legend>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {PLAN_SCOPES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={scope === option}
+            title={PLAN_SCOPE_HINT[option]}
+            onClick={() => onChange(option)}
+            className={cn(
+              'focus-ring inline-flex min-h-[44px] items-center rounded-xl border px-3 text-sm font-medium transition-colors md-fine:min-h-0 md-fine:py-1.5',
+              scope === option
+                ? 'border-transparent bg-brand-gradient text-white'
+                : 'border-white/10 text-text-muted hover:text-text-primary',
+            )}
+          >
+            {PLAN_SCOPE_LABEL[option]}
+          </button>
+        ))}
+      </div>
+    </fieldset>
   )
 }
 
@@ -37,11 +89,13 @@ export function PlanMyWeek({
   estimate,
   busyByDate,
   onApply,
+  scope = DEFAULT_PLAN_SCOPE,
+  onScopeChange,
 }: PlanMyWeekProps) {
   const [open, setOpen] = useState(false)
   const plan = useMemo(
-    () => planWeek({ tasks, capacityMinutes, todayStr, estimate, busyByDate }),
-    [tasks, capacityMinutes, todayStr, estimate, busyByDate],
+    () => planWeek({ tasks, capacityMinutes, todayStr, estimate, busyByDate, scope }),
+    [tasks, capacityMinutes, todayStr, estimate, busyByDate, scope],
   )
 
   const hasPlan = plan.taskCount > 0
@@ -60,15 +114,34 @@ export function PlanMyWeek({
 
       <Modal open={open} onClose={() => setOpen(false)} title="Plan my week">
         <div className="space-y-4 p-5">
+          {onScopeChange && <ScopePicker scope={scope} onChange={onScopeChange} />}
+
           {plan.weekFull ? (
             <EmptyState
               title="Your week is already full"
-              body="Every day is at capacity — finish or move something to make room."
+              body="Every day is at capacity. Finish or move something to make room."
+            />
+          ) : plan.candidateCount === 0 && plan.excludedByScope > 0 ? (
+            <EmptyState
+              title="Nothing dated left to plan"
+              body={`Everything with a deadline is already placed. You have ${plan.excludedByScope} unscheduled ${
+                plan.excludedByScope === 1 ? 'task' : 'tasks'
+              } without one.`}
+              action={
+                onScopeChange ? { label: 'Include them', onClick: () => onScopeChange('all') } : undefined
+              }
+            />
+          ) : plan.candidateCount === 0 && plan.alreadyPlanned > 0 ? (
+            <EmptyState
+              title="It is all planned already"
+              body={`Your ${plan.alreadyPlanned} open ${
+                plan.alreadyPlanned === 1 ? 'task is' : 'tasks are'
+              } already on a day. Nothing is waiting to be scheduled.`}
             />
           ) : plan.candidateCount === 0 ? (
             <EmptyState
               title="Nothing to plan yet"
-              body="Capture a few tasks in your Inbox, or give a project task a deadline, and they'll be planned into the week."
+              body="Capture a few tasks in your Inbox and they will be planned into the week."
             />
           ) : !hasPlan ? (
             <EmptyState

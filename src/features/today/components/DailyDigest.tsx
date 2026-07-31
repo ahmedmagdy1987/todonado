@@ -68,6 +68,7 @@ export function DailyDigest({
     alerts,
     proTeaser,
     dayAlreadyPlanned,
+    unplanned,
   } = digest
 
   const dateLabel = (() => {
@@ -242,6 +243,14 @@ export function DailyDigest({
         {dayAlreadyPlanned && (
           <p className="text-xs text-text-muted">
             Today is already planned to capacity — finish or move something to make room.
+          </p>
+        )}
+
+        {/* Never let a quiet card read as "you have nothing". If work is waiting,
+            say how much of it before offering the button. */}
+        {!suggestion && !dayAlreadyPlanned && unplanned > 0 && (
+          <p className="text-xs text-text-muted">
+            {unplanned} {unplanned === 1 ? 'task is' : 'tasks are'} waiting to be scheduled.
           </p>
         )}
 

@@ -2,8 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Wand2 } from 'lucide-react'
 import { Button, Modal } from '@/components/ui'
 import { formatMinutes } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { Task } from '@/types/database'
 import { planDay, type PlanPick } from '../autoPlan'
+import {
+  DEFAULT_PLAN_SCOPE,
+  PLAN_SCOPES,
+  PLAN_SCOPE_HINT,
+  PLAN_SCOPE_LABEL,
+  type PlanScope,
+} from '../planScope'
 
 interface PlanMyDayProps {
   tasks: Task[]
@@ -27,14 +35,73 @@ interface PlanMyDayProps {
    * the app believed was empty.
    */
   ready?: boolean
+  /** Which pool to draw from. Remembered per user by the parent. */
+  scope?: PlanScope
+  onScopeChange?: (scope: PlanScope) => void
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+/**
+ * An empty result always carries the reason and, where one exists, the fix.
+ *
+ * "Nothing to plan" was the single most misleading string in the product: it
+ * was shown to people with a hundred open tasks, because the planner could not
+ * see project work without a deadline. The rule is fixed, but the lesson is
+ * that an empty state has to say WHICH kind of empty it is, and never be a dead
+ * end when a one-tap answer exists.
+ */
+function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string
+  body: string
+  action?: { label: string; onClick: () => void }
+}) {
   return (
     <div className="text-center">
       <h3 className="font-display text-lg font-semibold">{title}</h3>
       <p className="mt-1 text-sm text-text-muted">{body}</p>
+      {action && (
+        <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
+  )
+}
+
+/** Two choices, stated plainly. Not a settings screen. */
+function ScopePicker({
+  scope,
+  onChange,
+}: {
+  scope: PlanScope
+  onChange: (next: PlanScope) => void
+}) {
+  return (
+    <fieldset>
+      <legend className="text-xs font-medium text-text-muted">Pull from</legend>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {PLAN_SCOPES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={scope === option}
+            title={PLAN_SCOPE_HINT[option]}
+            onClick={() => onChange(option)}
+            className={cn(
+              'focus-ring inline-flex min-h-[44px] items-center rounded-xl border px-3 text-sm font-medium transition-colors md-fine:min-h-0 md-fine:py-1.5',
+              scope === option
+                ? 'border-transparent bg-brand-gradient text-white'
+                : 'border-white/10 text-text-muted hover:text-text-primary',
+            )}
+          >
+            {PLAN_SCOPE_LABEL[option]}
+          </button>
+        ))}
+      </div>
+    </fieldset>
   )
 }
 
@@ -53,6 +120,8 @@ export function PlanMyDay({
   label = 'Plan my day',
   defaultOpen = false,
   ready = true,
+  scope = DEFAULT_PLAN_SCOPE,
+  onScopeChange,
 }: PlanMyDayProps) {
   const [open, setOpen] = useState(false)
   /**
@@ -71,11 +140,12 @@ export function PlanMyDay({
     setOpen(true)
   }, [defaultOpen, ready])
   const plan = useMemo(
-    () => planDay(tasks, capacityMinutes, today, estimate),
-    [tasks, capacityMinutes, today, estimate],
+    () => planDay(tasks, capacityMinutes, today, estimate, scope),
+    [tasks, capacityMinutes, today, estimate, scope],
   )
 
   const hasPlan = !plan.capacityFull && plan.picks.length > 0
+  const widen = onScopeChange ? () => onScopeChange('all') : undefined
 
   function confirm() {
     // Belt and braces: the trigger is disabled while `ready` is false, but the
@@ -101,10 +171,27 @@ export function PlanMyDay({
 
       <Modal open={open} onClose={() => setOpen(false)} title="Plan my day">
         <div className="space-y-4 p-5">
+          {onScopeChange && <ScopePicker scope={scope} onChange={onScopeChange} />}
+
           {plan.capacityFull ? (
             <EmptyState
-              title="Your day's already planned"
-              body="You're at capacity for today — finish or move something to make room."
+              title="Your day is already full"
+              body="You are at capacity for today. Finish or move something to make room."
+            />
+          ) : plan.candidateCount === 0 && plan.excludedByScope > 0 ? (
+            <EmptyState
+              title="Nothing dated left to plan"
+              body={`Everything with a date is already planned. You have ${plan.excludedByScope} unscheduled ${
+                plan.excludedByScope === 1 ? 'task' : 'tasks'
+              } without one.`}
+              action={widen ? { label: 'Include them', onClick: widen } : undefined}
+            />
+          ) : plan.candidateCount === 0 && plan.alreadyPlanned > 0 ? (
+            <EmptyState
+              title="It is all planned already"
+              body={`Your ${plan.alreadyPlanned} open ${
+                plan.alreadyPlanned === 1 ? 'task is' : 'tasks are'
+              } already on a day. Nothing is waiting to be scheduled.`}
             />
           ) : plan.candidateCount === 0 ? (
             <EmptyState

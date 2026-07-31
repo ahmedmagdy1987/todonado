@@ -39,6 +39,7 @@ import { CapacityMeter } from './CapacityMeter'
 import { RolloverBanner } from './components/RolloverBanner'
 import { OverbookingWarning } from './components/OverbookingWarning'
 import { PlanMyDay } from './components/PlanMyDay'
+ import { usePlanScope } from './usePlanScope'
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -171,13 +172,14 @@ export function TodayPage() {
   //  stays quiet, never a spinner and never a blocked page.
   // ---------------------------------------------------------------------------
   const { isPro, billingLoading } = usePlan()
+  const [planScope, setPlanScope] = usePlanScope(user?.id ?? '')
   const { data: focusSessions = [] } = useFocusSessions(workspaceId)
   const { dismissed: digestDismissed, dismiss: dismissDigest, reopen: reopenDigest } =
     useDigestDismissal(today)
 
   const dayPlan = useMemo(
-    () => (FEATURES.autoPlan ? planDay(tasks, cal.effectiveCapacity, today, estimateCost) : null),
-    [tasks, cal.effectiveCapacity, today, estimateCost],
+    () => (FEATURES.autoPlan ? planDay(tasks, cal.effectiveCapacity, today, estimateCost, planScope) : null),
+    [tasks, cal.effectiveCapacity, today, estimateCost, planScope],
   )
   const bias = useMemo(() => estimationBias(tasks, focusSessions), [tasks, focusSessions])
   // Points: derived from the two collections already fetched above, so this adds
@@ -308,6 +310,8 @@ export function TodayPage() {
               capacityMinutes={cal.effectiveCapacity}
               today={today}
               estimate={estimateCost}
+              scope={planScope}
+              onScopeChange={setPlanScope}
               onApply={applyPlan}
               variant="compact"
               defaultOpen={planOnLoad}
@@ -343,6 +347,8 @@ export function TodayPage() {
                   capacityMinutes={cal.effectiveCapacity}
                   today={today}
                   estimate={estimateCost}
+                  scope={planScope}
+                  onScopeChange={setPlanScope}
                   onApply={applyPlan}
                   variant={digest.suggestion ? 'compact' : 'prominent'}
                   label={digest.suggestion ? 'Adjust' : 'Plan my day'}
@@ -431,6 +437,8 @@ export function TodayPage() {
                     capacityMinutes={cal.effectiveCapacity}
                     today={today}
                     estimate={estimateCost}
+                    scope={planScope}
+                    onScopeChange={setPlanScope}
                     onApply={applyPlan}
                     variant="prominent"
                   />
