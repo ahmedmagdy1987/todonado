@@ -32,7 +32,10 @@ describe('production security headers (vercel.json)', () => {
     ['X-Frame-Options', 'DENY'],
     ['X-Content-Type-Options', 'nosniff'],
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
-    ['Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()'],
+    // `microphone=(self)` and `payment=(self)`, NOT `()`. An empty allowlist denies
+    // the feature to every origin INCLUDING our own — the blanket `microphone=()`
+    // would have blocked the journal's voice notes in production.
+    ['Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=(self)'],
     ['Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload'],
   ])('sends %s', (key, value) => {
     expect(byKey.get(key)).toBe(value)

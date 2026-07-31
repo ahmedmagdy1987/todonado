@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { isValidEmail, usernameError } from './identifier'
 import { isEmailRateLimitError, isNoAccountOtpError, isNoAccountResetError } from './authErrors'
 import { checkUsernameAvailable } from './api/accounts'
+import { safeRedirectPath } from './safeRedirect'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 type Feedback = { type: 'error' | 'info'; text: string } | null
@@ -57,8 +58,11 @@ export function LoginPage() {
 
   // Already signed in -> bounce to where they were headed.
   if (session) {
+    // Validated even though `location.state` cannot be set by a crafted URL —
+    // see safeRedirect.ts. This keeps the open-redirect class impossible if a
+    // future caller ever threads a query parameter into it.
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
-    return <Navigate to={from ?? '/'} replace />
+    return <Navigate to={safeRedirectPath(from)} replace />
   }
 
   async function handleSubmit(event: FormEvent) {

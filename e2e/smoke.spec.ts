@@ -342,7 +342,13 @@ test('security headers are served on every response (audit M1)', async ({ page }
     expect(h['x-frame-options'], `${path} X-Frame-Options`).toBe('DENY')
     expect(h['x-content-type-options'], `${path} X-Content-Type-Options`).toBe('nosniff')
     expect(h['referrer-policy'], `${path} Referrer-Policy`).toBe('strict-origin-when-cross-origin')
+    // `camera=()` denies outright; `microphone=(self)` ALLOWS OUR OWN ORIGIN and
+    // nobody else. The distinction is load-bearing: the journal's voice notes
+    // call getUserMedia, and the original blanket `microphone=()` would have
+    // blocked them in production while working perfectly in local dev, where no
+    // Permissions-Policy header is served at all.
     expect(h['permissions-policy'], `${path} Permissions-Policy`).toContain('camera=()')
+    expect(h['permissions-policy'], `${path} mic must be self`).toContain('microphone=(self)')
     expect(h['strict-transport-security'], `${path} HSTS`).toContain('includeSubDomains')
 
     const csp = h['content-security-policy-report-only']
