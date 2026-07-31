@@ -130,20 +130,28 @@ export function WeekPage() {
 
   return (
     <div className="animate-fade-in space-y-5">
-      <header className="flex flex-wrap items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
-          <CalendarRange className="h-5 w-5" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display text-xl font-semibold">Your week</h2>
-            <Badge variant="brand">Pro</Badge>
+      {/*
+        The actions get their OWN ROW until `lg`. As a single wrapping row the
+        title was squeezed to `flex-1` of almost nothing and rendered one word per
+        line at 390 — "The / next / 7 / days" — with the buttons sitting across
+        it; at 768 it still cost the subtitle a needless second line.
+      */}
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient-soft text-brand">
+            <CalendarRange className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-display text-xl font-semibold">Your week</h2>
+              <Badge variant="brand">Pro</Badge>
+            </div>
+            <p className="text-sm text-text-muted">
+              The next 7 days · {formatMinutes(plannedTotal)} planned
+            </p>
           </div>
-          <p className="text-sm text-text-muted">
-            The next 7 days · {formatMinutes(plannedTotal)} planned
-          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <PlanMyWeek
             tasks={tasks}
             capacityMinutes={capacityMinutes}
@@ -186,9 +194,31 @@ export function WeekPage() {
       <WeekStrip days={days} />
 
       <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
-        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-7 lg:overflow-visible lg:px-0">
+        {/*
+          On large screens this is a fixed-height board, not a block that ends
+          wherever its tallest column happens to. That is what removes the few
+          hundred pixels of dead space that used to sit under it: the columns
+          stretch to the bottom of the viewport and scroll their own contents.
+
+          The height subtracts the chrome above it (top bar, frame padding, page
+          header, the strip/undo row) and floors at 30rem so a short window still
+          gets a usable board rather than a squashed one.
+        */}
+        <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:h-[calc(100dvh-15.5rem)] lg:min-h-[30rem] lg:grid-cols-7 lg:gap-2.5 lg:overflow-visible lg:px-0 xl:gap-3">
           {days.map((day) => (
-            <div key={day.date} id={dayAnchorId(day.date)} className="flex min-w-[85vw] sm:min-w-0">
+            <div
+              key={day.date}
+              id={dayAnchorId(day.date)}
+              /*
+                THE CAROUSEL NEEDS A REAL COLUMN WIDTH BETWEEN 640px AND 1024px.
+                It used to say `sm:min-w-0`, which let seven flex children shrink
+                to their content: at 768 the columns rendered between 29px and
+                120px wide and the board was unreadable. One day fills the screen
+                on a phone; from `sm` up, a fixed 17rem shows about three at a
+                time and still snaps.
+              */
+              className="flex min-h-[24rem] min-w-[85vw] sm:min-h-[28rem] sm:min-w-[17rem] lg:min-h-0 lg:min-w-0"
+            >
               <DayColumn
                 day={day}
                 overdue={day.overdue.map(taskRow)}
