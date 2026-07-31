@@ -109,9 +109,9 @@ function EstimationPanel({ data }: { data: EstimationBias }) {
           </p>
           <p className="mt-1 text-sm text-text-muted">
             {direction === 'under'
-              ? 'Tasks take longer than you plan — try padding estimates or scheduling fewer.'
+              ? 'Tasks take longer than you plan, so try padding estimates or scheduling fewer.'
               : direction === 'over'
-                ? 'Tasks take less time than you plan — you may have room for a bit more.'
+                ? 'Tasks take less time than you plan, so you may have room for a bit more.'
                 : 'Your planned effort closely matches your real focus time. Nice calibration.'}{' '}
             Based on {sampleCount} completed {sampleCount === 1 ? 'task' : 'tasks'} with focus time.
           </p>
@@ -134,7 +134,7 @@ function EstimationPanel({ data }: { data: EstimationBias }) {
       ) : (
         <>
           <p className="text-sm text-text-muted">
-            Keep logging — complete tasks that carry an effort estimate while running a focus session,
+            Keep logging. Complete tasks that carry an effort estimate while running a focus session,
             and we&rsquo;ll show whether you tend to under- or over-estimate.
           </p>
           <p className="mt-3 text-xs text-text-muted">
@@ -162,7 +162,7 @@ export function InsightsDashboard({ data, weekly }: { data: InsightsData; weekly
   const hasPlanned = data.planningDays > 0
   const range =
     daily.length > 0
-      ? `${formatDateShort(daily[0].date)} – ${formatDateShort(daily[daily.length - 1].date)}`
+      ? `${formatDateShort(daily[0].date)} to ${formatDateShort(daily[daily.length - 1].date)}`
       : ''
 
   const effortPoints = daily.map((d) => ({
@@ -282,7 +282,7 @@ export function InsightsDashboard({ data, weekly }: { data: InsightsData; weekly
               <MiniStat label="Interruptions" value={String(focus.interruptions)} />
               <MiniStat
                 label="Completion"
-                value={focus.completionRate != null ? `${Math.round(focus.completionRate * 100)}%` : '—'}
+                value={focus.completionRate != null ? `${Math.round(focus.completionRate * 100)}%` : 'Not yet'}
                 sub={`${focus.completedSessions} of ${focus.sessionCount} finished`}
               />
             </div>
@@ -314,12 +314,12 @@ export function InsightsDashboard({ data, weekly }: { data: InsightsData; weekly
             sub={
               rollover.overdueCount > 0
                 ? `oldest is ${rollover.oldestOverdueDays} ${rollover.oldestOverdueDays === 1 ? 'day' : 'days'} old`
-                : 'nothing overdue — nice'
+                : 'nothing overdue, nice'
             }
           />
           <MiniStat
             label="On-time completion"
-            value={rollover.onTimeRatio != null ? `${Math.round(rollover.onTimeRatio * 100)}%` : '—'}
+            value={rollover.onTimeRatio != null ? `${Math.round(rollover.onTimeRatio * 100)}%` : 'Not yet'}
             sub={
               rollover.completedWithPlan > 0
                 ? `${rollover.slippedCount} of ${rollover.completedWithPlan} slipped to a later day`

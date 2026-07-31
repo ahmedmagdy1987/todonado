@@ -211,7 +211,7 @@ export function PlanMyDay({
                   {plan.picks.length} {plan.picks.length === 1 ? 'task' : 'tasks'}
                 </strong>{' '}
                 (~{formatMinutes(plan.totalMinutes)}) into today? This fills toward your remaining{' '}
-                {formatMinutes(plan.remainingCapacity)} — never over.
+                {formatMinutes(plan.remainingCapacity)}, never over.
               </p>
               <ul className="max-h-64 space-y-1.5 overflow-y-auto">
                 {plan.picks.map((p) => (
@@ -228,7 +228,7 @@ export function PlanMyDay({
               </ul>
               {plan.skipped > 0 && (
                 <p className="text-xs text-text-muted">
-                  {plan.skipped} more didn&rsquo;t fit — they stay in your backlog.
+                  {plan.skipped} more didn&rsquo;t fit, so they stay in your backlog.
                 </p>
               )}
             </>

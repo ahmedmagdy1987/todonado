@@ -103,7 +103,7 @@ export const TEMPLATES: Template[] = [
       {
         "title": "Light movement or a short stretch",
         "effortMinutes": 15,
-        "note": "Walk, stretch, or quick workout — whatever fits today."
+        "note": "Walk, stretch, or quick workout, whatever fits today."
       },
       {
         "title": "Review today's calendar and top 3 priorities",
@@ -198,7 +198,7 @@ export const TEMPLATES: Template[] = [
         "title": "Deep work block 1",
         "effortMinutes": 90,
         "section": "Focus",
-        "note": "Single task only — no email, no chat."
+        "note": "Single task only. No email, no chat."
       },
       {
         "title": "Movement and screen break",
@@ -3440,7 +3440,7 @@ export const TEMPLATES: Template[] = [
   {
     "id": "checklists-gym-ppl-push",
     "title": "Gym: Push Day (PPL)",
-    "description": "Chest, shoulders and triceps. Tick your way down the rack — no dates, just the session.",
+    "description": "Chest, shoulders and triceps. Tick your way down the rack: no dates, just the session.",
     "category": "checklists",
     "icon": "Dumbbell",
     "color": "#22D3A6",
@@ -3457,27 +3457,27 @@ export const TEMPLATES: Template[] = [
         "section": "Warm-up"
       },
       {
-        "title": "Bench press — 4 x 6",
+        "title": "Bench press · 4 x 6",
         "effortMinutes": 15,
         "section": "Main lifts"
       },
       {
-        "title": "Overhead press — 3 x 8",
+        "title": "Overhead press · 3 x 8",
         "effortMinutes": 12,
         "section": "Main lifts"
       },
       {
-        "title": "Incline dumbbell press — 3 x 10",
+        "title": "Incline dumbbell press · 3 x 10",
         "effortMinutes": 10,
         "section": "Accessories"
       },
       {
-        "title": "Lateral raises — 3 x 15",
+        "title": "Lateral raises · 3 x 15",
         "effortMinutes": 8,
         "section": "Accessories"
       },
       {
-        "title": "Triceps rope pushdown — 3 x 12",
+        "title": "Triceps rope pushdown · 3 x 12",
         "effortMinutes": 8,
         "section": "Accessories"
       },
@@ -3514,27 +3514,27 @@ export const TEMPLATES: Template[] = [
         "section": "Warm-up"
       },
       {
-        "title": "Deadlift — 3 x 5",
+        "title": "Deadlift · 3 x 5",
         "effortMinutes": 18,
         "section": "Main lifts"
       },
       {
-        "title": "Pull-ups or assisted pull-ups — 4 x 8",
+        "title": "Pull-ups or assisted pull-ups · 4 x 8",
         "effortMinutes": 12,
         "section": "Main lifts"
       },
       {
-        "title": "Barbell row — 3 x 8",
+        "title": "Barbell row · 3 x 8",
         "effortMinutes": 12,
         "section": "Accessories"
       },
       {
-        "title": "Face pulls — 3 x 15",
+        "title": "Face pulls · 3 x 15",
         "effortMinutes": 8,
         "section": "Accessories"
       },
       {
-        "title": "Hammer curls — 3 x 12",
+        "title": "Hammer curls · 3 x 12",
         "effortMinutes": 8,
         "section": "Accessories"
       },
@@ -3553,7 +3553,7 @@ export const TEMPLATES: Template[] = [
   {
     "id": "checklists-gym-ppl-legs",
     "title": "Gym: Leg Day (PPL)",
-    "description": "Quads, hamstrings and calves — the day everyone skips, made harder to skip.",
+    "description": "Quads, hamstrings and calves. The day everyone skips, made harder to skip.",
     "category": "checklists",
     "icon": "Dumbbell",
     "color": "#22D3A6",
@@ -3570,27 +3570,27 @@ export const TEMPLATES: Template[] = [
         "section": "Warm-up"
       },
       {
-        "title": "Back squat — 4 x 6",
+        "title": "Back squat · 4 x 6",
         "effortMinutes": 20,
         "section": "Main lifts"
       },
       {
-        "title": "Romanian deadlift — 3 x 8",
+        "title": "Romanian deadlift · 3 x 8",
         "effortMinutes": 12,
         "section": "Main lifts"
       },
       {
-        "title": "Leg press — 3 x 12",
+        "title": "Leg press · 3 x 12",
         "effortMinutes": 10,
         "section": "Accessories"
       },
       {
-        "title": "Walking lunges — 3 x 20 steps",
+        "title": "Walking lunges · 3 x 20 steps",
         "effortMinutes": 10,
         "section": "Accessories"
       },
       {
-        "title": "Standing calf raises — 4 x 15",
+        "title": "Standing calf raises · 4 x 15",
         "effortMinutes": 8,
         "section": "Accessories"
       },
@@ -3620,16 +3620,16 @@ export const TEMPLATES: Template[] = [
         "effortMinutes": 3
       },
       {
-        "title": "Write page one — whatever is loudest",
+        "title": "Write page one: whatever is loudest",
         "effortMinutes": 8,
         "note": "No editing, no rereading. Volume beats quality here."
       },
       {
-        "title": "Write page two — what you are avoiding",
+        "title": "Write page two: what you are avoiding",
         "effortMinutes": 8
       },
       {
-        "title": "Write page three — what you actually want from today",
+        "title": "Write page three: what you actually want from today",
         "effortMinutes": 8
       },
       {

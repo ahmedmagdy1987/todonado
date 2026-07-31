@@ -42,7 +42,7 @@ export function SlipDialog({
     <Modal open={open} onClose={onClose} title="Reset day zero">
       <div className="space-y-5 p-5">
         <p className="text-sm leading-relaxed text-text-primary">
-          A slip is not a failure — it&rsquo;s information. Starting the count again is the whole
+          A slip is not a failure. It&rsquo;s information. Starting the count again is the whole
           point of keeping one.
         </p>
 

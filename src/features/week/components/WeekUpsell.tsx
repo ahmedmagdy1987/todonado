@@ -102,7 +102,7 @@ export function WeekUpsell() {
         <div className="flex flex-wrap items-center gap-3">
           <Sparkles className="h-5 w-5 shrink-0 text-brand" aria-hidden />
           <p className="min-w-0 flex-1 text-sm text-text-primary">
-            <strong className="font-medium">Plan your whole week — Pro.</strong>{' '}
+            <strong className="font-medium">Plan your whole week with Pro.</strong>{' '}
             <span className="text-text-muted">
               Your Today view, roll-over, capacity meter and auto-plan stay free and unchanged.
             </span>
@@ -116,7 +116,7 @@ export function WeekUpsell() {
       <section aria-label="Sample week preview" className="space-y-3">
         <div className="flex items-center gap-2">
           <h3 className="font-display text-sm font-semibold text-text-muted">
-            A sample week — made-up tasks, not yours
+            A sample week (made-up tasks, not yours)
           </h3>
           <Badge variant="outline">Sample</Badge>
         </div>

@@ -196,7 +196,7 @@ export function PlanMyWeek({
 
               {plan.skipped > 0 && (
                 <p className="text-xs text-text-muted">
-                  {plan.skipped} more didn&rsquo;t fit this week — they stay in your backlog.
+                  {plan.skipped} more didn&rsquo;t fit this week. They stay in your backlog.
                 </p>
               )}
             </>

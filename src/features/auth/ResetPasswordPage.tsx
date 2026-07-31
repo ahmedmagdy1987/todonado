@@ -74,7 +74,7 @@ export function ResetPasswordPage() {
       setFormError(
         /different from the old password/i.test(error.message)
           ? 'Your new password must be different from your current password.'
-          : error.message || 'Could not update your password — try again.',
+          : error.message || 'Could not update your password. Try again.',
       )
       return
     }

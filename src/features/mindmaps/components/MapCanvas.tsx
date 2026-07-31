@@ -398,13 +398,13 @@ function NodeShape({
 
   const label = [
     node.title,
-    node.root ? '(centre)' : '',
-    node.note ? `— ${node.note}` : '',
-    linked ? '— linked' : '',
+    node.root ? ' (centre)' : '',
+    node.note ? `, ${node.note}` : '',
+    linked ? ', linked' : '',
     mode === 'connect' ? '. Press Enter to connect.' : '. Press Enter to edit.',
   ]
     .filter(Boolean)
-    .join(' ')
+    .join('')
 
   return (
     <g

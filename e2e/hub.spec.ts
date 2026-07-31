@@ -46,7 +46,7 @@ test('hub: renders every tile and each one goes where it says', async ({ page })
 
   for (const tile of TILES) {
     await page.goto('/hub')
-    const link = page.getByRole('link', { name: new RegExp(`^${escape(tile.label)} — `) })
+    const link = page.getByRole('link', { name: new RegExp(`^${escape(tile.label)}: `) })
     await expect(link, `the "${tile.label}" tile exists`).toBeVisible()
     await link.click()
     await expect(page, `"${tile.label}" lands on the right URL`).toHaveURL(tile.url, {
@@ -69,7 +69,7 @@ test('hub: "Build my day" opens the planner, and the Journal tile is now real', 
 
   // --- Build my day deep-links straight into the planner's preview ---------
   await page.goto('/hub')
-  await page.getByRole('link', { name: /^Build my day — / }).click()
+  await page.getByRole('link', { name: /^Build my day: / }).click()
   await expect(page).toHaveURL(/\/today\?plan=1$/)
   await expect(page.getByRole('dialog', { name: 'Plan my day' })).toBeVisible({ timeout: 20_000 })
 
@@ -83,8 +83,8 @@ test('hub: "Build my day" opens the planner, and the Journal tile is now real', 
   // unbuilt AI layer is stated on the journal page itself, next to the thing it
   // is missing from.
   await page.goto('/hub')
-  await expect(page.getByRole('button', { name: /^Journal — / })).toHaveCount(0)
-  const journal = page.getByRole('link', { name: /^Journal — / })
+  await expect(page.getByRole('button', { name: /^Journal: / })).toHaveCount(0)
+  const journal = page.getByRole('link', { name: /^Journal: / })
   await expect(journal).toBeVisible()
   await expect(page.getByText(/needs an AI service this app does not have yet/i)).toHaveCount(0)
   await journal.click()
@@ -140,10 +140,10 @@ test('hub: the start-screen preference moves / to the Hub, and Today is the defa
 
   // And the Hub's own Today + Build-my-day tiles, which are the ones that broke.
   await page.goto('/hub')
-  await page.getByRole('link', { name: /^Today — / }).click()
+  await page.getByRole('link', { name: /^Today: / }).click()
   await expect(page.getByRole('heading', { name: 'Your Command Center', level: 2 })).toBeVisible()
   await page.goto('/hub')
-  await page.getByRole('link', { name: /^Build my day — / }).click()
+  await page.getByRole('link', { name: /^Build my day: / }).click()
   await expect(page.getByRole('dialog', { name: 'Plan my day' })).toBeVisible({ timeout: 20_000 })
 
   // --- And switching back really switches back ------------------------------

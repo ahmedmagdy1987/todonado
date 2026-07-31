@@ -136,7 +136,7 @@ export function QuitHabitCard({
               {reached === 1 ? 'One full day.' : `${reached} days.`} That&rsquo;s a milestone.
             </p>
             <p className="mt-0.5 text-xs text-text-muted">
-              Nothing to claim and nothing to share unless you want to — it just counted.
+              Nothing to claim and nothing to share unless you want to. It just counted.
             </p>
             {/* Sharing is offered, never nudged, and the card carries the NUMBER
                 only — never which habit it was. See shareCard.ts. */}
@@ -235,7 +235,7 @@ export function QuitHabitCard({
         <div className="space-y-4 p-5">
           <p className="text-sm text-text-muted">
             This removes the habit, its check-ins and its longest-streak record. It can&rsquo;t be
-            undone. Quitting the tracker isn&rsquo;t quitting the habit — you can start again any
+            undone. Quitting the tracker isn&rsquo;t quitting the habit. You can start again any
             time.
           </p>
           <div className="flex justify-end gap-2">

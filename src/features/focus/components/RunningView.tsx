@@ -159,7 +159,7 @@ export function RunningView({
         </h2>
         {pomodoro && pomodoro.completed > 0 && (
           <p className="mt-1 text-sm text-text-muted">
-            {pomodoro.completed} done so far — a {POMODORO.longBreakMinutes}-minute break after{' '}
+            {pomodoro.completed} done so far, with a {POMODORO.longBreakMinutes}-minute break after{' '}
             {POMODORO.cyclesBeforeLongBreak}.
           </p>
         )}
@@ -203,7 +203,7 @@ export function RunningView({
             !soundAllowed
               ? 'Sounds are switched off in Settings'
               : chimeAudible
-                ? 'End chime on — tap to mute'
+                ? 'End chime on, tap to mute'
                 : 'Play a soft chime when the timer ends'
           }
           aria-label={chimeAudible ? 'Turn end chime off' : 'Turn end chime on'}

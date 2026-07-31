@@ -109,7 +109,7 @@ export function FocusDemo() {
         </CircularTimer>
 
         <p className="min-h-[2.5rem] max-w-xs text-center text-sm text-text-muted" aria-live="polite">
-          {phase === 'idle' && 'One task, one timer, no tabs. Press start — this demo runs in seconds, not minutes.'}
+          {phase === 'idle' && 'One task, one timer, no tabs. Press start (this demo runs in seconds, not minutes).'}
           {phase === 'running' && 'The real thing survives a refresh, a pause, and a closed laptop.'}
           {done && 'That’s the whole ritual. The session is logged and the task carries its focus time.'}
         </p>

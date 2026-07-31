@@ -126,7 +126,7 @@ export const CHALLENGES: readonly Challenge[] = [
   {
     key: 'focus_10',
     title: 'Ten focus sessions',
-    goal: 'Ten finished sessions in a week — pomodoros count.',
+    goal: 'Ten finished sessions in a week. Pomodoros count.',
     durationDays: 7,
     target: 10,
     unit: 'sessions',
@@ -146,7 +146,7 @@ export const CHALLENGES: readonly Challenge[] = [
   {
     key: 'focus_days_5',
     title: 'Focus on five days',
-    goal: 'Not how long — how often. One session on five separate days.',
+    goal: 'Not how long, but how often. One session on five separate days.',
     durationDays: 7,
     target: 5,
     unit: 'days',

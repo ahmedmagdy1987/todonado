@@ -203,7 +203,7 @@ export function checkinStreak(checkedDays: Set<string>, today: string): number {
  * to read this without flinching.
  */
 export function cleanDaysLabel(days: number): string {
-  if (days === 0) return 'Day zero — today counts'
+  if (days === 0) return 'Day zero: today counts'
   if (days === 1) return '1 day clean'
   return `${days} days clean`
 }

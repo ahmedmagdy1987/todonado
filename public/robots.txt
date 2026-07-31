@@ -1,4 +1,4 @@
-# Todonado — crawler rules
+# Todonado crawler rules
 # Public marketing/legal pages are indexable; the authenticated app is not.
 User-agent: *
 Allow: /$

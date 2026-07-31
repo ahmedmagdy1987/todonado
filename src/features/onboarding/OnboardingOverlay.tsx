@@ -260,7 +260,7 @@ export function OnboardingOverlay() {
                       Or start from a template
                     </span>
                     <span className="block text-xs text-text-muted">
-                      Prefill an effort-tagged list — instant tasks and a live capacity meter.
+                      Prefill an effort-tagged list: instant tasks and a live capacity meter.
                     </span>
                   </span>
                   <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
@@ -340,8 +340,8 @@ export function OnboardingOverlay() {
               ) : (
                 <p className="text-sm text-text-muted">
                   {FEATURES.templates
-                    ? 'No tasks yet — start from a ready-made template and your day fills with realistic, effort-tagged work, with the capacity meter live from the first minute.'
-                    : "No tasks yet. That's okay — you can capture them anytime from your day."}
+                    ? 'No tasks yet. Start from a ready-made template and your day fills with realistic, effort-tagged work, with the capacity meter live from the first minute.'
+                    : "No tasks yet. That's okay, you can capture them anytime from your day."}
                 </p>
               )}
               {captured.length === 0 && FEATURES.templates ? (

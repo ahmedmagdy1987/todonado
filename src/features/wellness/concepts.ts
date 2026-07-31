@@ -27,7 +27,7 @@ export const WELLNESS_CONCEPTS: WellnessConcept[] = [
     key: 'sleep_sounds',
     title: 'Sleep sounds',
     description:
-      'Ambient soundscapes — white noise, rain, ocean — with a sleep timer. The player is built; the audio isn’t licensed yet.',
+      'Ambient soundscapes (white noise, rain, ocean) with a sleep timer. The player is built; the audio isn’t licensed yet.',
     icon: Moon,
   },
   {

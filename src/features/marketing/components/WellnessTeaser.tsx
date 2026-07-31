@@ -25,14 +25,14 @@ const LIVE_MODULES: LiveModule[] = [
   {
     title: 'Breathwork',
     description:
-      'A guided breathing pacer — Box, Calm (4-7-8), or Simple — with an optional end chime.',
+      'A guided breathing pacer. Box, Calm (4-7-8), or Simple, with an optional end chime.',
     icon: Wind,
     to: '/wellness/breathe',
   },
   {
     title: 'Supplement & medication tracker',
     description:
-      'A simple personal log of what you take — mark it taken and keep a streak. Not medical advice.',
+      'A simple personal log of what you take. Mark it taken and keep a streak. Not medical advice.',
     icon: Pill,
     to: '/wellness/tracker',
   },
@@ -70,7 +70,7 @@ export function WellnessTeaser() {
             A calmer side to your day
           </h2>
           <p className="mt-3 text-text-muted">
-            Two of these are built and free to use right now. Two aren&rsquo;t — tell us if
+            Two of these are built and free to use right now. Two aren&rsquo;t. Tell us if
             you&rsquo;d actually use them and we&rsquo;ll let you know when they land.
           </p>
         </Reveal>

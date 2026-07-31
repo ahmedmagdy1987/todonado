@@ -109,7 +109,7 @@ export function DailyDigest({
               className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning"
               title={
                 streakIncludesToday
-                  ? 'You planned today — nice.'
+                  ? 'You planned today. Nice.'
                   : 'Plan something today to keep your streak going.'
               }
             >
@@ -177,7 +177,7 @@ export function DailyDigest({
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
                 <span className="min-w-0 text-text-muted">
                   <span className="text-text-primary">{task.title}</span>
-                  {kind === 'overdue' ? ' — high priority, overdue' : ' — due within 48 hours'}
+                  {kind === 'overdue' ? ' · high priority, overdue' : ' · due within 48 hours'}
                 </span>
               </li>
             ))}
@@ -213,7 +213,7 @@ export function DailyDigest({
             {bias && (
               <p className="mt-2.5 text-xs leading-relaxed text-text-muted">
                 You tend to {bias.direction === 'under' ? 'underestimate' : 'overestimate'} by ~
-                {bias.pct}% — today’s plan{' '}
+                {bias.pct}%. Today’s plan{' '}
                 {bias.direction === 'under' ? 'leaves breathing room' : 'can afford a little more'}.
               </p>
             )}
@@ -230,7 +230,7 @@ export function DailyDigest({
         {proTeaser && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-white/5 bg-surface-2/40 px-3 py-2 text-xs text-text-muted">
             <Sparkles className="h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
-            <span>Your suggested day is ready — with Pro it’s one tap.</span>
+            <span>Your suggested day is ready. With Pro it’s one tap.</span>
             <Link
               to="/settings/plan"
               className="focus-ring rounded text-accent underline-offset-4 hover:underline"
@@ -242,7 +242,7 @@ export function DailyDigest({
 
         {dayAlreadyPlanned && (
           <p className="text-xs text-text-muted">
-            Today is already planned to capacity — finish or move something to make room.
+            Today is already planned to capacity. Finish or move something to make room.
           </p>
         )}
 

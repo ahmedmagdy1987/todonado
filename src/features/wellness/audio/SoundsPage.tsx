@@ -9,7 +9,7 @@ export function SoundsPage() {
       icon={Moon}
       title="Sleep sounds"
       subtitle="Ambient soundscapes for winding down."
-      intro="Pick a sound, set a sleep timer, and let it play. Audio is added as it's licensed — anything without a source yet shows “coming soon.”"
+      intro="Pick a sound, set a sleep timer, and let it play. Audio is added as it's licensed, so anything without a source yet shows “coming soon.”"
       tracks={tracksByCategory('sleep')}
     />
   )

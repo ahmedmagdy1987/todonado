@@ -169,7 +169,7 @@ export function ShareCardDialog({
             }
           >
             {result === 'failed' ? (
-              'That didn’t go through — try Download instead.'
+              'That didn’t go through. Try Download instead.'
             ) : (
               <>
                 <Check className="h-3.5 w-3.5" aria-hidden />

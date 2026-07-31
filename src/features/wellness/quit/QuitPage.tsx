@@ -124,7 +124,7 @@ export function QuitPage() {
           <div className="min-w-0 flex-1">
             <h2 className="font-display text-xl font-semibold">Quit tracker</h2>
             <p className="text-sm text-text-muted">
-              Count the days since you stopped — and what you do instead.
+              Count the days since you stopped, and what you do instead.
             </p>
           </div>
           {available && (
@@ -171,7 +171,7 @@ export function QuitPage() {
               <h3 className="font-display text-lg font-semibold">Nothing being tracked yet</h3>
               <p className="mx-auto mt-1 max-w-sm text-text-muted">
                 Pick something you&rsquo;re cutting out. The counter starts today, and a slip just
-                starts it again — your longest run stays on the record either way.
+                starts it again. Your longest run stays on the record either way.
               </p>
             </div>
             <Button onClick={openAdd}>
@@ -305,7 +305,7 @@ function NotSwitchedOnCard() {
         <h3 className="font-display text-lg font-semibold">Not switched on yet</h3>
         <p className="mx-auto max-w-md text-sm leading-relaxed text-text-muted">
           The quit tracker is built and waiting on its database migration. Nothing is missing from
-          your account and nothing has been lost — this page will simply start working once the
+          your account and nothing has been lost. This page will simply start working once the
           migration is applied.
         </p>
       </CardContent>

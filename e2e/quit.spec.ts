@@ -42,7 +42,7 @@ test('quit tracker: the route renders and always shows the support note', async 
   // Non-dismissible, on every state of the page. This is the one assertion that
   // must hold whether or not the migration has been applied.
   await expect(
-    page.getByText(/professional support helps — this is a personal tracker, not treatment/i),
+    page.getByText(/professional support helps. This is a personal tracker, not treatment/i),
   ).toBeVisible()
 
   // It is reachable from the Focus & Calm hub, not just by typing the URL.

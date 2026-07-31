@@ -72,7 +72,7 @@ export function InterestCard({ concept, source }: InterestCardProps) {
           {status === 'done' ? (
             <p role="status" className="flex items-center gap-2 text-sm font-medium text-success">
               <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
-              Thanks — we&rsquo;ll let you know.
+              Thanks, we&rsquo;ll let you know.
             </p>
           ) : (
             <>
@@ -87,7 +87,7 @@ export function InterestCard({ concept, source }: InterestCardProps) {
               </Button>
               {status === 'error' && (
                 <p role="alert" className="mt-2 text-xs text-danger">
-                  Couldn&rsquo;t save that — please try again.
+                  Couldn&rsquo;t save that. Please try again.
                 </p>
               )}
             </>

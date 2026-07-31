@@ -136,7 +136,7 @@ function AccountSection() {
       setStatus('unchanged')
       toast.show('Account updated')
     } catch (e) {
-      setError(e instanceof UsernameTakenError ? 'That username is already taken.' : 'Could not save — try again.')
+      setError(e instanceof UsernameTakenError ? 'That username is already taken.' : 'Could not save. Try again.')
     }
   }
 
@@ -269,7 +269,7 @@ function DataSection() {
       downloadJson('todonado-export.json', data)
       toast.show('Your data was exported')
     } catch {
-      toast.show('Export failed — try again')
+      toast.show('Export failed. Try again')
     } finally {
       setBusy(false)
     }
@@ -279,7 +279,7 @@ function DataSection() {
     <Section
       icon={Download}
       title="Your data"
-      description="Download your records as a JSON file — tasks, projects, focus sessions, journal, trackers, vision, mind maps and challenges. Voice recordings are listed but not embedded; a JSON file cannot hold audio, so save any you want to keep from the journal page."
+      description="Download your records as a JSON file: tasks, projects, focus sessions, journal, trackers, vision, mind maps and challenges. Voice recordings are listed but not embedded; a JSON file cannot hold audio, so save any you want to keep from the journal page."
     >
       <Button variant="secondary" onClick={exportNow} loading={busy}>
         <Download className="h-4 w-4" aria-hidden /> Export my data (JSON)
@@ -330,7 +330,7 @@ function DangerSection() {
       } catch {
         setBusy(false)
         setError(
-          'Could not delete your voice recordings, so nothing was deleted — please try again in a moment.',
+          'Could not delete your voice recordings, so nothing was deleted. Please try again in a moment.',
         )
         return
       }
@@ -339,7 +339,7 @@ function DangerSection() {
     const { error: rpcError } = await supabase.rpc('delete_own_account')
     if (rpcError) {
       setBusy(false)
-      setError('Could not delete your account — please try again in a moment.')
+      setError('Could not delete your account. Please try again in a moment.')
       return
     }
     // The auth.users row (and, via cascades, all user data) is gone. The local
@@ -372,7 +372,7 @@ function DangerSection() {
             sections, focus history, your journal entries <em>and their voice recordings</em>,
             quit-tracker habits and check-ins, vision goals, mind maps, challenges, personal
             templates, your supplement log, and calendar sources. There is no undo. If you want a
-            copy, export your data from the section above first — and download any voice recordings
+            copy, export your data from the section above first, and download any voice recordings
             you want to keep, because the export file cannot contain audio.
           </p>
           <label className="flex flex-col gap-1.5">
@@ -530,7 +530,7 @@ function NotificationsSection() {
                 ))}
               </div>
               <p className="mt-1.5 text-xs text-text-muted">
-                All three are generated in the browser — no audio files, nothing to download.
+                All three are generated in the browser: no audio files, nothing to download.
               </p>
             </fieldset>
           </div>
@@ -695,7 +695,7 @@ export function SettingsPage() {
 
       <p className="flex items-center gap-1.5 text-xs text-text-muted">
         <AtSign className="h-3.5 w-3.5" aria-hidden />
-        Your username is your handle in Todonado — you sign in with your email.
+        Your username is your handle in Todonado. You sign in with your email.
       </p>
     </div>
   )

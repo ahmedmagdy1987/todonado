@@ -47,8 +47,8 @@ export function PointsPanel({
 
       {points.sources.length === 0 ? (
         <p className="text-sm text-text-muted">
-          Nothing yet this week. Finish a task or run a focus session and it&rsquo;ll show up here —
-          there&rsquo;s no penalty for a quiet week.
+          Nothing yet this week. Finish a task or run a focus session and it&rsquo;ll show up here.
+          There&rsquo;s no penalty for a quiet week.
         </p>
       ) : (
         <>
@@ -84,8 +84,8 @@ export function PointsPanel({
           {points.toNextLevel !== null && (
             <p className="mt-4 text-xs text-text-muted">
               {points.toNextLevel} more this week would read as &ldquo;
-              {nextLabel(points.total)}&rdquo;. Nothing happens if it doesn&rsquo;t — the score
-              resets with the window either way.
+              {nextLabel(points.total)}&rdquo;. Nothing happens if it doesn&rsquo;t, because the
+              score resets with the window either way.
             </p>
           )}
         </>

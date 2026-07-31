@@ -915,7 +915,7 @@ test('week view: Free sees a labelled SAMPLE preview, Pro sees the real 7-day bo
   // --- FREE: an honestly labelled SAMPLE, never their own week teased -------
   await page.goto('/week')
   await expect(page.getByRole('heading', { name: 'Week planning' })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText(/A sample week — made-up tasks, not yours/i)).toBeVisible()
+  await expect(page.getByText(/A sample week \(made-up tasks, not yours\)/i)).toBeVisible()
   await expect(page.getByText(/Plan your whole week/i)).toBeVisible()
   await expect(page.getByRole('link', { name: 'See Pro' })).toBeVisible()
   // Their REAL tasks must not appear in the preview.

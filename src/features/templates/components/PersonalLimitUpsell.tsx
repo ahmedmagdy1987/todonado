@@ -36,11 +36,11 @@ export function PersonalLimitUpsell({ limit }: { limit: number }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            Your template library — Pro keeps it unlimited
+            Your template library. Pro keeps it unlimited
           </p>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">
             Free includes {limit} personal templates, and you’re using all {limit}. The ones you’ve
-            saved keep working exactly as they are — this only limits creating new ones.{' '}
+            saved keep working exactly as they are. This only limits creating new ones.{' '}
             <Link
               to="/settings/plan"
               onClick={recordIntent}

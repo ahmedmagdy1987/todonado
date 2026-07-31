@@ -32,7 +32,7 @@ const NOT_BUILT: { what: string; why: string }[] = [
     // exactly the drift this whole list exists to prevent. The journal is real;
     // the layer that READS it back is what does not exist.
     what: 'An AI coach, and AI review of your journal',
-    why: 'The journal itself ships — write it or say it. Reading a fortnight back and naming the pattern would need an AI provider this app is not wired to, so there is no summary rather than a made-up one.',
+    why: 'The journal itself ships: write it or say it. Reading a fortnight back and naming the pattern would need an AI provider this app is not wired to, so there is no summary rather than a made-up one.',
   },
   {
     what: 'Referral rewards & discount codes',
@@ -44,7 +44,7 @@ const NOT_BUILT: { what: string; why: string }[] = [
     // exist for journal voice notes. A list whose whole promise is "the actual
     // reason" cannot keep quoting a blocker that has been cleared.
     what: 'Image vision boards',
-    why: 'Not a technical blocker any more — private storage exists for voice notes. It is a deliberate wait: the Vision page ships text-first until enough people ask for images to justify the storage bill for everyone.',
+    why: 'Not a technical blocker any more. Private storage exists for voice notes. It is a deliberate wait: the Vision page ships text-first until enough people ask for images to justify the storage bill for everyone.',
   },
   {
     what: 'Shared workspaces & team capacity',
@@ -138,7 +138,7 @@ export function PricingPage() {
             Simple pricing for an honest day
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-text-muted">
-            The day is free — the capacity meter, the overbooking guard, auto-planning, focus and
+            The day is free: the capacity meter, the overbooking guard, auto-planning, focus and
             roll-over included. Pro adds the week ahead and the record of how your days actually
             went.
           </p>
@@ -159,7 +159,7 @@ export function PricingPage() {
             )}
           </ul>
           <p className="mt-3 text-xs text-text-muted/80">
-            One app instead of several — and one price, not one per category.
+            One app instead of several. One price, not one per category.
           </p>
 
           <p className="mx-auto mt-4 inline-flex max-w-xl items-start gap-2 rounded-xl border border-white/10 bg-surface-2/50 px-3 py-2 text-left text-xs text-text-muted">
@@ -188,7 +188,7 @@ export function PricingPage() {
             <p className="mt-4 text-text-muted">
               Free is not a trial. The capacity meter, the overbooking guard,{' '}
               <strong className="text-text-primary">Plan my day</strong>, focus sessions with
-              Pomodoro, roll-over and recurring tasks are all free, permanently — that is the daily
+              Pomodoro, roll-over and recurring tasks are all free, permanently. That is the daily
               loop, complete.
             </p>
             <p className="mt-4 text-text-muted">
@@ -207,7 +207,7 @@ export function PricingPage() {
             <h2 className="font-display text-xl font-bold">What isn&rsquo;t built yet</h2>
           </div>
           <p className="mb-6 text-sm text-text-muted">
-            Everything else on this page works today. These five don&rsquo;t — and here&rsquo;s the
+            Everything else on this page works today. These five don&rsquo;t, and here&rsquo;s the
             actual reason for each, rather than &ldquo;coming soon&rdquo;.
           </p>
           <ul className="space-y-4">

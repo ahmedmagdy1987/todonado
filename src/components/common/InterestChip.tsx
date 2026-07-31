@@ -44,7 +44,7 @@ export function InterestChip({
   featureKey,
   source,
   label,
-  doneLabel = 'Noted — thanks',
+  doneLabel = 'Noted, thanks',
   className,
 }: {
   featureKey: FeatureKey
@@ -95,7 +95,7 @@ export function InterestChip({
       </button>
       {status === 'error' && (
         <span className="text-xs text-text-muted">
-          Couldn&rsquo;t record that just now — no harm done.
+          Couldn&rsquo;t record that just now. No harm done.
         </span>
       )}
     </span>

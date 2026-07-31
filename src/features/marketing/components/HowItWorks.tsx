@@ -23,7 +23,7 @@ const STEPS: Step[] = [
   {
     n: 2,
     title: 'See what fits',
-    body: 'The meter sums your day against your real hours — before you commit.',
+    body: 'The meter sums your day against your real hours, before you commit.',
     img: '/shots/today-desktop.png',
     alt: 'The Todonado Today screen with an effort-aware capacity meter at 63% planned',
   },
@@ -60,7 +60,7 @@ export function HowItWorks() {
           How Todonado works
         </h2>
         <p className="mt-3 text-text-muted">
-          The same three moves, in the real app. Unedited screens — no mockups.
+          The same three moves, in the real app. Unedited screens, no mockups.
         </p>
       </div>
 
@@ -101,7 +101,7 @@ export function HowItWorks() {
         <div className="max-w-sm text-center sm:text-left">
           <h3 className="font-display text-xl font-semibold">Your command center, in your pocket</h3>
           <p className="mt-3 text-text-muted">
-            Add it to your home screen and it runs like a native app — no app store. Plan on your
+            Add it to your home screen and it runs like a native app. No app store. Plan on your
             laptop, execute on your phone.
           </p>
         </div>

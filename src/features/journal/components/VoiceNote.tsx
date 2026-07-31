@@ -77,7 +77,7 @@ export function VoiceNote({
         </p>
       ) : state === 'unsupported' ? (
         <p className="mt-2 text-xs leading-relaxed text-text-muted">
-          This browser can&rsquo;t record audio — it has no MediaRecorder, or the page isn&rsquo;t
+          This browser can&rsquo;t record audio: it has no MediaRecorder, or the page isn&rsquo;t
           on a secure connection. The written journal works exactly as it does everywhere else.
         </p>
       ) : state === 'denied' ? (
@@ -162,7 +162,7 @@ export function VoiceNote({
 
           {error && <p className="text-xs text-danger">{error}</p>}
           <p className="text-xs leading-relaxed text-text-muted">
-            Up to {Math.round(maxSeconds / 60)} minutes. Stored privately — playback links are
+            Up to {Math.round(maxSeconds / 60)} minutes. Stored privately: playback links are
             signed and expire, and deleting the entry deletes the audio with it.
           </p>
         </div>
@@ -188,7 +188,7 @@ export function AiNotBuiltNote() {
       <p className="text-xs leading-relaxed text-text-muted">
         Reading a fortnight back and telling you what keeps going wrong needs an AI provider
         Todonado doesn&rsquo;t have yet. Rather than ship a summary that isn&rsquo;t really reading
-        anything, there&rsquo;s nothing here — one tap registers a vote for building it properly.
+        anything, there&rsquo;s nothing here. One tap registers a vote for building it properly.
       </p>
       <InterestChip
         featureKey="ai_coach"

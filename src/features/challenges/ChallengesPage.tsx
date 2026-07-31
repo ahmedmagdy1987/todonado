@@ -165,7 +165,7 @@ export function ChallengesPage() {
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold">Challenges</h2>
           <p className="text-sm text-text-muted">
-            A short, structured push — counted from the work you were already doing.
+            A short, structured push, counted from the work you were already doing.
           </p>
         </div>
       </header>
@@ -243,7 +243,7 @@ export function ChallengesPage() {
             {openToJoin.length === 0 ? (
               <Card>
                 <CardContent className="py-10 text-center text-sm text-text-muted">
-                  That&rsquo;s all of them for now — you&rsquo;re either in or done with every
+                  That&rsquo;s all of them for now. You&rsquo;re either in or done with every
                   challenge that fits your setup.
                 </CardContent>
               </Card>
@@ -369,7 +369,7 @@ function AttemptCard({
       {phase === 'ended' && (
         <p className="text-xs leading-relaxed text-text-muted">
           {/* Not "failed". The window closed; that is all that happened. */}
-          The {challenge.durationDays} days are up. Nothing is lost — everything you did still
+          The {challenge.durationDays} days are up. Nothing is lost: everything you did still
           counts everywhere else in the app.
         </p>
       )}
@@ -462,7 +462,7 @@ function ChallengeLimitUpsell({ limit }: { limit: number }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            {limit === 1 ? 'One at a time on Free' : `${limit} at a time on Free`} — Pro runs as many
+            {limit === 1 ? 'One at a time on Free' : `${limit} at a time on Free`}. Pro runs as many
             as you like
           </p>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">
@@ -491,7 +491,7 @@ function NotSwitchedOnCard() {
         <h3 className="font-display text-lg font-semibold">Not switched on yet</h3>
         <p className="mx-auto max-w-md text-sm leading-relaxed text-text-muted">
           Challenges are built and waiting on a database migration. Nothing is missing from your
-          account — this page will start working the moment it is applied.
+          account. This page will start working the moment it is applied.
         </p>
       </CardContent>
     </Card>

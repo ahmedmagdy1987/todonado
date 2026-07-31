@@ -16,7 +16,7 @@ declare module '@tanstack/react-query' {
   }
 }
 
-const DEFAULT_MUTATION_ERROR = 'Something went wrong saving your changes — please try again.'
+const DEFAULT_MUTATION_ERROR = 'Something went wrong saving your changes. Please try again.'
 
 /**
  * Whether the error toast should offer a one-click Retry. Only for mutations that

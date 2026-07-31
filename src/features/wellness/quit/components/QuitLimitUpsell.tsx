@@ -39,12 +39,12 @@ export function QuitLimitUpsell({ limit }: { limit: number }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            Tracking more than one — Pro keeps it unlimited
+            Want to track more than one? Pro keeps it unlimited
           </p>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">
             Free tracks {limit === 1 ? 'one habit' : `${limit} habits`} at a time, and{' '}
             {limit === 1 ? "yours is already running" : "yours are already running"}. Your streak,
-            check-ins and milestones keep going exactly as they are — this only limits adding
+            check-ins and milestones keep going exactly as they are. This only limits adding
             another.{' '}
             <Link
               to="/settings/plan"

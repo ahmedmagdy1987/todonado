@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase'
  */
 const ERROR_COPY: Record<string, string> = {
   billing_not_configured:
-    'Payments aren’t switched on yet. Please try again shortly — we’ve been notified.',
+    'Payments aren’t switched on yet. We’ve been notified, so please try again shortly.',
   unauthorized: 'Your session expired. Please sign in again and retry.',
   missing_price_id: 'That plan is unavailable right now. Please try again shortly.',
   invalid_price: 'That plan is unavailable right now. Please try again shortly.',

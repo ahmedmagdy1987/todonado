@@ -51,7 +51,7 @@ export function isOptimisticId(id: string): boolean {
  * reconciliation in place this is a backstop — reachable mainly when mutations
  * are queued offline — rather than a path anyone should meet.
  */
-export const STILL_SAVING_ERROR = 'That’s still being saved — try again in a moment.'
+export const STILL_SAVING_ERROR = 'That’s still being saved. Try again in a moment.'
 
 /** Throws if `id` is a placeholder. Call at the top of every id-addressing write. */
 export function assertRealId(id: string): void {

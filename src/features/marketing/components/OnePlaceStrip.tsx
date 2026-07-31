@@ -73,7 +73,7 @@ const SURFACES: Surface[] = [
   {
     name: 'Habits',
     icon: Sprout,
-    line: 'The things you keep doing — and stop doing.',
+    line: 'The things you keep doing, and the ones you stop.',
     items: ['Quit tracker with day zero', 'Supplement & medication log', 'Planning streak', 'Points'],
     to: '/wellness/quit',
     cta: 'Open the quit tracker',
@@ -125,7 +125,7 @@ export function OnePlaceStrip() {
           </h2>
           <p className="mt-3 text-text-muted">
             Plan it, focus on it, keep the habits around it, come back down, and see what it
-            actually cost. Every one of these is live — open any of them.
+            actually cost. Every one of these is live. Open any of them.
           </p>
 
           {/* The all-in-one claim, as CATEGORIES. No brand names and no

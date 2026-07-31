@@ -31,7 +31,7 @@ export const BREATH_PATTERNS: BreathPattern[] = [
     id: 'box',
     name: 'Box',
     cadence: '4-4-4-4',
-    description: 'Equal inhale, hold, exhale, hold — steady and grounding.',
+    description: 'Equal inhale, hold, exhale, hold. Steady and grounding.',
     phases: [
       { type: 'inhale', seconds: 4 },
       { type: 'hold-full', seconds: 4 },
@@ -54,7 +54,7 @@ export const BREATH_PATTERNS: BreathPattern[] = [
     id: 'simple',
     name: 'Simple',
     cadence: '4-4',
-    description: 'Just inhale and exhale — an easy place to start.',
+    description: 'Just inhale and exhale. An easy place to start.',
     phases: [
       { type: 'inhale', seconds: 4 },
       { type: 'exhale', seconds: 4 },

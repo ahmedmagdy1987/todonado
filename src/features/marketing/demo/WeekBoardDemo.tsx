@@ -169,7 +169,7 @@ export function WeekBoardDemo() {
         {settled && (
           <p className="animate-fade-in text-xs leading-relaxed text-text-muted">
             Each task went to the <span className="text-text-primary">earliest day with room</span>,
-            packed around the work already there — and never after its own due date. Nothing was
+            packed around the work already there, and never after its own due date. Nothing was
             forced onto a full day; {plan.skipped === 0 ? 'everything fit' : 'what did not fit stayed in the backlog'}.
           </p>
         )}

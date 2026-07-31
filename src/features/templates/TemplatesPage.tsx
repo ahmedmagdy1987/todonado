@@ -147,14 +147,14 @@ export function TemplatesPage() {
       style: draft.style,
       tasks: toUserTemplateTasks(draft.tasks),
     }
-    const onError = () => toast.show('Couldn’t save that template — please try again.')
+    const onError = () => toast.show('Couldn’t save that template. Please try again.')
     // Saved either way; the message just stops short of claiming the checklist
     // style stuck when the `style` column isn't there yet (see useUserTemplates).
     const done = (verb: string) => (result: { styleDropped: boolean }) => {
       closeEditor()
       toast.show(
         result.styleDropped
-          ? `${verb} — checklist mode isn’t switched on yet, so it saved as a plan.`
+          ? `${verb}. Checklist mode isn’t switched on yet, so it’s a plan for now.`
           : verb,
       )
     }
@@ -176,7 +176,7 @@ export function TemplatesPage() {
         closeEditor()
         toast.show('Template deleted')
       },
-      onError: () => toast.show('Couldn’t delete that template — please try again.'),
+      onError: () => toast.show('Couldn’t delete that template. Please try again.'),
     })
   }
 
@@ -205,7 +205,7 @@ export function TemplatesPage() {
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-xl font-semibold">Templates</h2>
           <p className="text-sm text-text-muted">
-            Start from a ready-made list — every task comes effort-tagged.
+            Start from a ready-made list. Every task comes effort-tagged.
           </p>
         </div>
         {personalAvailable && (

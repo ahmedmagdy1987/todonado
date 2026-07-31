@@ -55,7 +55,7 @@ export function PlanPage() {
   useEffect(() => {
     if (checkoutReturn === 'cancel' || (checkoutReturn === 'success' && isPro)) {
       if (checkoutReturn === 'success' && isPro) {
-        toast.show('Welcome to Pro — thanks for your support!')
+        toast.show('Welcome to Pro. Thanks for your support!')
       }
       const next = new URLSearchParams(params)
       next.delete('checkout')
@@ -69,7 +69,7 @@ export function PlanPage() {
       await startCheckout(priceIdFor(interval)) // redirects away on success
     } catch (err) {
       setBusy(null)
-      toast.show(err instanceof Error ? err.message : 'Could not start checkout — please try again.')
+      toast.show(err instanceof Error ? err.message : 'Could not start checkout. Please try again.')
     }
   }
 
@@ -85,7 +85,7 @@ export function PlanPage() {
 
   const label = isFounding ? 'Founding' : isPro ? 'Pro' : 'Free'
   const blurb = isFounding
-    ? 'You have full access as a founding member — thank you for being here early.'
+    ? 'You have full access as a founding member. Thank you for being here early.'
     : isPro
       ? 'You have full access to Insights and every Pro feature.'
       : `You are on the Free plan. Everything you need to plan and run your day is included, with completed history for the last ${FREE_HISTORY_DAYS} days.`
@@ -154,7 +154,7 @@ export function PlanPage() {
               </>
             ) : (
               <p className="text-sm text-text-muted">
-                {isFounding ? 'Founding member access — no billing needed.' : 'You have Pro access.'}
+                {isFounding ? 'Founding member access, no billing needed.' : 'You have Pro access.'}
               </p>
             )}
           </div>
@@ -162,7 +162,7 @@ export function PlanPage() {
           <div className="mt-6 space-y-3">
             <div className="flex flex-wrap gap-2">
               <Button size="lg" onClick={() => doCheckout('monthly')} loading={busy === 'monthly'} disabled={busy !== null}>
-                Upgrade — Monthly
+                Upgrade · Monthly
               </Button>
               <Button
                 size="lg"
@@ -171,12 +171,12 @@ export function PlanPage() {
                 loading={busy === 'yearly'}
                 disabled={busy !== null}
               >
-                Upgrade — Yearly
+                Upgrade · Yearly
               </Button>
             </div>
             <p className="text-xs text-text-muted">Secure checkout by Stripe · cancel anytime.</p>
             {checkoutReturn === 'cancel' && (
-              <p className="text-xs text-text-muted">Checkout canceled — no charge was made.</p>
+              <p className="text-xs text-text-muted">Checkout canceled. No charge was made.</p>
             )}
           </div>
         ) : (
@@ -186,7 +186,7 @@ export function PlanPage() {
               Upgrade to Pro
             </Button>
             <p className="mt-2 text-xs text-text-muted">
-              Nothing is charged yet — this records your interest so we can build Pro for real.
+              Nothing is charged yet. This records your interest so we can build Pro for real.
             </p>
           </div>
         )}

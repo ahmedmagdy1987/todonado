@@ -159,7 +159,7 @@ export function JournalPage() {
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold">Journal</h2>
           <p className="text-sm text-text-muted">
-            How did today go? Two prompts and a blank space — that&rsquo;s the whole thing.
+            How did today go? Two prompts and a blank space. That&rsquo;s the whole thing.
           </p>
         </div>
       </header>
@@ -192,7 +192,7 @@ export function JournalPage() {
                 <Textarea
                   value={sections.better}
                   onChange={(e) => set('better')(e.target.value)}
-                  placeholder="Not a telling-off — just what you'd change."
+                  placeholder="Not a telling-off, just what you'd change."
                   rows={3}
                 />
               </label>
@@ -263,7 +263,7 @@ export function JournalPage() {
                 <CardContent className="py-10 text-center text-sm text-text-muted">
                   {query
                     ? 'Nothing matches that.'
-                    : 'Nothing earlier yet. Come back tomorrow — that is rather the point.'}
+                    : 'Nothing earlier yet. Come back tomorrow: that is rather the point.'}
                 </CardContent>
               </Card>
             ) : (
@@ -279,7 +279,7 @@ export function JournalPage() {
                 <p className="text-xs leading-relaxed text-text-muted">
                   {hiddenCount} older {hiddenCount === 1 ? 'entry is' : 'entries are'} outside the{' '}
                   {FREE_HISTORY_DAYS}-day window on Free.{' '}
-                  <span className="text-text-primary">Nothing has been deleted</span> —{' '}
+                  <span className="text-text-primary">Nothing has been deleted</span>.{' '}
                   <Link
                     to="/settings/plan"
                     className="focus-ring rounded text-accent underline-offset-4 hover:underline"
@@ -388,7 +388,7 @@ function NotSwitchedOnCard() {
         <h3 className="font-display text-lg font-semibold">Not switched on yet</h3>
         <p className="mx-auto max-w-md text-sm leading-relaxed text-text-muted">
           The journal is built and waiting on a database migration. Nothing is missing from your
-          account — this page will start working the moment it is applied.
+          account. This page will start working the moment it is applied.
         </p>
       </CardContent>
     </Card>

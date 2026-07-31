@@ -80,7 +80,7 @@ export function MindMapsPage() {
           <div className="min-w-0">
             <h2 className="font-display text-xl font-semibold">Mind maps</h2>
             <p className="text-sm text-text-muted">
-              Think it out before it becomes a list — ideas you can move around and join up.
+              Think it out before it becomes a list: ideas you can move around and join up.
             </p>
           </div>
         </div>
@@ -199,7 +199,7 @@ function MapLimitUpsell({ limit }: { limit: number }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            {limit === 1 ? 'One map on Free' : `${limit} maps on Free`} — Pro keeps it unlimited
+            {limit === 1 ? 'One map on Free' : `${limit} maps on Free`}. Pro keeps it unlimited.
           </p>
           <p className="mt-1 leading-relaxed text-xs text-text-muted">
             The map you have holds 200 ideas and keeps working exactly as it is; this only limits
@@ -227,7 +227,7 @@ function NotSwitchedOnCard() {
         <h3 className="font-display text-lg font-semibold">Not switched on yet</h3>
         <p className="mx-auto max-w-md text-sm leading-relaxed text-text-muted">
           Mind maps are built and waiting on a database migration. Nothing is missing from your
-          account — this page will start working the moment it is applied.
+          account, and this page will start working the moment it is applied.
         </p>
       </CardContent>
     </Card>

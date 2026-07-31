@@ -334,7 +334,7 @@ describe('check-ins', () => {
 
 describe('cleanDaysLabel', () => {
   it('never scolds and never celebrates day zero', () => {
-    expect(cleanDaysLabel(0)).toBe('Day zero — today counts')
+    expect(cleanDaysLabel(0)).toBe('Day zero: today counts')
     expect(cleanDaysLabel(1)).toBe('1 day clean')
     expect(cleanDaysLabel(2)).toBe('2 days clean')
     expect(cleanDaysLabel(365)).toBe('365 days clean')

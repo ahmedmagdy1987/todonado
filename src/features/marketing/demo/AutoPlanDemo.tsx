@@ -149,7 +149,7 @@ export function AutoPlanDemo() {
 
         {settled && (
           <p className="animate-fade-in text-xs leading-relaxed text-text-muted">
-            Picked by priority, then due date, then effort — and stopped at{' '}
+            Picked by priority, then due date, then effort, and stopped at{' '}
             <span className="font-mono text-text-primary">
               {formatMinutes(plan.totalMinutes)}
             </span>{' '}

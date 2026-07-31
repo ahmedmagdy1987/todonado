@@ -91,7 +91,7 @@ export function VisionCardItem({
         <div className="space-y-4 p-5">
           <p className="text-sm text-text-muted">
             This removes the goal and its reason. Any project it was linked to is left completely
-            alone — only the link goes.
+            alone. Only the link goes.
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setConfirmDelete(false)}>

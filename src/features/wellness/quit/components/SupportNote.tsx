@@ -22,7 +22,7 @@ export function SupportNote() {
     >
       <LifeBuoy className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
       <p className="text-xs leading-relaxed">
-        If you&rsquo;re struggling with addiction, professional support helps — this is a personal
+        If you&rsquo;re struggling with addiction, professional support helps. This is a personal
         tracker, not treatment.
       </p>
     </div>

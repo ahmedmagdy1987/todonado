@@ -114,7 +114,7 @@ export function VisionPage() {
           <div className="min-w-0">
             <h2 className="font-display text-xl font-semibold">Vision</h2>
             <p className="text-sm text-text-muted">
-              What you&rsquo;re working toward, and why — the part a task list never asks.
+              What you&rsquo;re working toward, and why: the part a task list never asks.
             </p>
           </div>
         </div>
@@ -203,7 +203,7 @@ export function VisionPage() {
         <div className="flex flex-col items-start gap-2 rounded-2xl border border-white/5 bg-surface-2/30 p-4">
           <p className="text-sm font-medium text-text-primary">Would you want picture boards?</p>
           <p className="text-xs leading-relaxed text-text-muted">
-            This page is text on purpose — images need somewhere to store them, size limits and a
+            This page is text on purpose. Images need somewhere to store them, size limits and a
             bill, and we&rsquo;d rather know it&rsquo;s wanted before building all that. One tap
             registers a vote; nothing else happens.
           </p>
@@ -254,7 +254,7 @@ function VisionLimitUpsell({ limit }: { limit: number }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            {limit} goals on Free — Pro keeps it unlimited
+            {limit} goals on Free. Pro keeps it unlimited
           </p>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">
             Everything you&rsquo;ve already written stays exactly where it is, editable and linked;
@@ -286,7 +286,7 @@ function NotSwitchedOnCard() {
         <h3 className="font-display text-lg font-semibold">Not switched on yet</h3>
         <p className="mx-auto max-w-md text-sm leading-relaxed text-text-muted">
           Vision is built and waiting on its database migration. Nothing is missing from your
-          account — this page will start working the moment the migration is applied.
+          account. This page will start working the moment the migration is applied.
         </p>
       </CardContent>
     </Card>

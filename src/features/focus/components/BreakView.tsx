@@ -127,7 +127,7 @@ export function BreakView({
             !soundAllowed
               ? 'Sounds are switched off in Settings'
               : chimeAudible
-                ? 'Chime on — tap to mute'
+                ? 'Chime on, tap to mute'
                 : 'Play a soft chime when the break ends'
           }
           aria-label={chimeAudible ? 'Turn break chime off' : 'Turn break chime on'}

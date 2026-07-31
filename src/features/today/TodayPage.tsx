@@ -245,11 +245,11 @@ export function TodayPage() {
                 aria-label={
                   streak.includesToday
                     ? `${streak.count}-day planning streak`
-                    : `${streak.count}-day planning streak — plan today to keep it going`
+                    : `${streak.count}-day planning streak. Plan today to keep it going.`
                 }
                 title={
                   streak.includesToday
-                    ? 'You planned today — nice.'
+                    ? 'You planned today. Nice.'
                     : 'Plan something today to keep your streak going.'
                 }
               >
@@ -393,8 +393,8 @@ export function TodayPage() {
 
       {calendarError && (
         <p className="-mt-4 text-xs text-text-muted">
-          Couldn&rsquo;t reach a subscribed calendar just now — showing task-only capacity. It will
-          retry on your next visit.
+          Couldn&rsquo;t reach a subscribed calendar just now, so this is task-only capacity. It
+          will retry on your next visit.
         </p>
       )}
 

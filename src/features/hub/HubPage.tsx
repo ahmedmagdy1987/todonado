@@ -33,7 +33,7 @@ export function HubPage() {
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold">Hub</h2>
           <p className="text-sm text-text-muted">
-            Your day, your focus, your habits — one place to start from.
+            Your day, your focus, your habits: one place to start from.
           </p>
         </div>
       </header>
@@ -99,7 +99,7 @@ const TILE_CLASS =
 
 function TileLink({ tile }: { tile: HubTile }) {
   return (
-    <Link to={tile.to!} className={TILE_CLASS} aria-label={`${tile.label} — ${tile.hint}`}>
+    <Link to={tile.to!} className={TILE_CLASS} aria-label={`${tile.label}: ${tile.hint}`}>
       <TileFace tile={tile} />
     </Link>
   )
@@ -111,7 +111,7 @@ function TileButton({ tile, onClick }: { tile: HubTile; onClick: () => void }) {
       type="button"
       onClick={onClick}
       className={TILE_CLASS}
-      aria-label={`${tile.label} — ${tile.hint}`}
+      aria-label={`${tile.label}: ${tile.hint}`}
     >
       <TileFace tile={tile} muted />
     </button>

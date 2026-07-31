@@ -9,7 +9,7 @@ export function PrivacyPage() {
           This Privacy Policy explains what information Todonado collects, how we use it, and the
           choices you have. It is written in plain language and describes what the app actually
           does. If anything here is unclear, ask us at{' '}
-          <span className="text-text-primary">{LEGAL_CONTACT}</span> — you should not need a lawyer
+          <span className="text-text-primary">{LEGAL_CONTACT}</span>. You should not need a lawyer
           to understand what happens to your data.
         </p>
       }
@@ -32,7 +32,7 @@ export function PrivacyPage() {
           <strong className="text-text-primary">Voice recordings.</strong> If you record a voice
           note in the journal, the audio file is uploaded and stored in private cloud storage under
           a folder keyed to your account. Only you can play it back, through a short-lived link
-          that expires. You can delete a recording, or the whole entry, at any time — and doing so
+          that expires. You can delete a recording, or the whole entry, at any time, and doing so
           deletes the file itself, not just the reference to it.
         </p>
         <p>
@@ -87,12 +87,12 @@ export function PrivacyPage() {
         </p>
         <p>
           Two honest details. Recordings are deleted from storage <em>before</em> the account is
-          removed — if that step fails, nothing is deleted and you are asked to try again, because
+          removed. If that step fails, nothing is deleted and you are asked to try again, because
           the alternative would be telling you a recording is gone while it is still on our server.
           And the anonymous counters described above outlive the account by design: the row that
           records <em>&ldquo;someone completed a task&rdquo;</em> or{' '}
           <em>&ldquo;someone clicked upgrade&rdquo;</em> keeps its count but loses every link to
-          you — the user id is cleared and any email address you typed into an interest form is
+          you: the user id is cleared and any email address you typed into an interest form is
           erased in the same operation. What remains cannot be traced back to a person.
         </p>
         <p>

@@ -15,7 +15,7 @@ interface Qa {
 const FAQ: Qa[] = [
   {
     q: 'Is Todonado free?',
-    a: 'Most of it, permanently. The effort-aware capacity meter, the overbooking guard, “Plan my day”, roll-over and recovery, focus mode with Pomodoro, recurring tasks, the template and checklist catalog, breathwork and the quit tracker are all free — that is the complete daily loop, not a trial. Nothing is charged today at all.',
+    a: 'Most of it, permanently. The effort-aware capacity meter, the overbooking guard, “Plan my day”, roll-over and recovery, focus mode with Pomodoro, recurring tasks, the template and checklist catalog, breathwork and the quit tracker are all free: that is the complete daily loop, not a trial. Nothing is charged today at all.',
   },
   {
     q: 'What do I get with Pro?',
@@ -27,11 +27,11 @@ const FAQ: Qa[] = [
   },
   {
     q: 'Does it work on my phone?',
-    a: 'Yes. Todonado is a dark, mobile-first web app you can add to your home screen and run like a native app — no app store. Plan on a laptop, execute on your phone; it’s the same account either way.',
+    a: 'Yes. Todonado is a dark, mobile-first web app you can add to your home screen and run like a native app, no app store. Plan on a laptop, execute on your phone; it’s the same account either way.',
   },
   {
     q: 'Is my data private?',
-    a: 'Your tasks are yours. Every row is protected by database row-level security, so only you can read your own data — and you can export everything, or permanently delete your account and its data, from Settings at any time.',
+    a: 'Your tasks are yours. Every row is protected by database row-level security, so only you can read your own data. You can export everything, or permanently delete your account and its data, from Settings at any time.',
   },
 ]
 

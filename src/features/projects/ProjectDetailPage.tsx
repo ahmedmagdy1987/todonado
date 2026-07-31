@@ -117,7 +117,7 @@ export function ProjectDetailPage() {
     }
     const draft = captureProjectAsTemplate({ project, sections, tasks: allProjectTasks })
     if (draft.tasks.length === 0) {
-      toast.show('Add an open task first — a template needs something to apply.')
+      toast.show('Add an open task first. A template needs something to apply.')
       return
     }
     createTemplate.mutate(
@@ -130,7 +130,7 @@ export function ProjectDetailPage() {
       },
       {
         onSuccess: () => toast.show(`Saved “${draft.title}” to My templates`),
-        onError: () => toast.show('Couldn’t save that template — please try again.'),
+        onError: () => toast.show('Couldn’t save that template. Please try again.'),
       },
     )
   }

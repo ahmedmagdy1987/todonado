@@ -51,11 +51,11 @@ export function HistoryCutoffCard({ hiddenCount, days }: HistoryCutoffCardProps)
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            Your history continues — Pro keeps it forever
+            Your history continues. Pro keeps it forever
           </p>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">
             {hiddenCount} completed {hiddenCount === 1 ? 'task is' : 'tasks are'} older than your{' '}
-            {days}-day history. {hiddenCount === 1 ? 'It is' : 'They are'} still saved — nothing has
+            {days}-day history. {hiddenCount === 1 ? 'It is' : 'They are'} still saved. Nothing has
             been deleted.{' '}
             <Link
               to="/settings/plan"

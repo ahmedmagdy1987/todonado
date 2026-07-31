@@ -31,7 +31,7 @@ export function WeekStrip({ days }: { days: WeekDayView[] }) {
           key={day.date}
           type="button"
           onClick={() => jump(day.date)}
-          aria-label={`${day.weekday} ${day.dayOfMonth}: ${day.capacity.summary.pct}% planned — jump to this day`}
+          aria-label={`${day.weekday} ${day.dayOfMonth}: ${day.capacity.summary.pct}% planned. Jump to this day.`}
           className="focus-ring flex min-w-0 flex-1 flex-col items-center gap-1 rounded-lg py-1"
         >
           <span

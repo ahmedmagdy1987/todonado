@@ -24,7 +24,7 @@ import { supabase } from '@/lib/supabase'
 /** Tables deliberately NOT exported, and why. Pinned by the test. */
 export const EXCLUDED: Record<string, string> = {
   feature_intents:
-    'Insert-only fake-door capture with no select policy by design — the client cannot read it back, and it holds no content of yours beyond the fact that you tapped "notify me".',
+    'Insert-only fake-door capture with no select policy by design. The client cannot read it back, and it holds no content of yours beyond the fact that you tapped "notify me".',
   upgrade_intents:
     'Insert-only willingness-to-pay capture with no select policy, for the same reason.',
 }
@@ -116,7 +116,7 @@ export async function gatherExport(workspaceId: string): Promise<Record<string, 
     /** Stated on the file itself, because a JSON file cannot hold audio. */
     notes: {
       voice_recordings: recordings
-        ? `This file lists ${recordings} journal ${recordings === 1 ? 'entry' : 'entries'} with a voice recording. The AUDIO ITSELF IS NOT INCLUDED — only its storage path. Download any recording you want to keep from the journal page before deleting your account.`
+        ? `This file lists ${recordings} journal ${recordings === 1 ? 'entry' : 'entries'} with a voice recording. The AUDIO ITSELF IS NOT INCLUDED, only its storage path. Download any recording you want to keep from the journal page before deleting your account.`
         : 'No voice recordings.',
       scope:
         'Workspace-scoped records (projects, tasks, focus sessions, calendar events) cover the workspace named in workspace_id. Everything else is account-wide.',

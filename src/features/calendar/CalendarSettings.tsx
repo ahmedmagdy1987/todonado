@@ -58,9 +58,9 @@ function SourceRow({
           </div>
           <p className="truncate text-xs text-text-muted">
             {!isUrl
-              ? 'Uploaded .ics file — always available, never re-fetched'
+              ? 'Uploaded .ics file · always available, never re-fetched'
               : paused
-                ? 'Live sync is a Pro feature — this calendar isn’t refreshing'
+                ? 'Live sync is a Pro feature, so this calendar isn’t refreshing'
                 : lastRefreshed
                   ? `Refreshed ${formatDistanceToNow(new Date(lastRefreshed), { addSuffix: true })}`
                   : 'Refreshing…'}
@@ -93,11 +93,11 @@ function LiveSyncUpsell({ onUpgradeClick }: { onUpgradeClick: () => void }) {
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">
-            Live calendar sync is Pro — paste a link once, meetings stay fresh daily
+            Live calendar sync is Pro: paste a link once, meetings stay fresh daily
           </p>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">
-            Free includes calendar import by <strong className="text-text-primary/90">.ics file</strong>{' '}
-            — it works today and never expires. Pro fetches your Google, Outlook or Apple link on our
+            Free includes calendar import by <strong className="text-text-primary/90">.ics file</strong>.
+            It works today and never expires. Pro fetches your Google, Outlook or Apple link on our
             servers, so today’s meetings are always current without re-uploading.{' '}
             <Link
               to="/settings/plan"
@@ -172,7 +172,7 @@ export function CalendarSettings() {
         onSuccess: () => {
           setUrl('')
           setShowUpsell(false)
-          toast.show('Calendar subscribed — meetings will refresh automatically')
+          toast.show('Calendar subscribed. Meetings will refresh automatically.')
         },
       },
     )
@@ -207,7 +207,7 @@ export function CalendarSettings() {
           <h3 className="font-display text-base font-semibold">Calendar</h3>
           <p className="text-sm text-text-muted">
             Import a calendar so today’s meetings subtract from your capacity. Only event times are
-            used — never titles or attendees.
+            used, never titles or attendees.
           </p>
         </div>
       </div>
@@ -238,7 +238,7 @@ export function CalendarSettings() {
           </Button>
           {hadError && (
             <span className="text-xs text-warning">
-              A calendar didn’t respond last time — Today falls back to task-only capacity.
+              A calendar didn’t respond last time. Today falls back to task-only capacity.
             </span>
           )}
         </div>
@@ -287,7 +287,7 @@ export function CalendarSettings() {
         <p className="text-xs text-text-muted/80">
           {isPro
             ? 'Subscribed calendars are fetched on our servers, so provider CORS rules can’t block them. They refresh on each load and at least daily.'
-            : 'Uploading a file always works. Subscribing to a link keeps meetings fresh automatically — that’s part of Pro.'}
+            : 'Uploading a file always works. Subscribing to a link keeps meetings fresh automatically. That’s part of Pro.'}
         </p>
       </div>
     </Card>

@@ -106,7 +106,7 @@ export function SetupView({
               {pomodoro && (
                 <p className="text-xs leading-relaxed text-text-muted">
                   {POMODORO.workMinutes} minutes of work, then a {POMODORO.breakMinutes}-minute
-                  break — and a {POMODORO.longBreakMinutes}-minute one after every{' '}
+                  break, and a {POMODORO.longBreakMinutes}-minute one after every{' '}
                   {POMODORO.cyclesBeforeLongBreak}. Each interval is recorded as its own focus
                   session, so breaks never count as focus time.
                 </p>

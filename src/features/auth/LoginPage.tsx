@@ -80,7 +80,7 @@ export function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email: value, password })
         if (error) {
           if (/email not confirmed/i.test(error.message)) {
-            throw new Error('Please confirm your email first — check your inbox for the link.')
+            throw new Error('Please confirm your email first. Check your inbox for the link.')
           }
           // Generic message: never reveal whether the email exists (no enumeration).
           if (/invalid login credentials/i.test(error.message)) {
@@ -114,12 +114,12 @@ export function LoginPage() {
         if (error) {
           const msg = error.message
           if (/already registered|already exists/i.test(msg)) {
-            throw new Error('An account with that email already exists — try signing in instead.')
+            throw new Error('An account with that email already exists. Try signing in instead.')
           }
           // A duplicate username surfaces from the bootstrap trigger as a unique
           // violation / generic "Database error saving new user".
           if (/duplicate|unique|database error/i.test(msg)) {
-            throw new Error('That username may be taken — please try another.')
+            throw new Error('That username may be taken. Please try another.')
           }
           throw new Error(msg)
         }
@@ -129,7 +129,7 @@ export function LoginPage() {
         if (!data.session) {
           setFeedback({
             type: 'info',
-            text: 'Account created — check your inbox to confirm your email, then sign in.',
+            text: 'Account created. Check your inbox to confirm your email, then sign in.',
           })
         }
       }

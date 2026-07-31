@@ -34,7 +34,7 @@ export function WeeklyReview({ weekly }: { weekly: WeeklyReviewData }) {
   const { thisWeek, lastWeek, daily, bestDay, streak, bias, focusDeltaMinutes, completionRateDelta } = weekly
   const range =
     daily.length > 0
-      ? `${formatDateShort(daily[0].date)} – ${formatDateShort(daily[daily.length - 1].date)}`
+      ? `${formatDateShort(daily[0].date)} to ${formatDateShort(daily[daily.length - 1].date)}`
       : ''
 
   const effortPoints = daily.map((d) => ({
@@ -58,9 +58,9 @@ export function WeeklyReview({ weekly }: { weekly: WeeklyReviewData }) {
 
       {!weekly.hasEnoughData ? (
         <p className="text-sm text-text-muted">
-          Your weekly review is warming up — {weekly.daysLogged} of {WEEKLY_MIN_DAYS} days logged this
+          Your weekly review is warming up: {weekly.daysLogged} of {WEEKLY_MIN_DAYS} days logged this
           week. Keep planning and running focus sessions, and your this-week-vs-last-week rollup will
-          fill in here. No pressure — every planned day counts.
+          fill in here. No pressure. Every planned day counts.
         </p>
       ) : (
         <>
@@ -86,7 +86,7 @@ export function WeeklyReview({ weekly }: { weekly: WeeklyReviewData }) {
             <StatTile
               icon={Target}
               label="Completion"
-              value={thisWeek.completionRate != null ? `${Math.round(thisWeek.completionRate * 100)}%` : '—'}
+              value={thisWeek.completionRate != null ? `${Math.round(thisWeek.completionRate * 100)}%` : '-'}
               sub={deltaPoints(completionRateDelta) ?? 'planned effort done'}
             />
           </div>
@@ -119,7 +119,7 @@ export function WeeklyReview({ weekly }: { weekly: WeeklyReviewData }) {
             )}
             {streak.count >= 1 && (
               <Chip icon={Flame}>
-                {streak.count}-day planning streak{streak.includesToday ? '' : ' — plan today to keep it'}
+                {streak.count}-day planning streak{streak.includesToday ? '' : ' · plan today to keep it'}
               </Chip>
             )}
             {bias.hasEnough && bias.biasPct != null && bias.direction !== 'accurate' && (

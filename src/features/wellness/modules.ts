@@ -26,7 +26,8 @@ export const WELLNESS_MODULES: WellnessModule[] = [
   {
     id: 'breathe',
     title: 'Breathwork',
-    description: 'A guided breathing pacer — Box, Calm (4-7-8), or Simple — with an optional end chime.',
+    description:
+      'A guided breathing pacer with Box, Calm (4-7-8), or Simple patterns, plus an optional end chime.',
     icon: Wind,
     status: 'live',
     to: '/wellness/breathe',
@@ -34,7 +35,7 @@ export const WELLNESS_MODULES: WellnessModule[] = [
   {
     id: 'sleep',
     title: 'Sleep sounds',
-    description: 'Ambient soundscapes — white noise, rain, thunderstorm — with a sleep timer.',
+    description: 'Ambient soundscapes (white noise, rain, thunderstorm) with a sleep timer.',
     icon: Moon,
     status: 'live',
     to: '/wellness/sleep',
@@ -50,7 +51,7 @@ export const WELLNESS_MODULES: WellnessModule[] = [
   {
     id: 'tracker',
     title: 'Supplement & medication tracker',
-    description: 'A simple personal log of what you take — mark it taken and keep a streak.',
+    description: 'A simple personal log of what you take. Mark it taken and keep a streak.',
     icon: Pill,
     status: 'live',
     to: '/wellness/tracker',
@@ -64,7 +65,7 @@ export const WELLNESS_MODULES: WellnessModule[] = [
           id: 'quit',
           title: 'Quit tracker',
           description:
-            'Count the days since you stopped — with a replacement action for the moment it gets hard.',
+            'Count the days since you stopped, with a replacement action for the moment it gets hard.',
           icon: Sprout,
           status: 'live',
           to: '/wellness/quit',

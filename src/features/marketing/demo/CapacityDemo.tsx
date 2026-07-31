@@ -77,7 +77,7 @@ export function CapacityDemo() {
               {formatMinutes(summary.overMinutes)} more than the day holds.
             </p>
             <p className="mt-1 text-xs text-text-muted">
-              A to-do list would let you find this out at 6pm. Todonado says it now — and offers the
+              A to-do list would let you find this out at 6pm. Todonado says it now, and offers the
               smallest fix.
             </p>
             <Button
