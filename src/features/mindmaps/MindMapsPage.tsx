@@ -100,7 +100,7 @@ export function MindMapsPage() {
       {!available ? (
         <NotSwitchedOnCard />
       ) : isPending ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-32 animate-pulse rounded-2xl border border-white/5 bg-surface-2/40" />
           ))}
@@ -124,7 +124,7 @@ export function MindMapsPage() {
           </CardContent>
         </Card>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-3">
           {maps.map((map) => (
             <li key={map.id}>
               <div className="group relative h-full rounded-2xl border border-white/5 bg-surface/60 transition-colors hover:border-brand/25">

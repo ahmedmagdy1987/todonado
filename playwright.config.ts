@@ -24,6 +24,24 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    /*
+     * PIN THE LOCALE so a local run and CI render the same page.
+     *
+     * Without it the browser inherits the machine's locale, and the two do not
+     * agree: on an Arabic-locale Windows box Chrome renders `input[type=number]`
+     * values in Arabic-Indic digits (the duration field on /focus showed "٥٠"
+     * beside a "50 min" chip), and every `toLocaleDateString` in the app
+     * formats differently. Neither is an app bug — both are correct behaviour
+     * for that locale — but they make "it passes locally" and "it passes in CI"
+     * two different claims. This is a test-harness decision only; the app still
+     * follows the real user's locale in the browser.
+     *
+     * The TIMEZONE is deliberately left alone. The seeds compute "today" from
+     * `toISOString()` (UTC) while the browser uses the machine's zone, so the
+     * two can disagree for a few hours around midnight — worth fixing, but not
+     * in the same change as a layout sweep.
+     */
+    locale: 'en-US',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

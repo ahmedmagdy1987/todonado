@@ -216,8 +216,13 @@ export async function signIn(page: Page, account: TestAccount): Promise<void> {
  * sub-pixel layout rounding.
  */
 export async function expectNoHorizontalOverflow(page: Page, width = 390): Promise<void> {
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  )
-  expect(overflow, `page scrolls horizontally at ${width}px`).toBeLessThanOrEqual(1)
+  const measured = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    viewport: window.innerWidth,
+  }))
+  // `width` used to be a label only — it appeared in the failure message and
+  // was never checked, so a caller that forgot `setViewportSize` got a green
+  // assertion about a width the page was never rendered at. Pin it.
+  expect(measured.viewport, `expected a ${width}px viewport`).toBeLessThanOrEqual(width + 1)
+  expect(measured.overflow, `page scrolls horizontally at ${width}px`).toBeLessThanOrEqual(1)
 }

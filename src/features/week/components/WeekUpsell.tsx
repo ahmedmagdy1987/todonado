@@ -126,19 +126,37 @@ export function WeekUpsell() {
           className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 lg:mx-0 lg:grid lg:grid-cols-7 lg:overflow-visible lg:px-0"
         >
           {days.map((day) => (
-            <DayColumn key={day.date} day={day} interactive={false}>
-              {day.tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="rounded-xl border border-white/5 bg-surface-2/40 px-2.5 py-2"
-                >
-                  <p className="truncate text-xs text-text-primary">{task.title}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-text-muted">
-                    {formatMinutes(task.effort_minutes ?? 0)}
-                  </p>
-                </div>
-              ))}
-            </DayColumn>
+            /*
+              THE SAME WIDTH WRAPPER THE REAL BOARD USES, and it has to be here
+              too. `DayColumn` is `w-full min-w-0` — deliberately, so it fills a
+              grid cell at `lg` — which means that as a bare FLEX child it
+              shrinks to its content. WeekPage wraps each column to stop that;
+              this board rendered them raw, so between 640px and 1024px the
+              seven sample columns collapsed to about 55px each: "Today" read
+              "Toda", "1h in meetings" read "1h in mee", and every task card was
+              two characters and an ellipsis.
+
+              This is the board a FREE user sees — the one making the case for
+              the paid feature — so it was the more visible of the two.
+            */
+            <div
+              key={day.date}
+              className="flex min-h-[24rem] min-w-[85vw] sm:min-h-[28rem] sm:min-w-[17rem] lg:min-h-0 lg:min-w-0"
+            >
+              <DayColumn day={day} interactive={false}>
+                {day.tasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="rounded-xl border border-white/5 bg-surface-2/40 px-2.5 py-2"
+                  >
+                    <p className="truncate text-xs text-text-primary">{task.title}</p>
+                    <p className="mt-0.5 font-mono text-[11px] text-text-muted">
+                      {formatMinutes(task.effort_minutes ?? 0)}
+                    </p>
+                  </div>
+                ))}
+              </DayColumn>
+            </div>
           ))}
         </div>
       </section>

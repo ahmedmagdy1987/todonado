@@ -473,7 +473,7 @@ function BackLink() {
   return (
     <Link
       to="/vision/maps"
-      className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-muted hover:text-text-primary md:min-h-0"
+      className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-muted hover:text-text-primary md-fine:min-h-0"
     >
       <ArrowLeft className="h-4 w-4" aria-hidden /> Maps
     </Link>

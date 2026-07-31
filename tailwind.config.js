@@ -8,6 +8,19 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      screens: {
+        /*
+         * "Wide enough for desktop density, AND actually driven by a mouse."
+         *
+         * Every touch-target floor in this app used to lift at plain `md`
+         * (768px), and 768px is iPad PORTRAIT — a touch device being handed
+         * desktop hit areas. Width has never been a test for how someone is
+         * pointing at the screen; `pointer: fine` is. A desktop touchscreen
+         * keeps the big targets too, which is the correct answer and the one
+         * a width query can never give.
+         */
+        'md-fine': { raw: '(min-width: 768px) and (pointer: fine)' },
+      },
       colors: {
         // Core surfaces (mission-control dark)
         background: '#0A0D16',

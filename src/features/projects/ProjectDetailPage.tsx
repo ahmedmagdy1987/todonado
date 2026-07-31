@@ -70,7 +70,7 @@ export function ProjectDetailPage() {
       <div className="animate-fade-in space-y-6">
         <Link
           to="/projects"
-          className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1 rounded px-2 text-sm text-text-muted hover:text-text-primary md:mx-0 md:min-h-0 md:px-0"
+          className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1 rounded px-2 text-sm text-text-muted hover:text-text-primary md-fine:mx-0 md-fine:min-h-0 md-fine:px-0"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Projects
         </Link>
@@ -145,7 +145,7 @@ export function ProjectDetailPage() {
     <div className="animate-fade-in space-y-6">
       <Link
         to="/projects"
-        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1 rounded px-2 text-sm text-text-muted hover:text-text-primary md:mx-0 md:min-h-0 md:px-0"
+        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1 rounded px-2 text-sm text-text-muted hover:text-text-primary md-fine:mx-0 md-fine:min-h-0 md-fine:px-0"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden /> Projects
       </Link>
@@ -188,9 +188,19 @@ export function ProjectDetailPage() {
             <Pencil className="h-4 w-4 shrink-0 text-text-muted opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" aria-hidden />
           </button>
         )}
-        {/* `basis-full` until `sm`: wrapping alone would not fire, because the
-            title is `flex-1` and so has a hypothetical size of zero. */}
-        <div className="flex w-full basis-full items-center gap-2 sm:ml-auto sm:w-auto sm:basis-auto">
+        {/* `basis-full` until `lg`: wrapping alone would not fire, because the
+            title is `flex-1` and so has a hypothetical size of zero.
+
+            THE HINGE IS `lg`, NOT `sm`, AND THE REASON IS THE SIDEBAR. Every
+            Tailwind breakpoint here describes the VIEWPORT, but this row lives
+            inside AppShell, and the 256px sidebar appears at exactly `md`
+            (768). So a `sm:` hinge put these buttons back on the title's line
+            at 640px — and by 768 the content column had DROPPED to ~512px,
+            narrower than the phone the wrap was written for. The project name,
+            which is this page's identity, was rendering as "Q3 Laun…" next to
+            two buttons with room to spare. Content width, not window width, is
+            what a layout inside the shell has to be measured against. */}
+        <div className="flex w-full basis-full items-center gap-2 lg:ml-auto lg:w-auto lg:basis-auto">
           {personalTemplatesAvailable && (
             <Button
               variant="ghost"

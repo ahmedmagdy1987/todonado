@@ -245,9 +245,9 @@ export function TemplatesPage() {
         ))}
       </div>
 
-      <div className="md:grid md:grid-cols-[200px_1fr] md:gap-6">
+      <div className="lg:grid lg:grid-cols-[200px_1fr] lg:gap-6">
         {/* Desktop: category sidebar */}
-        <nav className="hidden md:block" aria-label="Template categories">
+        <nav className="hidden lg:block" aria-label="Template categories">
           <ul className="space-y-1">
             {cats.map((c) => (
               <li key={c.id}>
@@ -282,7 +282,7 @@ export function TemplatesPage() {
                 </h3>
                 <span className="font-mono text-xs text-text-muted">{personalResults.length}</span>
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                 {personalResults.map((t) => (
                   <TemplateCard key={t.id} template={t} personal onEdit={() => startEdit(t.id)} />
                 ))}
@@ -302,7 +302,7 @@ export function TemplatesPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
               {results.map((t) => (
                 <TemplateCard key={t.id} template={t} />
               ))}

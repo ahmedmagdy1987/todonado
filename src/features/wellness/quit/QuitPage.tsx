@@ -112,7 +112,7 @@ export function QuitPage() {
       <header className="space-y-3">
         <Link
           to="/wellness"
-          className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md:mx-0 md:min-h-0 md:px-0 transition-colors hover:text-text-primary"
+          className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md-fine:mx-0 md-fine:min-h-0 md-fine:px-0 transition-colors hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Focus &amp; Calm
@@ -180,7 +180,7 @@ export function QuitPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
           {habits.map((habit) => {
             const checkedDays = checkedDaysForHabit(checkins, habit.id)
             const todayIds = checkins

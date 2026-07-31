@@ -32,10 +32,10 @@ const variants: Record<ButtonVariant, string> = {
  * Desktop density is untouched: the `md:` half restores the original height.
  */
 const sizes: Record<ButtonSize, string> = {
-  sm: 'h-11 px-3 text-sm md:h-8',
-  md: 'h-11 px-4 text-sm md:h-10',
+  sm: 'h-11 px-3 text-sm md-fine:h-8',
+  md: 'h-11 px-4 text-sm md-fine:h-10',
   lg: 'h-12 px-6 text-base',
-  icon: 'h-11 w-11 md:h-10 md:w-10',
+  icon: 'h-11 w-11 md-fine:h-10 md-fine:w-10',
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

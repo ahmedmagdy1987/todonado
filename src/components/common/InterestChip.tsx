@@ -88,7 +88,7 @@ export function InterestChip({
         type="button"
         onClick={register}
         disabled={status === 'saving'}
-        className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface-2/60 hover:text-text-primary disabled:opacity-60 md:min-h-0"
+        className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface-2/60 hover:text-text-primary disabled:opacity-60 md-fine:min-h-0"
       >
         <Plus className="h-3.5 w-3.5" aria-hidden />
         {status === 'saving' ? 'Saving…' : label}

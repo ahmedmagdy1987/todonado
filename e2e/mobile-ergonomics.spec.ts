@@ -59,7 +59,12 @@ async function undersizedTargets(page: Page): Promise<string[]> {
       if (r.width === 0 || r.height === 0) continue
       const cls = el.classList
       const expands = cls.contains('tap-44') || cls.contains('tap-h-44')
-      const grown = expands && getComputedStyle(el, '::before').content !== 'none'
+      // `display`, NOT `content`. The rule that lifts the expansion sets
+      // `display: none` and leaves `content: ''` intact, so checking `content`
+      // credited every 20px checkbox with a 44px target the moment the
+      // expansion was actually gone — a check that could only ever pass.
+      const before = getComputedStyle(el, '::before')
+      const grown = expands && before.content !== 'none' && before.display !== 'none'
       const h = grown ? Math.max(r.height, 44) : r.height
       const w = cls.contains('tap-44') && grown ? Math.max(r.width, 44) : r.width
       // HEIGHT is the rule. A chip in a horizontal row can legitimately be

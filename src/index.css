@@ -344,7 +344,19 @@
     transform: translateY(-50%);
   }
 
-  @media (min-width: 768px) {
+  /*
+   * Drop the expanded hit area only for a MOUSE — never merely for a wide screen.
+   *
+   * This was `(min-width: 768px)` alone, which lifted the 44px floor at exactly
+   * iPad-portrait width: a touch device, handed 20px checkboxes and 20px drag
+   * grips. Width does not tell you how someone is pointing at the screen.
+   * `pointer: fine` does, and it also keeps the big targets on a desktop
+   * touchscreen, which a width query can never get right.
+   *
+   * WCAG 2.2 SC 2.5.8 sets 24x24 CSS px as the AA floor for EVERY pointer type,
+   * and the 20px controls underneath were below it with the expansion off.
+   */
+  @media (min-width: 768px) and (pointer: fine) {
     .tap-44::before,
     .tap-h-44::before {
       display: none;

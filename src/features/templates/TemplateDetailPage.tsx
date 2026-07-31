@@ -42,7 +42,7 @@ function NotFound() {
     <div className="animate-fade-in space-y-4">
       <Link
         to="/templates"
-        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md:mx-0 md:min-h-0 md:px-0 transition-colors hover:text-text-primary"
+        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md-fine:mx-0 md-fine:min-h-0 md-fine:px-0 transition-colors hover:text-text-primary"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Templates
@@ -111,7 +111,7 @@ export function TemplateDetailPage() {
     <div className="animate-fade-in mx-auto max-w-2xl space-y-6">
       <Link
         to="/templates"
-        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md:mx-0 md:min-h-0 md:px-0 transition-colors hover:text-text-primary"
+        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md-fine:mx-0 md-fine:min-h-0 md-fine:px-0 transition-colors hover:text-text-primary"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
         Templates

@@ -82,7 +82,7 @@ export function ProjectsPage() {
       {isError ? (
         <LoadError message="We couldn't load your projects." onRetry={() => void refetch()} />
       ) : isPending ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
@@ -102,7 +102,7 @@ export function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
           {active.map((p) => {
             const count = selectByProject(tasks, p.id).filter((t) => t.status !== 'done').length
             return (

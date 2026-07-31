@@ -194,7 +194,7 @@ export function PlanPage() {
 
       <Link
         to="/settings"
-        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded px-2 text-sm text-text-muted hover:text-text-primary md:mx-0 md:min-h-0 md:px-0"
+        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded px-2 text-sm text-text-muted hover:text-text-primary md-fine:mx-0 md-fine:min-h-0 md-fine:px-0"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden /> Back to Settings
       </Link>

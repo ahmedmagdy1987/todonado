@@ -27,6 +27,36 @@ function isWideRoute(pathname: string): boolean {
   return WIDE_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))
 }
 
+/**
+ * ── THE 768 TRAP, WRITTEN DOWN ONCE ──────────────────────────────────────────
+ *
+ * Every Tailwind breakpoint describes the WINDOW. Everything rendered inside
+ * this shell gets the window MINUS the 256px sidebar — and the sidebar appears
+ * at exactly `md` (768), because `Sidebar` is `hidden md:flex`. So the content
+ * column does not grow monotonically with the viewport:
+ *
+ *     viewport   sidebar   content     what a `sm:` two-up grid gives you
+ *     ────────   ───────   ───────     ─────────────────────────────────
+ *      640px       no       ~608px      two ~296px columns   ✓
+ *      767px       no       ~735px      two ~360px columns   ✓
+ *      768px      YES       ~480px      two ~228px columns   ✗  ← NARROWER
+ *     1024px      YES       ~735px      two ~360px columns   ✓
+ *
+ * Crossing 768 makes the content column SHRINK by a third. Anything that opts
+ * into a denser layout at `sm` or `md` therefore has its worst case at 768,
+ * which is the one width a desktop-sized browser window never shows you.
+ *
+ * That is a single cause with a long tail: the /projects/:id title rendered as
+ * "Q3 Laun…", the Free sample week collapsed to 55px columns, and a quit habit
+ * called "Late-night doomscrolling" wrapped to nine lines of two characters.
+ *
+ * THE RULE: inside the shell, a grid that goes two-up at `sm` must drop back to
+ * one column for the 768-1023 band — `sm:grid-cols-2 md:grid-cols-1
+ * lg:grid-cols-2` — and a row that puts actions beside a title should hinge on
+ * `lg`, not `sm`. `e2e/breakpoints.spec.ts` checks all three widths so this
+ * band stops being the one nobody looks at.
+ */
+
 function ShellBody() {
   const { workspaceId, profile } = useWorkspace()
   useRealtimeSync(workspaceId)

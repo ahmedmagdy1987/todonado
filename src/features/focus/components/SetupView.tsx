@@ -124,7 +124,7 @@ export function SetupView({
                     type="button"
                     onClick={() => setMinutes(p)}
                     className={cn(
-                      'focus-ring min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors md:min-h-0',
+                      'focus-ring min-h-[44px] rounded-xl border px-4 py-2 text-sm font-medium transition-colors md-fine:min-h-0',
                       minutes === p
                         ? 'border-transparent bg-brand-gradient text-white'
                         : 'border-white/10 text-text-muted hover:text-text-primary',
@@ -178,7 +178,7 @@ function ModeButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium transition-colors md:min-h-0',
+        'focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium transition-colors md-fine:min-h-0',
         active
           ? 'border-transparent bg-brand-gradient text-white'
           : 'border-white/10 text-text-muted hover:text-text-primary',
