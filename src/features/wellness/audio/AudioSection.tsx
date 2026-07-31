@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Flower2, Play, Waves, type LucideIcon } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
+import { usePlan } from '@/features/billing/usePlan'
+import { SLEEP_NOISE_REQUIRES_PRO } from '@/lib/config'
 import { AudioPlayer } from './AudioPlayer'
-import { resolveTrackSrc, type AudioTrack } from './tracks'
+import { isGenerated, isTrackPlayable, type AudioTrack } from './tracks'
 
 function rowIcon(track: AudioTrack): LucideIcon {
   return track.category === 'meditation' ? Flower2 : Waves
@@ -20,7 +22,18 @@ function TrackRow({
   onActivate: () => void
   onStop: () => void
 }) {
-  const available = resolveTrackSrc(track) !== null
+  const { isPro, billingLoading } = usePlan()
+  /*
+   * A generated track is FREE, and `SLEEP_NOISE_REQUIRES_PRO` in src/lib/config.ts
+   * is the only thing that decides it. Flipping that constant to true is the
+   * whole change: this row starts showing a Pro badge instead of Play.
+   *
+   * Fails OPEN while the plan is still loading, the JournalPage idiom: this
+   * gates a listening control, not a write, so a subscriber must not watch it
+   * flicker into a paywall on every cold load.
+   */
+  const locked = SLEEP_NOISE_REQUIRES_PRO && isGenerated(track) && !(isPro || billingLoading)
+  const available = isTrackPlayable(track) && !locked
   const Icon = rowIcon(track)
 
   return (
@@ -45,6 +58,8 @@ function TrackRow({
                 <Play className="h-4 w-4" aria-hidden /> Play
               </Button>
             )
+          ) : locked ? (
+            <Badge variant="brand">Pro</Badge>
           ) : (
             <Badge variant="outline">Audio coming soon</Badge>
           )}

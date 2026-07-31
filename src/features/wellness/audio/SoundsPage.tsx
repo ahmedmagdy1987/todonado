@@ -8,8 +8,8 @@ export function SoundsPage() {
     <AudioSection
       icon={Moon}
       title="Sleep sounds"
-      subtitle="Ambient soundscapes for winding down."
-      intro="Pick a sound, set a sleep timer, and let it play. Audio is added as it's licensed, so anything without a source yet shows “coming soon.”"
+      subtitle="Steady sound for winding down."
+      intro="White, pink and brown noise are generated on your device, so there is nothing to download and nothing to wait for. Pick one, set a sleep timer, and let it run. Rain, thunder and ocean are recordings we have not licensed yet, so they say so instead of pretending."
       tracks={tracksByCategory('sleep')}
     />
   )

@@ -53,7 +53,6 @@ function allowedKeys(): string[] {
 /** Every key the client can produce. Kept in sync by the assertions below. */
 const CLIENT_KEYS: FeatureKey[] = [
   'meditation',
-  'sleep_sounds',
   'supplement_tracker',
   'vision_images',
   'referral',
@@ -74,7 +73,18 @@ const CLIENT_KEYS: FeatureKey[] = [
  * stay exactly where they are: they are real signal about what people wanted,
  * and deleting them would be rewriting history to match a later decision.
  */
-const RETIRED_KEYS = ['ai_coach', 'voice_journal']
+const RETIRED_KEYS = [
+  'ai_coach',
+  'voice_journal',
+  /*
+   * RETIRED BECAUSE IT SHIPPED, which is the happy version of this list and
+   * worth distinguishing from the two above. Sleep sounds is live: the white,
+   * pink and brown tracks are generated on the device, so there was never a
+   * file to license. Measuring demand for a feature somebody can already use is
+   * the dishonesty concepts.ts exists to avoid.
+   */
+  'sleep_sounds',
+]
 
 describe('feature_intents keys', () => {
   const allowed = allowedKeys()

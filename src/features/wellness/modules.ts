@@ -35,7 +35,7 @@ export const WELLNESS_MODULES: WellnessModule[] = [
   {
     id: 'sleep',
     title: 'Sleep sounds',
-    description: 'Ambient soundscapes (white noise, rain, thunderstorm) with a sleep timer.',
+    description: 'White, pink and brown noise, generated on your device, with a sleep timer.',
     icon: Moon,
     status: 'live',
     to: '/wellness/sleep',

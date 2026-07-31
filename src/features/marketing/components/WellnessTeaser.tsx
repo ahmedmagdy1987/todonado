@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowRight, Pill, Wind, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Moon, Pill, Wind, type LucideIcon} from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
@@ -17,9 +17,12 @@ interface LiveModule {
 
 /**
  * SHIPPED and fully usable today — so these link into the real thing rather than
- * capturing interest. Sleep sounds and guided meditation are deliberately NOT
- * here: their players exist but no audio is licensed yet, so they stay fake
- * doors (see WELLNESS_CONCEPTS).
+ * capturing interest.
+ *
+ * Sleep sounds joined this list when the noise tracks shipped: white, pink and
+ * brown are generated on the device, so there was never a file to license.
+ * Guided meditation is the only one left below, because its sessions still have
+ * to be spoken and recorded by a person (see WELLNESS_CONCEPTS).
  */
 const LIVE_MODULES: LiveModule[] = [
   {
@@ -28,6 +31,13 @@ const LIVE_MODULES: LiveModule[] = [
       'A guided breathing pacer. Box, Calm (4-7-8), or Simple, with an optional end chime.',
     icon: Wind,
     to: '/wellness/breathe',
+  },
+  {
+    title: 'Sleep sounds',
+    description:
+      'White, pink and brown noise, generated on your device, with a sleep timer. No download.',
+    icon: Moon,
+    to: '/wellness/sleep',
   },
   {
     title: 'Supplement & medication tracker',

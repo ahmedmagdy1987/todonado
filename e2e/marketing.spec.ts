@@ -59,6 +59,10 @@ const SHIPPED = [
   'Mind maps',
   'Journal',
   'Challenges',
+  // Added the day the noise tracks shipped. Sleep sounds spent months on the
+  // NOT_BUILT list below and moved across, which is exactly the transition this
+  // pair of lists exists to make impossible to fudge.
+  'Sleep sounds',
 ]
 
 /**
@@ -70,9 +74,16 @@ const SHIPPED = [
  * an honest description of a maybe and not something to promise a stranger.
  * What is left is two commitments with real, nameable blockers, plus the Team
  * tier the page already sells.
+ *
+ * 'Sleep sounds' USED TO BE THE FIRST ENTRY. It is now in SHIPPED above, and
+ * what replaced it is deliberately narrower: 'Recorded ambience' — the rain,
+ * thunder and ocean recordings nobody has licensed. The noise tracks that
+ * shipped are generated on the device, so they were never waiting on a file.
+ * Naming the half that is still missing is the difference between an honest
+ * list and a stale one.
  */
 const NOT_BUILT = [
-  'Sleep sounds',
+  'Recorded ambience',
   'Guided meditation',
   'Referral',
   'Team',
@@ -101,7 +112,11 @@ test('landing: the breadth section is real, and every surface on it is live', as
   // Nothing unbuilt may be advertised inside it.
   const text = (await section.textContent()) ?? ''
   expect(text).not.toMatch(/coming soon|not yet|we.ll let you know/i)
-  for (const claim of ['Sleep sounds', 'Guided meditation', 'AI ', 'voice journal']) {
+  // 'Sleep sounds' left this list when it shipped, and the strip now claims
+  // "Sleep noise with a sleep timer" under Calm. What replaced it is the half
+  // that is still missing: no recording may be advertised here until it is
+  // licensed, and naming them individually is what makes that checkable.
+  for (const claim of ['Guided meditation', 'AI ', 'voice journal', 'Rain', 'Ocean']) {
     expect(text, `"${claim}" is not built and must not appear here`).not.toContain(claim)
   }
 
@@ -189,10 +204,13 @@ test('landing: no shipped feature is ever labelled unbuilt', async ({ page }) =>
   await mountLazySections(page)
   const body = (await page.locator('main').textContent()) ?? ''
 
-  // Only the audio pair may carry a "Coming soon" badge on the landing.
+  // Guided meditation is the LAST fake door on the landing. It was two until
+  // the noise tracks shipped; an exact count is what forces this number down
+  // when a fake door becomes a feature, instead of letting a stale badge sit
+  // next to something that works.
   const comingSoon = page.getByText('Coming soon', { exact: true })
   const count = await comingSoon.count()
-  expect(count, 'only the two unlicensed-audio fake doors may say Coming soon').toBe(2)
+  expect(count, 'only guided meditation is still unlicensed').toBe(1)
 
   // And each shipped feature is present WITHOUT being called unbuilt. The
   // wellness teaser's "Two of these are built" copy is the only place the word
@@ -287,7 +305,13 @@ test('pricing: the tiers match the real gates, and "not built" means not built',
   for (const item of NOT_BUILT) {
     expect(lower, `"${item}" should be listed as unbuilt`).toContain(item.toLowerCase())
   }
-  await expect(main.getByText(/no audio is licensed yet/i)).toBeVisible()
+  // This used to read /no audio is licensed yet/, which stopped being true the
+  // day the noise tracks shipped: SOME audio works now and none of it is
+  // licensed, because it is generated. The entry has to say which half is
+  // missing AND that the other half already works, or a visitor reading the
+  // not-built list would conclude the whole section is silent.
+  await expect(main.getByText(/none of that is licensed yet/i)).toBeVisible()
+  await expect(main.getByText(/generated noise tracks work today/i)).toBeVisible()
   await expect(main.getByText(/billing switched on/i)).toBeVisible()
   // Image boards used to be pinned here with their reason. The entry is gone:
   // "a deliberate wait" is a maybe, and this list is for commitments.

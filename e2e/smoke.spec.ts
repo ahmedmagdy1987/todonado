@@ -404,27 +404,29 @@ test('landing: Focus & Calm shows shipped modules as live and only fake-doors th
   await expect(section).toBeVisible()
 
   // SHIPPED — linked into the real app, no "Notify me".
-  for (const title of ['Breathwork', 'Supplement & medication tracker']) {
+  for (const title of ['Breathwork', 'Sleep sounds', 'Supplement & medication tracker']) {
     const card = section.locator('div').filter({ hasText: title }).last()
     await expect(card.getByText('Live').first()).toBeVisible()
   }
   await expect(section.getByRole('button', { name: 'Open Breathwork' })).toBeVisible()
+  await expect(section.getByRole('button', { name: 'Open Sleep sounds' })).toBeVisible()
   await expect(
     section.getByRole('button', { name: 'Open Supplement & medication tracker' }),
   ).toBeVisible()
 
-  // NOT BUILT — still honest fake doors.
-  await expect(section.getByText('Sleep sounds')).toBeVisible()
+  // NOT BUILT — still an honest fake door. Guided meditation is the only one
+  // left: its sessions have to be spoken and recorded by a person, whereas the
+  // noise tracks turned out to need no recording at all.
   await expect(section.getByText('Guided meditation')).toBeVisible()
-  await expect(section.getByRole('button', { name: 'Notify me about Sleep sounds' })).toBeVisible()
   await expect(
     section.getByRole('button', { name: 'Notify me about Guided meditation' }),
   ).toBeVisible()
   // NOTE: deliberately NOT clicked. feature_intents has no delete policy, so a
   // click would leave an undeletable row behind on every CI run.
 
-  // The two shipped modules must NOT be offered as fake doors any more.
+  // The three shipped modules must NOT be offered as fake doors any more.
   await expect(section.getByRole('button', { name: /Notify me about Breathwork/ })).toHaveCount(0)
+  await expect(section.getByRole('button', { name: /Notify me about Sleep sounds/ })).toHaveCount(0)
   await expect(
     section.getByRole('button', { name: /Notify me about Supplement/ }),
   ).toHaveCount(0)

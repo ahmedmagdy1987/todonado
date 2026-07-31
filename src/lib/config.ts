@@ -45,6 +45,26 @@ export const FREE_PERSONAL_TEMPLATES = 3
 export const FREE_QUIT_HABITS = 1
 
 /**
+ * Do the GENERATED sleep-noise tracks (white, pink, brown) require Pro?
+ *
+ * FALSE, and this constant is the only thing that decides it. Flip it to `true`
+ * and all three noise tracks move behind the paywall in one line: the cards
+ * gain the Pro badge, the play button becomes an upsell, and nothing else in
+ * the codebase needs touching.
+ *
+ * Free today because the sound costs nothing to serve. It is synthesised on the
+ * device from a formula, so there is no file, no bandwidth and no licence fee
+ * to recover, and a paywall in front of something that costs nothing is the
+ * kind of thing this product's pricing page exists to avoid. That reasoning
+ * would change if it ever became recorded audio with a bill behind it, which is
+ * exactly when you would want this switch.
+ *
+ * Recorded ambience (rain, thunder, ocean) is unaffected: it is not shipped at
+ * all until the files are licensed.
+ */
+export const SLEEP_NOISE_REQUIRES_PRO = false
+
+/**
  * How many VISION cards a Free plan may CREATE. Pro (and Founding) are
  * unlimited. Tunable — this is the only place the number lives.
  *

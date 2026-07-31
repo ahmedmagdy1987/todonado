@@ -149,13 +149,27 @@ email step. Turning it off turns CI red.
 
 ### 3.6 Licensed audio — honestly gated, not broken
 
-All 8 sleep and meditation tracks ship with an empty `src` and show an honest "Audio coming soon"
-state. **No copyrighted audio is bundled and none is claimed.** Drop licensed or CC0 files into
-`public/audio/` and fill in `src` in `src/features/wellness/audio/tracks.ts` — see
-`public/audio/README.md`. Nothing else changes.
+**Nothing to do before launch.** Three of the 9 tracks work already.
 
-The landing page's fake-door for these two concepts matches: it says the player is built and the
-audio is not licensed.
+The section is now split, and the split is the point:
+
+- **Generated (LIVE):** white, pink and brown noise are **synthesised on the device** from
+  `src/features/wellness/audio/noise.ts` — no file, no download, no licence, nothing to buy. They
+  ship enabled and are covered by the E2E suite, which asserts real playback rather than a button
+  label.
+- **Recorded (still honest "Audio coming soon"):** rain, thunderstorm, ocean and the six guided
+  meditation sessions ship with an empty `src`. **No copyrighted audio is bundled and none is
+  claimed.** Drop licensed or CC0 files into `public/audio/` and fill in `src` in
+  `src/features/wellness/audio/tracks.ts` — see `public/audio/README.md`. Nothing else changes.
+
+Every public surface states that split rather than the old blanket claim: the landing fake door is
+guided meditation ONLY, and `/pricing` lists "Recorded ambience, and guided meditation" with the
+sentence "The generated noise tracks work today." `e2e/marketing.spec.ts` fails if either drifts.
+
+**Optional, and only if you ever want to charge for it:** the noise tracks are FREE behind one
+constant, `SLEEP_NOISE_REQUIRES_PRO` in `src/lib/config.ts` (currently `false`). Flipping it to
+`true` is a one-line change that puts a Pro badge on all three and nothing else; no other file
+needs touching.
 
 ### 3.7 AI is CANCELLED, and there is nothing to do here
 

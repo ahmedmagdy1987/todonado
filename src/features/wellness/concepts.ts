@@ -1,4 +1,4 @@
-import { Flower2, Moon } from 'lucide-react'
+import { Flower2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { FeatureKey } from '@/types/database'
 
@@ -14,22 +14,18 @@ export interface WellnessConcept {
  * The "Focus & Calm" ideas that are STILL NOT USABLE, and therefore still honest
  * fake doors. Copy stays descriptive and avoids medical or health-benefit claims.
  *
- * Kept deliberately narrow. Breathwork (`/wellness/breathe`) and the supplement
- * tracker (`/wellness/tracker`) have SHIPPED — they are fully working features,
- * so offering a "Notify me" for them would be dishonest and they are no longer
- * listed here. What remains is the audio pair: the players are built, but
- * `AUDIO_TRACKS` ships every track with an empty `src` (no licensed audio in the
- * repo — see public/audio/README.md), so from a visitor's point of view there is
- * nothing to listen to yet. That is the gap this fake door measures.
+ * Kept deliberately narrow. Breathwork (`/wellness/breathe`), the supplement
+ * tracker (`/wellness/tracker`) and now SLEEP SOUNDS have SHIPPED, so offering a
+ * "Notify me" for any of them would be dishonest and none is listed here.
+ *
+ * Sleep sounds left this list the day the noise tracks landed: white, pink and
+ * brown are generated on the device from a formula, so there was never a file
+ * to license and there is now something real to listen to. Guided meditation is
+ * the last one standing, and for the reason that has not changed: the sessions
+ * have to be spoken and recorded by a person, and nobody has recorded them.
+ * That is the gap this fake door measures.
  */
 export const WELLNESS_CONCEPTS: WellnessConcept[] = [
-  {
-    key: 'sleep_sounds',
-    title: 'Sleep sounds',
-    description:
-      'Ambient soundscapes (white noise, rain, ocean) with a sleep timer. The player is built; the audio isn’t licensed yet.',
-    icon: Moon,
-  },
   {
     key: 'meditation',
     title: 'Guided meditation',

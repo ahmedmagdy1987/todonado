@@ -172,10 +172,13 @@ card). Modules:
   AudioContext chime (`playEndTone` from `@/features/focus/sound`). No audio files, no DB.
 - **Sleep sounds + Guided meditation** (`wellness/audio/`) — ONE reusable `<AudioPlayer>`
   (play/pause, loop, volume, sleep-timer auto-stop) shared by both sections, driven by a
-  `tracks.ts` manifest (`id, title, description, category 'sleep'|'meditation', src?, durationSec?`).
-  **NO copyrighted audio is bundled**: every track ships with empty `src` and shows an "Audio
-  coming soon" state until licensed/CC0 files are dropped in `public/audio/` (served at `/audio/…`)
-  or pointed at a Supabase Storage URL — see `public/audio/README.md`.
+  `tracks.ts` manifest (`id, title, description, category 'sleep'|'meditation', src?, durationSec?,
+  generator?`). **Sleep NOISE ships and plays** (2026-07-31, §11): white, pink and brown are
+  generated on the device, so a track is playable when it has a `src` **or** a `generator`
+  (`isTrackPlayable`). **NO copyrighted audio is bundled**: every RECORDED track still ships with
+  empty `src` and shows an "Audio coming soon" state until licensed/CC0 files are dropped in
+  `public/audio/` (served at `/audio/…`) or pointed at a Supabase Storage URL — see
+  `public/audio/README.md`.
 - **Supplement / medication tracker** (`wellness/tracker/`) — owner-only CRUD over `wellness_items`
   + `wellness_logs` (TanStack Query, optimistic, mirrors `useTaskMutations`): add/edit/delete,
   mark-taken-today, taken-streak (pure `tracking.ts`, unit-tested), and recent activity. A
@@ -528,6 +531,49 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
     carries no number and no brand, and **names every category it claims**, each of which must be a page a
     signed-up user can actually open. Its `SHIPPED` list gained all three new features, so the
     never-labelled-unbuilt guard has been armed since the strip lines were uncommented.
+
+11. **Generated sleep noise** (`wellness/audio/noise.ts`, `wav.ts`, `noiseSource.ts`,
+    `playback.ts`). White, pink and brown noise are now LIVE. **No audio file, no licence, no
+    bundle weight, no migration** — the sound is arithmetic, generated in the browser at play time.
+    **The DSP is a pure module and the tests check the physics, not the plumbing.** `generateNoise`
+    is a seeded generator (`mulberry32`) so every run is byte-identical, and the suite asserts what
+    actually distinguishes the three colours: `bandTilt` (a Goertzel single-bin magnitude ratio,
+    low band over high) must come out strictly ordered `white < pink < brown`, with pink more than
+    3x white and brown more than 3x pink. Asserting "the array is not all zeros" would have passed
+    for three identical white-noise tracks; asserting the spectral slope is the only way to know
+    that pink is pink. Pink is the Paul Kellet refined 7-pole filter and brown a leaky integrator,
+    both warmed up 4096 samples before recording so the loop does not start on a transient.
+    **THE ONE DEVIATION FROM THE OBVIOUS DESIGN, AND WHY.** The natural Web Audio shape is
+    `AudioBufferSourceNode(loop: true)`. It is not used, because the requirement was that noise
+    keeps playing when the tab is hidden and the phone screen locks — and a Web Audio graph is not
+    a media session. Chrome and Safari suspend an AudioContext that has no media element behind it
+    when the page is backgrounded, and neither offers lock-screen controls for one. So the same
+    PCM an `AudioBuffer` would have held is encoded to a WAV blob (`wav.ts`, 16-bit mono) and
+    played through the **existing** `<audio>` element, which the browser treats as real playback:
+    it survives backgrounding, it appears on the lock screen, and it costs nothing extra because
+    the player was already there. `vercel.json` needed `media-src 'self' blob:` for it — the CSP
+    would have blocked the blob the moment it was enforced.
+    Six seconds at 22.05 kHz per colour is about half a megabyte in memory and imperceptibly
+    periodic (noise has no melody to recognise, so periodicity is the only tell). The loop point is
+    an **equal-power crossfade** (`crossfadeLoop`) so the seam does not click, and the order matters:
+    generate, crossfade, THEN normalise — normalising first lets the summed seam clip. `buildNoiseLoop`
+    clamps its own fade to half the loop rather than throwing, because a helper that explodes on its
+    own default is a trap for the next caller.
+    Fades are `fadeGain`, a quarter-sine equal-power ramp over `FADE_MS = 400`, driven onto
+    `el.volume`; the volume slider yields while a fade owns it. The sleep timer is **one
+    `setTimeout` on a deadline** plus a 1s interval for the display only, so a throttled tab shows a
+    stale countdown but still stops on time.
+    **The tracks are FREE behind ONE constant: `SLEEP_NOISE_REQUIRES_PRO` in `src/lib/config.ts`**
+    (currently `false`), read in exactly one place (`AudioSection.tsx`). Flipping it to `true` puts
+    a Pro badge on all three and changes nothing else.
+    Every "coming soon" claim about them is gone (hub, landing card, `/pricing`, FAQ, the
+    `sleep_sounds` fake door), and the recorded half keeps its honest one. `featureIntentKeys.test.ts`
+    lists `sleep_sounds` under RETIRED **BECAUSE IT SHIPPED**, which is deliberately distinguished
+    from the two cancelled AI keys next to it. `e2e/sleep-sounds.spec.ts` proves real playback the
+    only way a test can: the `<audio>` element's `currentTime` advances, `readyState >= 3` and
+    `error` is null. A button label is not evidence and is not used. (Headless Chromium always runs
+    `--mute-audio`, so no test anywhere can prove a speaker made a sound; the media pipeline is what
+    is provable, and it is what is asserted.)
 
 ---
 

@@ -32,8 +32,12 @@ import { PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
  */
 const NOT_BUILT: { what: string; why: string }[] = [
   {
-    what: 'Sleep sounds & guided meditation',
-    why: 'The players are built. No audio is licensed yet, and we would rather ship silence than something we do not have the rights to.',
+    // SPLIT when the noise tracks shipped. Sleep sounds is no longer on this
+    // list at all: white, pink and brown noise are generated on the device, so
+    // there was never a file to license. What is still missing is the recorded
+    // half, and saying so precisely is the point of this list.
+    what: 'Recorded ambience, and guided meditation',
+    why: 'Rain, thunder and ocean are recordings, and the meditation sessions have to be spoken and recorded. None of that is licensed yet, and we would rather ship silence than something we do not have the rights to. The generated noise tracks work today.',
   },
   {
     what: 'Referral rewards & discount codes',

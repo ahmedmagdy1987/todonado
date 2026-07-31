@@ -23,7 +23,7 @@ const FAQ: Qa[] = [
   },
   {
     q: 'What isn’t built yet?',
-    a: 'Two things, and both are on their way. Sleep sounds and guided meditation: the players are built and we are licensing the audio. Referral discount codes: billing has to go live first, and until then the share link already works. Everything else on this page you can use right now.',
+    a: 'Two things, and both are on their way. Recorded ambience and guided meditation: rain, thunder, ocean and the spoken sessions all need audio we have not licensed yet. Referral discount codes: billing has to go live first, and until then the share link already works. Sleep sounds itself works now, because white, pink and brown noise are generated on your device rather than downloaded. Everything else on this page you can use right now.',
   },
   {
     q: 'Does it work on my phone?',

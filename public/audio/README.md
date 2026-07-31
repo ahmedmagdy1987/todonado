@@ -1,8 +1,21 @@
 # Wellness audio
 
-Drop licensed audio files for **Sleep sounds** and **Guided meditation** here.
-Files in `public/` are served at the site root, so `public/audio/rain.mp3` is
-reachable at `/audio/rain.mp3`.
+Drop licensed audio files for the **recorded** sleep ambience and for **Guided
+meditation** here. Files in `public/` are served at the site root, so
+`public/audio/rain.mp3` is reachable at `/audio/rain.mp3`.
+
+## This folder is no longer the only way to make a sound
+
+White, pink and brown noise are **generated on the device** and need no file at
+all. `src/features/wellness/audio/noise.ts` produces the samples, `wav.ts`
+wraps them in a WAV header, and the player is handed a `blob:` URL. Nothing is
+downloaded, nothing is licensed, and nothing belongs in this folder for them.
+
+So the empty-`src` rule below applies to RECORDINGS: rain, thunderstorm, ocean
+and the meditation sessions. A track is playable if it has a `src` **or** a
+`generator`; see `isTrackPlayable` in `tracks.ts`. Do not "fix" a generated
+track by dropping a noise file in here — it would be a strictly worse version
+of something that already works, and a megabyte of bundle for it.
 
 ## ⚠️ Licensing — read first
 
@@ -12,8 +25,9 @@ Do **not** add audio you don't have the right to use. Only add files that are:
 - properly licensed for this use, or
 - CC0 / public-domain.
 
-No copyrighted audio is bundled in this repo. Until you add files, every track
-shows an **"Audio coming soon"** state in the app (no broken players).
+No copyrighted audio is bundled in this repo. Until you add files, every
+**recorded** track shows an **"Audio coming soon"** state in the app (no broken
+players). The three generated noise tracks are unaffected and always play.
 
 ## How to enable a track
 

@@ -81,7 +81,15 @@ const SURFACES: Surface[] = [
     name: 'Calm',
     icon: Wind,
     line: 'A minute to settle before you start.',
-    items: ['Breathwork: Box, 4-7-8, Simple', 'A 60-second reset in Get to work', 'Optional end chime'],
+    items: [
+      'Breathwork: Box, 4-7-8, Simple',
+      // Safe to claim: white, pink and brown are generated on the device, so
+      // this is the one audio line on the page that waits on nothing. The
+      // recorded ambience stays off every marketing surface until it is licensed.
+      'Sleep noise with a sleep timer',
+      'A 60-second reset in Get to work',
+      'Optional end chime',
+    ],
     to: '/wellness/breathe',
     cta: 'Try breathwork',
   },
