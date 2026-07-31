@@ -98,6 +98,9 @@ export function useVisionMutations(userId: string) {
 
   const updateCard = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: VisionCardPatch }) => {
+      // The PATCH carries `project_id` — a uuid FK to a table whose ids can
+      // still be placeholders. Guarding only inserts left this one open.
+      assertRealIds(patch)
       const { data, error } = await supabase
         .from('vision_cards')
         .update(patch)

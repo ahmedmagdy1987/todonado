@@ -52,8 +52,14 @@ function safeError(err: unknown): CalendarFetchResult['error'] {
     case 'bad_port':
     case 'has_credentials':
     case 'private_host':
+    case 'dns_failed':
       // All "your URL is not acceptable" — deliberately indistinguishable, so the
       // response can't confirm whether an internal host exists.
+      //
+      // `dns_failed` JOINED THIS GROUP because split out it was the difference
+      // between "that name does not resolve" and "that name resolves to
+      // something private" — which is exactly the internal-hostname existence
+      // oracle this collapse exists to prevent.
       return 'invalid_source'
     case 'response_too_large':
       return 'response_too_large'

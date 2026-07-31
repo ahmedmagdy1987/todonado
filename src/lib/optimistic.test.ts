@@ -266,31 +266,60 @@ describe('no placeholder id can reach a uuid column', () => {
 
     for (const file of sourceFiles()) {
       const src = readFileSync(file, 'utf8')
-      const writes = /\.(insert|upsert)\(/g
+      /*
+       * `.update(` AND `.rpc(` ARE IN HERE NOW.
+       *
+       * The first version modelled only `.insert`/`.upsert`, which is how two
+       * real leaks survived a green suite: `updateCard` writes
+       * `vision_cards.project_id` through `.update`, and `completeTask` sends a
+       * whole spawned task through `.rpc('complete_task', { p_next })`. Both
+       * are FK writes; neither was a shape the sweep could see. A guard test
+       * that models a subset of the write API is a guard test that reports on
+       * the subset.
+       */
+      const writes = /\.(insert|upsert|update|rpc)\(/g
       let m: RegExpExecArray | null
 
       while ((m = writes.exec(src))) {
         const open = m.index + m[0].length - 1
-        const payload = balanced(src, open).trim()
+        const raw = balanced(src, open).trim()
+        // `.rpc('name', payload)` — the payload is the SECOND argument.
+        const payload = m[1] === 'rpc' ? raw.slice(raw.indexOf(',') + 1).trim() : raw
+        if (m[1] === 'rpc' && !raw.includes(',')) continue // no payload at all
 
-        // `.insert(input)` — a bare identifier. We cannot see the keys, so it
-        // MUST be guarded: this is exactly the shape that hid both live bugs.
-        const opaque = /^[A-Za-z_$][\w$]*$/.test(payload)
-        // `.insert({ task_id: … })` — an id-shaped key we CAN see.
+        /*
+         * ANYTHING NOT A FULLY-LITERAL OBJECT IS OPAQUE, and must be guarded.
+         *
+         * This used to test only for a bare identifier, so `.insert({ ...input })`
+         * and `.insert(buildRow(x))` both read as "a literal with no id keys"
+         * and were skipped. Spread is the single most likely shape for the next
+         * hook someone writes.
+         */
+        // A call expression as a VALUE (`completed_at: new Date()…`) is fine —
+        // the KEYS are still visible, which is all this check needs. Only a
+        // spread hides keys.
+        const literalObject = payload.startsWith('{') && payload.endsWith('}')
+        const opaque = !literalObject || /\.\.\./.test(payload)
         const carriesId = /\b(id|[a-z0-9_]+_id)\s*:/.test(payload)
         if (!opaque && !carriesId) continue
 
-        // The guard must sit above the write and inside the SAME function —
-        // a guard in a sibling mutation protects nothing.
+        /*
+         * The guard must sit above the write and inside the SAME function.
+         * `=>` is anchored as well as `function`/`mutationFn`, because
+         * `useApplyTemplate` holds three sibling arrow functions each doing its
+         * own insert — without it, one sibling's guard satisfied its neighbour
+         * and any of the three could lose its own.
+         */
         const before = src.slice(0, m.index)
         const scopeStart = Math.max(
           before.lastIndexOf('mutationFn'),
           before.lastIndexOf('function '),
+          before.lastIndexOf('=>'),
         )
         const scope = src.slice(scopeStart === -1 ? 0 : scopeStart, m.index)
         if (!/assertRealIds?\s*\(/.test(scope)) {
           offenders.push(
-            `${rel(file)}:${lineOf(src, m.index)}  .${m[1]}(${opaque ? payload : '{…}'})`,
+            `${rel(file)}:${lineOf(src, m.index)}  .${m[1]}(${opaque ? payload.slice(0, 40) : '{…}'})`,
           )
         }
       }

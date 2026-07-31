@@ -33,10 +33,26 @@ export function ResetPasswordPage() {
   useEffect(() => {
     const raw = window.location.hash.replace(/^#/, '') || window.location.search.replace(/^\?/, '')
     const params = new URLSearchParams(raw)
+    /*
+     * THE UPSTREAM DESCRIPTION IS NEVER RENDERED.
+     *
+     * `error_description` is attacker-controlled: anyone can send
+     * `/reset-password#error=x&error_description=<any prose>` and, when it was
+     * passed through, that prose rendered on the real domain, over TLS, in this
+     * page's own red alert styling — on the one screen someone opens precisely
+     * because they are worried about their account. React escapes it, so it is
+     * not script injection; it is worse in the way that matters, because it
+     * looks exactly like us. ("Your account was accessed from an unknown
+     * device. Call +1-555-0100 to restore access.")
+     *
+     * So the parameter chooses between OUR strings and nothing else. The
+     * fragment form never reaches a server log either, which is why this cannot
+     * be caught downstream.
+     */
     if (params.get('error_code') === 'otp_expired') {
       setLinkError('That reset link has expired or was already used.')
     } else if (params.get('error')) {
-      setLinkError(params.get('error_description') || 'This reset link is invalid.')
+      setLinkError('This reset link is invalid.')
     }
   }, [])
 

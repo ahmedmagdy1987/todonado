@@ -151,6 +151,34 @@ test('reset-password renders and forgot-password is non-enumerating (logged out)
   // NOTE: we deliberately do NOT verify email receipt — out of scope (no inbox in CI).
 })
 
+test('reset-password never renders text supplied in the URL', async ({ page }) => {
+  /*
+   * `error_description` is attacker-controlled. When it was passed through, a
+   * link like the one below rendered arbitrary prose on the real domain, over
+   * TLS, in this page's own red alert styling — on the one screen someone
+   * opens precisely because they are worried about their account. React
+   * escapes it, so it was never script injection; it was worse in the way that
+   * matters, because it looked exactly like us.
+   *
+   * Both carriers are checked: the query string, and the FRAGMENT, which never
+   * reaches a server log and so cannot be caught anywhere downstream.
+   */
+  const INJECTED = 'Your account was accessed from an unknown device, call 555-0100'
+
+  for (const url of [
+    `/reset-password?error=access_denied&error_description=${encodeURIComponent(INJECTED)}`,
+    `/reset-password#error=access_denied&error_description=${encodeURIComponent(INJECTED)}`,
+  ]) {
+    await page.goto(url)
+    await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+    const body = (await page.locator('body').textContent()) ?? ''
+    expect(body, `attacker text from ${url.split('?')[0]} reached the page`).not.toContain('555-0100')
+    expect(body).not.toContain('unknown device')
+    // …and the user still gets a real, first-party explanation.
+    expect(body).toMatch(/reset link is invalid|expired or was already used/i)
+  }
+})
+
 test('landing serves static share meta (OG/Twitter tags in the raw HTML — no JS)', async ({ page }) => {
   // Fetch the RAW document a crawler gets (no JS run) — the share tags must be
   // static in index.html, not injected client-side.

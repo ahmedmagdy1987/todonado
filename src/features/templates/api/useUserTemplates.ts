@@ -115,6 +115,7 @@ export function useUserTemplates() {
       //    was actually asked for. The editor always sends `style`, so keying the
       //    message off key-presence made every plain edit claim "checklist mode
       //    isn't switched on yet", which was simply untrue.
+      assertRealIds(patch)
       const wantsChecklist = patch.style === 'checklist'
       if ('style' in patch) {
         const withStyle = await supabase.from('user_templates').update(patch).eq('id', id)

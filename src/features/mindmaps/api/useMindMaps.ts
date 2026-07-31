@@ -82,6 +82,7 @@ export function useMindMap(mapId: string | undefined) {
  * caller catches it and there is no one left to show an error to anyway.
  */
 export async function persistMindMap(id: string, patch: MindMapPatch): Promise<void> {
+  assertRealIds(patch)
   const { error } = await supabase.from('mind_maps').update(patch).eq('id', id)
   if (error) throw error
 }
@@ -114,7 +115,10 @@ export function persistMindMapKeepalive(
   const body = JSON.stringify(patch)
   if (body.length > KEEPALIVE_LIMIT) return false
   try {
-    void fetch(`${env.VITE_SUPABASE_URL}/rest/v1/mind_maps?id=eq.${id}`, {
+    // Encoded, because this is the one write in the app that builds a
+    // PostgREST query string by concatenation rather than through the client.
+    // `id` arrives from a route parameter.
+    void fetch(`${env.VITE_SUPABASE_URL}/rest/v1/mind_maps?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
       keepalive: true,
       headers: {
@@ -192,6 +196,8 @@ export function useMindMapMutations(userId: string) {
    */
   const saveMap = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: MindMapPatch }) => {
+      // Guards the FKs a PATCH can carry, not just the row it addresses.
+      assertRealIds(patch)
       const { data, error } = await supabase
         .from('mind_maps')
         .update(patch)

@@ -63,6 +63,8 @@ export function useFocusMutations(workspaceId: string) {
 
   const patchSession = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: FocusSessionPatch }) => {
+      // Guards the FKs a PATCH can carry, not just the row it addresses.
+      assertRealIds(patch)
       const { data, error } = await supabase
         .from('focus_sessions')
         .update(patch)

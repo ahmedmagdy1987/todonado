@@ -109,6 +109,8 @@ export function useJournalMutations(userId: string) {
 
   const updateEntry = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: JournalEntryPatch }) => {
+      // Guards the FKs a PATCH can carry, not just the row it addresses.
+      assertRealIds(patch)
       const { data, error } = await supabase
         .from('journal_entries')
         .update(patch)

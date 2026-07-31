@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { PaidTier } from '../plans'
+import { assertRealIds } from '@/lib/optimistic'
 
 /**
  * Fake-door intent capture: a paid-plan CTA records a willingness-to-pay signal
@@ -52,7 +53,10 @@ export async function recordUpgradeIntent(
   client: DbClient,
   input: UpgradeIntentInput,
 ): Promise<void> {
-  const { error } = await client.from('upgrade_intents').insert(buildUpgradeIntent(input))
+  const row = buildUpgradeIntent(input)
+  // These tables have no DELETE policy, so a bad row is permanent.
+  assertRealIds(row)
+  const { error } = await client.from('upgrade_intents').insert(row)
   if (error) throw error
 }
 

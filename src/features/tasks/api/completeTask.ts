@@ -54,6 +54,14 @@ export async function completeTask(
 
   const next = task.recurrence_freq ? buildNextOccurrence(task) : null
 
+  // GUARD BOTH BRANCHES. This used to sit only on the legacy fallback below,
+  // which almost never runs — so the RPC, the path that actually executes,
+  // carried `p_next` unchecked. The spawned occurrence inherits `project_id`
+  // and `section_id` from its parent, and the RPC's compare-and-swap update and
+  // spawn insert are one transaction: a 22P02 on the copied id aborts BOTH, so
+  // the task does not even get marked done.
+  assertRealIds(next)
+
   const { data, error } = await client.rpc('complete_task', { p_task_id: task.id, p_next: next })
   if (!error) {
     const result = data as { task: Task; spawned: boolean }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { FeatureKey, NewFeatureIntentInput } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /**
  * Fake-door interest capture for the "Focus & Calm" wellness angle: a "Notify me"
@@ -39,7 +40,10 @@ export async function recordFeatureIntent(
   client: DbClient,
   input: FeatureIntentInput,
 ): Promise<void> {
-  const { error } = await client.from('feature_intents').insert(buildFeatureIntent(input))
+  const row = buildFeatureIntent(input)
+  // These tables have no DELETE policy, so a bad row is permanent.
+  assertRealIds(row)
+  const { error } = await client.from('feature_intents').insert(row)
   if (error) throw error
 }
 

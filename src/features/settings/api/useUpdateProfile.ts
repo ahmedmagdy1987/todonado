@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { Profile } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** Thrown when the chosen username collides with the case-insensitive unique index. */
 export class UsernameTakenError extends Error {
@@ -30,6 +31,7 @@ export function useUpdateProfile() {
       const row: Record<string, unknown> = { ...patch }
       if (patch.full_name !== undefined) row.display_name = patch.full_name
 
+      assertRealIds(row)
       const { data, error } = await supabase
         .from('profiles')
         .update(row)
