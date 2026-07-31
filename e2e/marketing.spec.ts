@@ -246,7 +246,13 @@ test('pricing: the tiers match the real gates, and "not built" means not built',
   await expect(main.getByText(/no audio is licensed yet/i)).toBeVisible()
   await expect(main.getByText(/need an AI provider/i)).toBeVisible()
   await expect(main.getByText(/billing switched on/i)).toBeVisible()
-  await expect(main.getByText(/Pictures need storage/i)).toBeVisible()
+  // Image boards: this assertion USED to pin "Pictures need storage, upload
+  // limits and a bill" — and that reason expired when journal voice notes
+  // shipped private storage with exactly those limits and that bill. A test
+  // that pins a stale reason keeps the stale reason alive, so it now pins the
+  // honest one: the wait is a deliberate product choice, not a blocker.
+  await expect(main.getByText(/not a technical blocker any more/i)).toBeVisible()
+  await expect(main.getByText(/until enough people ask for images/i)).toBeVisible()
 })
 
 test('landing: OG tags and the zero-database guarantee still hold', async ({ page }) => {

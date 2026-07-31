@@ -12,7 +12,13 @@ import { MarketingFooter } from '@/features/marketing/components/MarketingFooter
  * re-exported here for the legal pages. LEGAL_LAST_UPDATED stays local: the
  * date shown at the top of each document.
  */
-export const LEGAL_LAST_UPDATED = 'June 16, 2026'
+/**
+ * Bump this WHENEVER the prose changes — and the prose must change whenever the
+ * app starts collecting something new. It sat at June 16 while the app added a
+ * journal, voice recordings in cloud storage, a supplement log and a quit
+ * tracker, none of which the policy mentioned.
+ */
+export const LEGAL_LAST_UPDATED = 'July 31, 2026'
 export { LEGAL_CONTACT }
 
 interface LegalLayoutProps {

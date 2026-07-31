@@ -39,8 +39,12 @@ const NOT_BUILT: { what: string; why: string }[] = [
     why: 'Real discounts need billing switched on properly first. Until then there is a plain share link that actually works.',
   },
   {
+    // The REASON here went stale even though the feature did not: this used to
+    // say pictures need storage, upload limits and a bill, and all three now
+    // exist for journal voice notes. A list whose whole promise is "the actual
+    // reason" cannot keep quoting a blocker that has been cleared.
     what: 'Image vision boards',
-    why: 'Pictures need storage, upload limits and a bill. The Vision page ships text-first while we find out whether the images are wanted.',
+    why: 'Not a technical blocker any more — private storage exists for voice notes. It is a deliberate wait: the Vision page ships text-first until enough people ask for images to justify the storage bill for everyone.',
   },
   {
     what: 'Shared workspaces & team capacity',

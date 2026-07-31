@@ -153,8 +153,10 @@ it in history and spawns the correctly-dated next occurrence (unit-tested date m
 month-end clamp). **First-run onboarding** is built: a short, skippable 4-step activation flow
 (welcome → daily capacity → capture → plan today) that reuses existing capacity/quick-add/
 scheduling logic to land a new user on a planned Today with a live capacity meter; gated by
-`profiles.onboarding_completed`, never re-shown once finished/skipped. **Insights** remains a
-placeholder (V1).
+`profiles.onboarding_completed`, never re-shown once finished/skipped. **Insights** is **built**
+(Pro) — planned-vs-actual effort, roll-over patterns and focus trends; §4 has said so since it
+shipped, and this line claimed the opposite until the 2026-07-31 truth pass caught it.
+`src/components/common/PagePlaceholder.tsx` — the component that served that era — is deleted.
 
 The **wellness suite ("Focus & Calm")** is built behind a single feature flag,
 `FEATURES.wellness` in `src/lib/config.ts` (default **ON** for signed-in users). Flip it off to

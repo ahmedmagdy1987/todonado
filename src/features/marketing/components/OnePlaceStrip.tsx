@@ -22,9 +22,11 @@ interface Surface {
  *
  * WHAT THIS SECTION MAY CONTAIN: surfaces a signed-up user can open right now.
  * Every `to` below is a live route and every string in `items` is a shipped
- * feature. Sleep sounds, guided meditation, the AI coach, the voice journal and
- * image boards are deliberately ABSENT — they are not built, and they are listed
- * with their real blockers on /pricing instead.
+ * feature. Sleep sounds, guided meditation, the AI review layer and image boards
+ * are deliberately ABSENT — they are not built, and they are listed with their
+ * real blockers on /pricing instead. (The VOICE journal used to be in that list
+ * and no longer belongs there: it shipped. What is missing is the layer that
+ * reads a fortnight back and names the pattern.)
  *
  * NO NAMED COMPETITORS AND NO "REPLACES N APPS". The claim is only that these
  * live together; the list is the argument.

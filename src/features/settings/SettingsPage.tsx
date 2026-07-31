@@ -276,7 +276,7 @@ function DataSection() {
     <Section
       icon={Download}
       title="Your data"
-      description="Download everything you have in Todonado as a JSON file."
+      description="Download your records as a JSON file — tasks, projects, focus sessions, journal, trackers, vision, mind maps and challenges. Voice recordings are listed but not embedded; a JSON file cannot hold audio, so save any you want to keep from the journal page."
     >
       <Button variant="secondary" onClick={exportNow} loading={busy}>
         <Download className="h-4 w-4" aria-hidden /> Export my data (JSON)

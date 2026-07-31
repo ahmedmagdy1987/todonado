@@ -7,8 +7,10 @@ export function PrivacyPage() {
       intro={
         <p>
           This Privacy Policy explains what information Todonado collects, how we use it, and the
-          choices you have. It is a starting template. Please review it with your own legal advisor
-          before relying on it.
+          choices you have. It is written in plain language and describes what the app actually
+          does. If anything here is unclear, ask us at{' '}
+          <span className="text-text-primary">{LEGAL_CONTACT}</span> — you should not need a lawyer
+          to understand what happens to your data.
         </p>
       }
     >
@@ -21,9 +23,30 @@ export function PrivacyPage() {
         </p>
         <p>
           <strong className="text-text-primary">Your content and usage.</strong> We store the
-          tasks, projects, sections, focus sessions, and planning data you create so the app can
-          save and sync them across your devices. This data is held with our database and hosting
-          provider.
+          tasks, projects, sections, subtasks, focus sessions, templates, and planning data you
+          create so the app can save and sync them across your devices. If you use the optional
+          features, that also includes your journal entries, vision cards, mind maps, and the
+          challenges you join. This data is held with our database and hosting provider.
+        </p>
+        <p>
+          <strong className="text-text-primary">Voice recordings.</strong> If you record a voice
+          note in the journal, the audio file is uploaded and stored in private cloud storage under
+          a folder keyed to your account. Only you can play it back, through a short-lived link
+          that expires. You can delete a recording, or the whole entry, at any time — and doing so
+          deletes the file itself, not just the reference to it.
+        </p>
+        <p>
+          <strong className="text-text-primary">Health-adjacent entries.</strong> The supplement
+          and medication tracker and the quit tracker store what you type into them, which may
+          describe your health or personal habits. These are personal logs kept for you: we do not
+          analyse them, share them, aggregate them, or use them to build a profile of you. They are
+          covered by the same access rules as the rest of your data, and they are included when you
+          export or delete your account.
+        </p>
+        <p>
+          <strong className="text-text-primary">Calendar.</strong> If you import a calendar, we
+          store the busy time blocks needed for the capacity meter and, for a subscribed URL, the
+          address you gave us so it can be refreshed.
         </p>
       </LegalSection>
 
@@ -52,9 +75,22 @@ export function PrivacyPage() {
 
       <LegalSection heading="Data export and deletion">
         <p>
-          You can request a copy of your data, or ask us to delete your account and the data
-          associated with it, at any time. To make a request, contact us at{' '}
-          <span className="text-text-primary">{LEGAL_CONTACT}</span>.
+          You do not need to ask us. Both are built into the app, in{' '}
+          <strong className="text-text-primary">Settings</strong>:{' '}
+          <strong className="text-text-primary">Export my data</strong> downloads your records as a
+          JSON file, and <strong className="text-text-primary">Delete my account</strong> removes
+          your account and the data attached to it. Deletion is immediate and cannot be undone, so
+          export first if you want a copy.
+        </p>
+        <p>
+          One thing the export cannot contain: a JSON file cannot hold audio, so voice recordings
+          are listed by name but not embedded. Download any recording you want to keep from the
+          journal page before you delete your account. The export file says the same thing on its
+          face.
+        </p>
+        <p>
+          If either control does not work for you, or you want a copy in another format, contact us
+          at <span className="text-text-primary">{LEGAL_CONTACT}</span>.
         </p>
       </LegalSection>
 

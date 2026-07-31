@@ -7,8 +7,8 @@ export function TermsPage() {
       intro={
         <p>
           These Terms of Use govern your access to and use of Todonado. By using the app, you agree
-          to these terms. They are a starting template. Please review them with your own legal
-          advisor before relying on them.
+          to these terms. If anything here is unclear, ask us at{' '}
+          <span className="text-text-primary">{LEGAL_CONTACT}</span> before you rely on it.
         </p>
       }
     >
@@ -26,6 +26,17 @@ export function TermsPage() {
           Please use Todonado lawfully and respectfully. Do not misuse the service, attempt to
           disrupt or reverse-engineer it, access data that is not yours, or use it to store or
           distribute unlawful content.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="Wellness features are not medical advice">
+        <p>
+          The supplement and medication tracker, the quit tracker, and the breathing exercises are
+          personal logging and timing tools. They are not medical devices and they do not provide
+          medical advice, diagnosis, or treatment. Todonado does not check doses, interactions, or
+          contraindications, and nothing in the app should be used to decide whether to start,
+          stop, or change a medication or a course of treatment. Talk to a qualified healthcare
+          professional for that. If you are in crisis, contact your local emergency services.
         </p>
       </LegalSection>
 

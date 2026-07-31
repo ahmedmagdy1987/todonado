@@ -1,231 +1,245 @@
 # Todonado — Launch Checklist
 
-> The honest finish line. Written 2026-07-06 after the final pre-launch pass
-> (Stage 1 launch hygiene, Stage 2 security+correctness audit, Stage 3 this doc).
-> Head of `main`: see the last commit. Nothing here is aspirational — items are
-> either **verified done**, a **code item** (with status), or an **owner action**
-> (non-code, only you can do it).
+**Last rewritten: 2026-07-31**, at the end of the final pre-launch pass (Week layout, app-wide
+design sweep, logic audit, security audit, content truth pass).
+
+This supersedes the 2026-07-06 version, which was three weeks and roughly a dozen features behind —
+its first section told you to apply a migration that had been live for weeks, and it still described
+Insights as a placeholder. Everything below is either **verified**, with the evidence named, or an
+**owner action**, meaning no amount of code can close it.
+
+> **The rule this file enforces:** the bar is not "the code is merged", it is "a stranger who signs
+> up right now can use it, and nothing they read is untrue".
 
 ---
 
-## 0. DEPLOY PREREQUISITE (part of shipping — do it with the deploy)
+## 0. THE SHORT VERSION
 
-**Apply the one committed migration.** The code is written, committed, and gates
-green — it just needs pushing to the cloud DB (your standard `db push` deploy
-step). The Settings → "Delete account" button calls `delete_own_account()`, which
-is **not on the cloud DB yet** (verified: RPC returns 404 `PGRST202`); until you
-push it, clicking Delete account errors.
+**Can you launch today?** Yes, as a **free** product. Nothing in the app is broken, dishonest, or
+embarrassing as it stands.
 
-```
-supabase link --project-ref lplsbfduankkpglyusjp   # you link via SUPABASE_ACCESS_TOKEN
-supabase db push                                    # applies 20260706120000_delete_own_account.sql
-```
+**Can you charge today?** No — and not because of code. Stripe live keys are unset, and the Terms of
+Use contain no payment, cancellation, or refund section at all. Both are owner actions (§3).
 
-**Migrations still to apply: exactly ONE — `20260706120000_delete_own_account.sql`.**
-Everything else is already live (see §4). After pushing, re-run the smoke check in §5.
-This is a deploy step, not an open code item — the two owner *decisions* that
-remain are SMTP and Stripe (§3).
+**Do this first:** confirm `support@todonado.com` actually receives mail (§3.1). It is printed on
+the Privacy Policy, the Terms, and the legal footer as the way to reach a human — and it is the one
+claim in the app that no test can check.
+
+**Nothing to deploy to the database.** The cloud DB is fully migrated through
+`20260731140000_journal_entries`; this session added no migration. Do **not** run `supabase db push`.
 
 ---
 
-## 1. VERIFIED DONE (code + live-DB state)
+## 1. VERIFIED DONE
 
-### Stage 1 — launch hygiene (commit `de5624f`)
-- **Password reset, full flow.** "Forgot password?" on `/login` →
-  `resetPasswordForEmail(email, { redirectTo: <origin>/reset-password })` → a new
-  public `/reset-password` page that sets the new password from the recovery
-  session. Handles expired/used links, the slow-token-exchange race, and a
-  signed-in user changing their password. Non-enumerating copy ("If an account
-  exists…") on every branch.
-- **Real account deletion.** `delete_own_account()` SECURITY DEFINER RPC:
-  `authenticated`-only EXECUTE (revoked from `anon`/`public`), `search_path`
-  pinned to `''`, guarded on a null `auth.uid()`, deletes the caller's
-  `auth.users` row. The FK graph was cross-checked cascade-complete
-  (tasks/projects/sections/subtasks/profiles/workspaces/workspace_members/
-  focus_sessions/wellness_items/wellness_logs/calendar_sources all `ON DELETE
-  CASCADE`; events/upgrade_intents/feature_intents `SET NULL` by design).
-  UI is type-`DELETE`-to-confirm, then local sign-out + hard reload to `/welcome`
-  (no cached user data survives). *(Live only after §0.)*
-- **LEGAL_CONTACT** is now one config constant — `src/lib/config.ts` (see §3).
+### This session (2026-07-31) — five stages
 
-### Stage 2 — security & correctness audit (commit `2db3dde`)
-Adversarial multi-agent audit of everything since the last audit (`bd2db67`):
-Phase 1 analytics, 3A auto-effort, 3B auto-plan, 3C calendar ICS, 2A streak,
-plus Stage 1. 12 findings, each independently verified (0 false positives), all
-fixed with tests. Gates green: **typecheck · lint · 277 tests · build**.
+| Stage | Commit | What it closed |
+| --- | --- | --- |
+| 1 — Week board layout | `e6c967c` | Seven equal columns using the real screen width; route-scoped wide container so Today/Settings keep reading widths |
+| 2 — App-wide design sweep | `3ff5ab3` | Mobile ergonomics measured rather than guessed: 38/66 → 58/66 clean at 390px; the 12-item sidebar grouped into four labelled sections |
+| 3 — Logic & correctness audit | `3806bb8` | A fully-booked day was being planned as empty; both recurring bug classes found in five more places *each* and fixed uniformly |
+| 4 — Security audit | `4fdad34` | A header that would have killed voice notes in production only; full report in `docs/AUDIT_2026-07-31_final.md` |
+| 5 — Content truth pass | *this commit* | The data export was missing 14 tables; the Privacy Policy never mentioned voice recordings |
 
-- **RLS proven correct against the LIVE DB (anon-key probes):**
-  - Full-table sweep — all 14 tables return `[]` to anon SELECT (RLS filtering,
-    no leak).
-  - `events` — insert-only: anon may insert its own/`null` row but **cannot**
-    spoof another user's `user_id` (42501) or forge an event name (23514), and
-    the table has **no read-back** (SELECT `[]`; `return=representation` is
-    denied). No PII beyond `user_id` (verified every `track()` call site — `source`
-    is always a fixed UI-location string, `flag` is a boolean; never task text).
-  - `calendar_sources` — owner-only: anon insert rejected for both a spoofed and a
-    null `user_id` (42501). No cross-user path.
-- **Fixed (security/privacy):** auth enumeration oracle in forgot-password +
-  magic-link (the per-email rate-limit 429 only fires for existing emails — now
-  swallowed into the neutral copy); `delete_own_account` now scrubs
-  `upgrade_intents.email` before deleting `auth.users` so the erasure is complete.
-- **Fixed (untrusted input):** URL-subscribe `fetchIcs` now has a 15s timeout +
-  abort-signal forwarding + an 8 MB streamed byte cap, so a hostile/oversized/
-  tar-pit `.ics` can't hang or OOM the tab.
-- **Fixed (correctness):** repeated "Plan my day" could overcommit (estimated
-  picks weren't charged on the next run); lowercase-legal calendars were dropped;
-  NaN-proofed the busy-minutes clamp; focus-trend per-day rounding drift; non-finite
-  capacity guard in insights/capacity; `suggestEffort` NaN on `minSamples<=0`.
-- **Fixed (UX):** expired reset link showed a pointless 2.5s spinner.
+### Security posture — verified against the LIVE cloud
+
+Full detail, severities and evidence: **`docs/AUDIT_2026-07-31_final.md`**. Summary:
+
+- **RLS enforced on every table**, including the three newest. Anon read returns `[]`, anon write
+  returns `42501`, and user B cannot read, update, delete, or insert-as user A — proven with an
+  **unfiltered `select *`**, which is what shows isolation lives in the database rather than in a
+  client-side `.eq()`.
+- **Storage is private and the key shape is the authorisation.** Objects are never public, signed
+  URLs expire, an anonymous fetch fails, and a second signed-in user can neither read, list, nor
+  write another user's folder. A `..` in a key was tested against the live bucket: it lands in the
+  uploader's own namespace, not an escape.
+- **Size and MIME caps are enforced SERVER-side**, on the bucket itself, so they hold against a
+  client that ignores them. Stated explicitly because client-only caps would be worth flagging.
+- **The client bundle carries the public anon key and nothing else** — crawled across all chunks.
+  No service-role key, no Stripe secret.
+- **Every `/api` endpoint** verifies the caller's JWT, gates Pro server-side, and collapses every
+  SSRF rejection to `invalid_source`. The service worker never caches `/api` or auth.
+- **Auth copy is enumeration-safe.**
+
+### Gates
+
+`typecheck` · `lint` · **1106 unit tests** · `build` · **64 Playwright E2E** — green. Every push to
+`main` re-runs all of it in GitHub Actions against the real cloud Supabase, so a green push is
+validated even when this machine's local gates are skipped.
 
 ---
 
 ## 2. CODE ITEMS STILL OPEN
 
-**None.** All 12 audited findings are fixed and pushed; all gates pass. The
-`delete_own_account` code is complete — its only dependency is the migration in
-§0, which is an owner action (you apply migrations), not a code gap.
+None block a launch. Carried deliberately:
+
+| Item | Why it is not a blocker |
+| --- | --- |
+| CSP is `report-only` | It detects rather than prevents. Flip it to enforcing after watching real traffic for a few days — flipping it blind is how you break your own site. |
+| Checkout does not check for an existing subscription | Only reachable once Stripe is live, and Stripe's dashboard surfaces duplicates. Worth closing before the first paid week. |
+| `react-router` open-redirect advisories | Not reachable: the only redirect source is router in-memory state. Hardened by construction anyway in `src/features/auth/safeRedirect.ts`. Reported, deliberately not blind-upgraded. |
+| No component tests | Vitest runs in the node environment; there is no jsdom. Pure logic is tested heavily and the browser is covered by Playwright. A real gap, not a launch blocker. |
 
 ---
 
-## 3. OWNER ACTIONS (non-code — only you can do these)
+## 3. OWNER ACTIONS — only you can do these
 
-### THE TWO REMAINING OWNER ACTIONS
+### 3.1 Confirm `support@todonado.com` receives mail — **DO THIS FIRST**
 
-1. **Custom SMTP (Resend) — REQUIRED before sharing signup/reset links.**
-   Supabase's built-in mailer is rate-limited to a few emails per hour and is not
-   meant for production. Signup-confirmation, password-reset, and magic-link emails
-   will silently fail to deliver under any real volume. Wire Resend (or Postmark /
-   SES) in **Supabase → Project → Authentication → Emails → SMTP** before you share
-   the app. Without this, the password-reset flow doesn't actually reach users —
-   smoke-script step #7 is the true go/no-go.
+**Status: UNVERIFIED.**
 
-2. **Stripe keys / billing — only before you CHARGE (not before launch).** There
-   is no real subscription state today: "Pro" is a founding-email allowlist + a
-   local preview override (`src/features/billing/plan.ts`), and the pricing CTAs
-   record `upgrade_intents` (a fake door to measure willingness-to-pay). You can
-   launch the free product as-is. Before taking payment: build Stripe checkout
-   (start in test mode) **and** have the legal pages reviewed (they're solid
-   AI-drafted scaffolds in `PrivacyPage.tsx` / `TermsPage.tsx`, not a lawyer's
-   work; set an accurate `LEGAL_LAST_UPDATED` in `legal/LegalLayout.tsx`).
+It is the single contact address in the app (`LEGAL_CONTACT` in `src/lib/config.ts` — one source of
+truth, printed on the Privacy Policy, the Terms, and the legal footer). Nothing in the codebase can
+prove a mailbox exists behind it.
 
-> Everything else below is either a one-time deploy config to confirm during the
-> smoke test, or optional/post-launch. Neither blocks launching the free product
-> once SMTP is live.
+Send a message from an outside account and confirm it arrives. If it does not, create the mailbox or
+change the constant. Do not launch with a contact address that silently drops mail — it is also the
+address the Privacy Policy gives for data requests.
 
-### Deploy config to confirm (one-time; verify during the §5 smoke test)
+> Near-miss worth knowing: `founder@todonado.app` appears in the repo on a **different TLD**. It is
+> only a test fixture and is not user-facing — do not adopt it by accident.
 
-- ✅ **SPA deep-link rewrite — already handled in code.** `vercel.json` rewrites
-  `/(.*)` → `/index.html`, so `/reset-password` and every client route serve the
-  app instead of 404ing on a direct hit / refresh. Nothing to do (smoke step #6
-  still exercises it as a sanity check).
-- **Supabase redirect allowlist — the one dashboard setting to confirm.** In
-  **Authentication → URL Configuration** set **Site URL** to your production origin
-  and add **Redirect URLs** `https://www.todonado.com/**`, `https://todonado.com/**`,
-  and `http://localhost:5173/**`. The reset `redirectTo` is `<origin>/reset-password`,
-  so these wildcards cover it — a missing entry makes Supabase reject the redirect.
+### 3.2 Legal review before charging — **BLOCKS BILLING, NOT LAUNCH**
 
-### Optional / post-launch (non-blocking)
+The Privacy Policy and Terms were rewritten this session to describe what the app actually does:
+voice recordings in cloud storage, the journal, the health-adjacent trackers, and the self-service
+export and deletion that already exist. They are now accurate. They have **not** been reviewed by a
+lawyer.
 
-- **Supabase free-tier pausing (ops).** The free tier sleeps after ~1 week idle
-  (it happened between sessions and had to be restored). Confirm it's active before
-  sharing links; move to a paid plan once real users arrive so it never pauses
-  mid-launch.
-- **Wellness audio.** Every track ships with an empty `src` / "Audio coming soon"
-  (no copyrighted audio bundled, by design). Drop licensed/CC0 files into
-  `public/audio/` (see `public/audio/README.md`) or flip `FEATURES.wellness` off if
-  you'd rather not show empty players.
-- **Error tracking (Sentry), ~30 min.** `npm i @sentry/react`, then in
-  `src/main.tsx` `Sentry.init({ dsn, integrations:
-  [Sentry.browserTracingIntegration()], tracesSampleRate: 0.1 })` before render, and
-  optionally swap `ErrorBoundary` for `Sentry.ErrorBoundary`. DSN goes in `.env` as
-  a `VITE_` var (public client key).
-- **Clear analytics test rows.** The audit left a few anonymous probe rows
-  (`events`: 1 `day_returned`; `feature_intents`: 2–3; all `user_id = null`, no
-  PII). Delete them for a clean baseline or ignore the tiny count.
+**The Terms contain no payment, subscription, cancellation, or refund section at all.** Fine while
+the product is free; unacceptable the moment you charge. This was left for a lawyer rather than
+drafted here — refund terms are not something to improvise.
 
-### Done
+Worth a professional eye given what the app now stores:
+- Voice recordings are personal data and in some jurisdictions treated more strictly than text.
+- The quit tracker's presets can name health or sexual-behaviour categories.
+- The supplement/medication tracker holds health-adjacent free text.
 
-- ✅ **Support / legal email set** — `LEGAL_CONTACT = 'support@todonado.com'` in
-  `src/lib/config.ts` (2026-07-06). Verified baked into the production bundle and
-  rendered on `/privacy` (2×), `/terms`, and the shared legal footer.
+A "not medical advice" clause was added to the Terms this session, and the in-app disclaimer already
+existed. Confirm both are worded the way your jurisdiction expects.
 
----
+### 3.3 Stripe live keys — **BLOCKS BILLING**
 
-## 4. MIGRATION STATE (live DB, verified 2026-07-06)
+`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are unset, so billing is functionally off. `usePlan`
+degrades gracefully and My Plan falls back to the fake-door, so nothing is broken — the paid tier
+simply cannot be bought. Runbook: **`docs/BILLING_SETUP.md`**.
 
-Verified by anon-key probes against `lplsbfduankkpglyusjp`:
+Do not switch this on before §3.2.
 
-- **Applied and live** (more current than CLAUDE.md §7 claimed):
-  everything through `20260623140000_calendar_sources` — including `events`,
-  `events_auto_planned`, `calendar_sources` (their migration-specific columns all
-  resolve), and **`20260622160000_lock_complete_task_to_authenticated` (F1)** is
-  applied (anon `complete_task` → `42501 permission denied`, not the old 500).
-  `resolve_login_email` is gone (404, as intended).
-- **Applied (nothing pending):**
-  `20260706120000_delete_own_account.sql` (see §0).
+### 3.4 Supabase free-tier pausing — **THE QUIET LAUNCH KILLER**
 
-> CLAUDE.md §7 was stale (it listed F1 as pending and understated the applied set);
-> it's been corrected in this pass.
+A free Supabase project **pauses after about a week of inactivity**, and a paused project is
+`NXDOMAIN`. The app does not degrade — it cannot reach its backend at all, and every visitor sees a
+dead site.
 
----
+This is the failure most likely to embarrass a launch, precisely because it arrives during a *quiet*
+week rather than a busy one. Move the project to a paid plan before announcing, or accept that a
+quiet week takes the product offline. If the domain ever stops resolving, check this before
+debugging anything else.
 
-## 5. LAUNCH SMOKE SCRIPT (run on www.todonado.com as a fresh user)
+### 3.5 Transactional email (Resend / SMTP)
 
-Do this end-to-end **after** applying the migration (§0) and configuring SMTP (§3.1),
-in one sitting, in an incognito window:
+Supabase's built-in mailer has a low rate limit and is not intended for production. Password reset
+and magic-link sign-in both depend on mail arriving. Configure a real SMTP provider in the Supabase
+dashboard before you have enough users to hit the cap.
 
-1. **Sign up** — `/login` → Sign up → name + username (watch the availability
-   hint) + email + password → land in onboarding.
-2. **Onboarding** — walk the 4 steps (welcome → daily capacity → capture → plan
-   today); confirm you land on a planned Today with a live capacity meter.
-3. **Template** — apply a template from `/templates`; confirm tasks appear.
-4. **Capacity** — add effort to a few tasks; watch the meter move; overbook it and
-   confirm the over-capacity warning + "move to tomorrow" suggestion.
-5. **Auto-plan** — click "Plan my day"; confirm the preview never exceeds remaining
-   capacity, apply it, then click "Plan my day" **again** and confirm it doesn't
-   re-overfill (the Stage 2 fix).
-6. **Deep-route refresh** — navigate to `/insights` (or any in-app route) and hit
-   **browser refresh**; confirm it loads (not a 404). Then open
-   `https://www.todonado.com/reset-password` **directly** — confirm it renders the
-   reset page, not a 404 (this is the SPA-rewrite check, §3.2).
-7. **Password reset** — sign out → "Forgot password?" → submit your email →
-   receive the email (proves SMTP) → click the link → set a new password →
-   confirm you're signed in → sign in again with the new password.
-8. **(After you're satisfied)** — Settings → Delete account → type `DELETE` →
-   confirm you're signed out and the account is gone (proves the migration).
+**Mailer autoconfirm must stay ON** — the E2E suite depends on signup returning a session with no
+email step. Turning it off turns CI red.
 
-### The 3 numbers to watch once real users arrive
-Run these from `docs/ANALYTICS_QUERIES.sql` in the Supabase SQL editor:
+### 3.6 Licensed audio — honestly gated, not broken
 
-1. **Effort-entry rate** — the wedge's vital sign: of tasks created, what % carry
-   an effort estimate (`pct_with_effort`, query **#4**). If this is low, the
-   capacity meter isn't being fed and the differentiator isn't landing.
-2. **Day-2 / Day-3 return** — do users come back? `day_returned` per day
-   (query **#5**) and the activation funnel's `returned` count (query **#6**).
-3. **Upgrade-intent clicks** — willingness to pay before Stripe exists:
-   `upgrade_intents` by tier, including how many left an email (query **#2**).
+All 8 sleep and meditation tracks ship with an empty `src` and show an honest "Audio coming soon"
+state. **No copyrighted audio is bundled and none is claimed.** Drop licensed or CC0 files into
+`public/audio/` and fill in `src` in `src/features/wellness/audio/tracks.ts` — see
+`public/audio/README.md`. Nothing else changes.
+
+The landing page's fake-door for these two concepts matches: it says the player is built and the
+audio is not licensed.
+
+### 3.7 AI provider — not wired, and the app says so everywhere
+
+The journal's review layer and an AI coach are the only AI features named anywhere, and both are
+listed as unbuilt on `/pricing` **with their real reason**. The journal page states it next to the
+thing it is missing from. There is no placeholder summary and no invented insight.
+
+If you wire a provider later, note that `CLAUDE.md §5` currently lists AI features as out of scope —
+a scope decision to make deliberately, not to drift into.
+
+### 3.8 Deploy config to confirm once, during the §4 smoke test
+
+- `vercel.json` headers are live — in particular `Permissions-Policy: microphone=(self)`.
+  **Confirm a voice note records on the real domain.** The previous value denied the microphone to
+  our own origin and would have failed *only* in production, silently, on every browser.
+- HTTPS is enforced and the PWA installs.
+- The custom domain resolves, and the `www` / apex choice matches what the marketing copy says.
 
 ---
 
-## 6. ANYTHING ELSE THAT COULD BLOCK OR EMBARRASS A LAUNCH
+## 4. LAUNCH SMOKE SCRIPT — run on `www.todonado.com` as a genuinely fresh user
 
-- **Email deliverability is the real risk** (§3.1). Everything auth-facing —
-  signup confirmation, reset, magic link — depends on it. Test #7 in the smoke
-  script is the true go/no-go.
-- **The delete button is dead until the migration ships** (§0). Don't demo it
-  until then.
-- **Decide the signup email-confirmation setting** (Supabase → Auth → Providers →
-  Email → "Confirm email"). The code handles both auto-confirm (straight into
-  onboarding) and confirm-required (inbox step), but you should pick deliberately
-  — and if confirmation is required, SMTP (§3.1) is doubly load-bearing.
-- **`.env` is optional but supported.** The app ships the public Supabase URL +
-  anon key as defaults, so prod runs with no `.env`. That's intentional and safe
-  (anon key is RLS-protected). Just never commit a real `.env` or the service_role
-  key.
-- **No rate-limit/abuse protection on the fake-door inserts.** `events`,
-  `feature_intents`, `upgrade_intents` accept anonymous inserts by design (that's
-  how anonymous demand is measured). A determined actor could inflate those
-  counts. Acceptable for launch (no PII exposure, insert-only, no read-back), but
-  don't treat the raw numbers as fraud-proof.
-- **Bundle size** — the main JS chunk is ~484 KB (129 KB gzip). Fine for launch;
-  a candidate for route-based code-splitting later if you care about first-paint.
+Use a private window and an email you have never used here. **Do not use an account on the
+founding-user list**, or you will test Pro while believing you are testing Free.
+
+**Sign up and land**
+1. Open `www.todonado.com` — the landing renders, the aurora animates, nothing overflows sideways.
+2. Sign up. You should land in onboarding with **no email confirmation step**.
+3. Complete onboarding: set a capacity, capture a task, plan today. Today shows a live capacity meter.
+
+**The core promise**
+4. Add tasks with efforts totalling **more than** your daily capacity. The meter must warn and
+   "Plan my day" must **refuse to overcommit** — this is the product's whole thesis.
+5. Complete one task, leave one. Return the next day and confirm the unfinished task offers to roll
+   over, with an undo.
+
+**Breadth — every category the landing claims**
+6. `/work` → picks something sensible → hands off to Focus.
+7. `/focus` → start a pomodoro, reload mid-interval, confirm the timer is still correct.
+8. `/wellness/breathe` → a round runs. `/wellness/quit` → create a habit, check in, log a slip.
+9. `/journal` → write an entry, then **record a voice note and play it back**. This is the
+   `Permissions-Policy` check that can only fail in production.
+10. `/vision` and `/vision/maps` → create a card and a map; reload and confirm the map persisted.
+11. `/challenges` → join one and confirm the progress bar matches real work.
+
+**Free limits behave at the boundary**
+12. Hit each Free cap (1 mind map, 1 quit habit, 1 active challenge, 3 vision cards, 3 personal
+    templates). Each must gate **creation only** — everything already created keeps working.
+13. `/week` and `/insights` show an honest upsell, not a broken page.
+
+**Layout**
+14. Repeat steps 4–11 at **390px**. Nothing scrolls sideways, the week board is a snap carousel, and
+    every tap target is comfortable.
+
+**Data promises — the ones this session fixed**
+15. Settings → **Export my data**. Open the JSON and confirm your journal entry, quit habit, vision
+    card, mind map and challenge are all present, and that `incomplete` is absent.
+16. Settings → **Delete my account**. Confirm you are signed out and the account is gone.
+
+**Legal**
+17. `/privacy` and `/terms` render, are dated **July 31, 2026**, and name `support@todonado.com`.
+18. Email that address from outside and confirm it arrives (§3.1).
+
+### The three numbers to watch once real users arrive
+
+1. **Onboarding completion** — did they finish and land on a planned day, or bounce at capacity?
+2. **Day-2 return** — a daily command center not opened on day 2 has not landed.
+3. **Capacity meter engagement** — is anyone setting efforts? If not, the differentiator is not
+   reaching people, whatever the signup numbers say.
+
+---
+
+## 5. WOULD ANYTHING HERE EMBARRASS A PUBLIC LAUNCH?
+
+**Nothing in the app itself.** The copy is honest, the caps are real, the security holds, and the one
+production-only defect was found and fixed before anyone met it.
+
+Three things could still bite, in order:
+
+1. **A support address that goes nowhere** (§3.1) — it is printed as the way to make a data request.
+   Unverified.
+2. **The Supabase project pausing during a quiet week** (§3.4) — a total outage that arrives without
+   warning and looks like the product died.
+3. **Charging on Terms that say nothing about payment** (§3.2, §3.3) — fine today because the product
+   is free; not fine the moment checkout opens.
+
+None of the three is a code change.
