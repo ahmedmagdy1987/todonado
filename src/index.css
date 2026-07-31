@@ -275,6 +275,93 @@
   .focus-ring {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-brand/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
+
+  /*
+   * A 44px tap target WITHOUT changing what is drawn.
+   *
+   * Small icon buttons and short text links are correct at their visual size —
+   * a 20px grip should look like a 20px grip — but a 20px hit area on a phone
+   * is a miss you feel rather than see. This expands the touchable region with
+   * a transparent pseudo-element, so nothing around it moves, and drops it from
+   * `md` up where a pointer is precise and the extra area would swallow
+   * neighbouring clicks.
+   *
+   * Requires the element to be positioned; `relative` is included.
+   */
+  /*
+   * A range input with a handle you can actually see and grab.
+   *
+   * `appearance-none` removes the native thumb, and nothing was drawn in its
+   * place — the chime-volume control in Settings measured 300×6px with no
+   * handle at all, so there was no indication it could be dragged, and no
+   * usable target on touch. The track keeps its 6px; the thumb is 20px with a
+   * 44px reach on touch.
+   */
+  .range-brand::-webkit-slider-runnable-track {
+    @apply h-1.5 rounded-full bg-surface-2;
+  }
+  .range-brand::-moz-range-track {
+    @apply h-1.5 rounded-full bg-surface-2;
+  }
+  .range-brand::-webkit-slider-thumb {
+    @apply h-5 w-5 cursor-pointer appearance-none rounded-full border-2 border-white/80 bg-brand shadow-elevation;
+    /* Centre the 20px thumb on the 6px track. */
+    margin-top: -7px;
+  }
+  .range-brand::-moz-range-thumb {
+    @apply h-5 w-5 cursor-pointer rounded-full border-2 border-white/80 bg-brand shadow-elevation;
+  }
+
+  .tap-44 {
+    @apply relative;
+  }
+  .tap-44::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /*
+   * The same idea for controls that are already WIDE but too short — a task
+   * title, a row toggle, a quick-add. `.tap-44` would centre a 44px square and
+   * so make those NARROWER; this only grows the vertical reach and leaves the
+   * horizontal extent alone.
+   */
+  .tap-h-44 {
+    @apply relative;
+  }
+  .tap-h-44::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  @media (min-width: 768px) {
+    .tap-44::before,
+    .tap-h-44::before {
+      display: none;
+    }
+  }
+}
+
+/*
+ * Long unbroken strings must never widen the page.
+ *
+ * Users paste URLs into task titles, journal entries and mind-map notes, and
+ * nothing in the app broke them — a single 400-character token would have
+ * pushed the layout sideways on every surface that renders free text. Applied
+ * at the root so it covers content added in future without anyone remembering.
+ */
+html {
+  overflow-wrap: break-word;
 }
 
 /* ------------------------------------------------------------------ */

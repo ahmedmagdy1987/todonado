@@ -402,7 +402,7 @@ function ToggleRow({
         aria-label={label}
         onClick={() => onChange(!checked)}
         className={cn(
-          'focus-ring relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors',
+          'tap-44 focus-ring mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors',
           checked ? 'bg-brand-gradient' : 'bg-surface-2 ring-1 ring-inset ring-white/10',
         )}
       >
@@ -462,7 +462,7 @@ function NotificationsSection() {
                 step={5}
                 value={Math.round(prefs.volume * 100)}
                 onChange={(e) => setPrefs({ volume: Number(e.target.value) / 100 })}
-                className="focus-ring h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-2 accent-brand"
+                className="range-brand focus-ring h-6 w-full cursor-pointer appearance-none bg-transparent accent-brand"
               />
             </div>
 

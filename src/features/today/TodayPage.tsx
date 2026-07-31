@@ -253,7 +253,7 @@ export function TodayPage() {
                 onClick={() => setShareOpen(true)}
                 aria-label={`Share your ${streak.count}-day streak`}
                 title="Make a shareable card"
-                className="focus-ring rounded-full p-1.5 text-text-muted transition-colors hover:text-text-primary"
+                className="tap-44 focus-ring rounded-full p-1.5 text-text-muted transition-colors hover:text-text-primary"
               >
                 <Share2 className="h-3.5 w-3.5" aria-hidden />
               </button>

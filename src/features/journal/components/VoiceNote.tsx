@@ -161,7 +161,7 @@ export function VoiceNote({
           </div>
 
           {error && <p className="text-xs text-danger">{error}</p>}
-          <p className="text-[11px] leading-relaxed text-text-muted/70">
+          <p className="text-xs leading-relaxed text-text-muted">
             Up to {Math.round(maxSeconds / 60)} minutes. Stored privately — playback links are
             signed and expire, and deleting the entry deletes the audio with it.
           </p>

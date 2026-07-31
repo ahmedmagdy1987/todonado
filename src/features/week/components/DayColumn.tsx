@@ -153,10 +153,10 @@ export function DayColumn({
             )}
           >
             <MoveRight className="h-4 w-4 text-text-muted/40" aria-hidden />
-            <p className="text-[11px] leading-snug text-text-muted/70">
+            <p className="text-xs leading-snug text-text-muted">
               Nothing planned
               <br />
-              <span className="text-text-muted/50">Drop a task here</span>
+              <span className="text-text-muted/80">Drop a task here</span>
             </p>
           </div>
         )}

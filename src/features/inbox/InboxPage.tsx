@@ -33,7 +33,7 @@ export function InboxPage() {
 
       <QuickAdd
         autoFocus
-        placeholder="Capture a task… (press Enter)"
+        placeholder="Capture a task…"
         suggest={suggestEffort}
         onAdd={(v) =>
           createTask.mutate({

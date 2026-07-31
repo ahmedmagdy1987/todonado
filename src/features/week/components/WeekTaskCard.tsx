@@ -47,7 +47,7 @@ export function WeekTaskCard({
           onClick={() => onToggle(task)}
           aria-label={done ? `Mark ${task.title} not done` : `Complete ${task.title}`}
           // 28px hit area on a dense board; the icon stays 14px.
-          className="focus-ring -m-1 shrink-0 rounded-full p-1 text-text-muted transition-colors hover:text-success"
+          className="tap-44 focus-ring -m-1 shrink-0 rounded-full p-1 text-text-muted transition-colors hover:text-success"
         >
           {done ? (
             <Check className="h-3.5 w-3.5 text-success" aria-hidden />
@@ -58,7 +58,7 @@ export function WeekTaskCard({
         <button
           type="button"
           onClick={() => onOpen(task)}
-          className="focus-ring min-w-0 flex-1 rounded text-left"
+          className="tap-h-44 focus-ring min-w-0 flex-1 rounded text-left"
         >
           <span
             className={cn(

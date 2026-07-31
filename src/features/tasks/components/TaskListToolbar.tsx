@@ -14,6 +14,12 @@ const PRIORITY_FILTERS: { value: string; label: string }[] = [
  * Compact, accessible sort + priority-filter controls for a task view. Native
  * selects (keyboard-friendly) with a leading icon; the selected option text is
  * self-describing ("By priority", "High priority"), so no extra label is needed.
+ *
+ * EACH CONTROL TAKES HALF THE ROW ON A PHONE. They were fixed at 9rem and 10rem,
+ * which cut "Manual order" to "Manual orde" at 390px and pushed the pair into a
+ * cramped right-aligned column. `min-w-0` on the wrapper is what actually lets
+ * them shrink — the widths go on the wrappers rather than on `<Select>`, which
+ * forwards className to the element inside its own relative container.
  */
 export function TaskListToolbar({
   sortMode,
@@ -28,9 +34,9 @@ export function TaskListToolbar({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
         <ArrowDownUp className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
-        <div className="w-36">
+        <div className="min-w-0 flex-1 sm:w-36 sm:flex-none">
           <Select
             aria-label="Sort tasks"
             value={sortMode}
@@ -44,14 +50,16 @@ export function TaskListToolbar({
           </Select>
         </div>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
         <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden />
-        <div className="w-40">
+        <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
           <Select
             aria-label="Filter by priority"
             value={String(priorityFilter)}
             onChange={(e) =>
-              onPriorityFilter(e.target.value === 'all' ? 'all' : (Number(e.target.value) as PriorityFilter))
+              onPriorityFilter(
+                e.target.value === 'all' ? 'all' : (Number(e.target.value) as PriorityFilter),
+              )
             }
           >
             {PRIORITY_FILTERS.map((p) => (

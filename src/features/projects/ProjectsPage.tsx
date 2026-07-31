@@ -14,7 +14,11 @@ const SWATCHES = ['#6C5CE7', '#4EA8FF', '#22D3A6', '#F59E0B', '#F43F5E', '#94A3B
 
 export function ProjectsPage() {
   const { workspaceId } = useWorkspace()
-  const { data: projects = [], isError, refetch } = useProjects(workspaceId)
+  // `isPending` matters as much as `isError` here: without it `projects` is []
+  // while the fetch is in flight and a returning user is told "No projects yet."
+  // on every cold load. Same shape as the Free-cap bug — a conclusion drawn
+  // from data that has not arrived.
+  const { data: projects = [], isPending, isError, refetch } = useProjects(workspaceId)
   const { data: tasks = [] } = useTasks(workspaceId)
   const { createProject, archiveProject } = useProjectMutations(workspaceId)
   const [name, setName] = useState('')
@@ -55,7 +59,7 @@ export function ProjectsPage() {
               onClick={() => setColor(c)}
               aria-label={`Use color ${c}`}
               className={cn(
-                'h-6 w-6 rounded-full ring-offset-2 ring-offset-surface transition',
+                'tap-44 h-6 w-6 rounded-full ring-offset-2 ring-offset-surface transition',
                 color === c ? 'ring-2 ring-white/70' : 'ring-0 hover:scale-110',
               )}
               style={{ backgroundColor: c }}
@@ -76,6 +80,15 @@ export function ProjectsPage() {
 
       {isError ? (
         <LoadError message="We couldn't load your projects." onRetry={() => void refetch()} />
+      ) : isPending ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-28 animate-pulse rounded-2xl border border-white/5 bg-surface-2/40"
+            />
+          ))}
+        </div>
       ) : active.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
@@ -116,7 +129,7 @@ export function ProjectsPage() {
                   onClick={() => archiveProject.mutate({ id: p.id, archived: true })}
                   aria-label="Archive project"
                   title="Archive project"
-                  className="focus-ring absolute right-3 top-3 rounded-lg p-1.5 text-text-muted opacity-0 transition-opacity hover:bg-surface-2/60 hover:text-text-primary group-hover:opacity-100"
+                  className="tap-44 focus-ring absolute right-3 top-3 rounded-lg p-1.5 text-text-muted opacity-100 transition-opacity hover:bg-surface-2/60 hover:text-text-primary md:opacity-0 md:group-hover:opacity-100"
                 >
                   <Archive className="h-4 w-4" aria-hidden />
                 </button>

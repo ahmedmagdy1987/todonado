@@ -117,7 +117,7 @@ export function CapacityMeter({
                 setDraft(String(summary.capacityMinutes))
                 setEditing(true)
               }}
-              className="focus-ring inline-flex items-center gap-1.5 rounded text-text-muted hover:text-text-primary"
+              className="tap-h-44 focus-ring inline-flex items-center gap-1.5 rounded text-text-muted hover:text-text-primary"
               title="Edit daily capacity"
             >
               of {formatMinutes(summary.capacityMinutes)}

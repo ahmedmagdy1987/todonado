@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Inbox, Play, Timer, Wind } from 'lucide-react'
 import { Badge, Button, Card, CardContent, Select } from '@/components/ui'
+import { LoadError } from '@/components/common/LoadError'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { POMODORO } from '@/features/focus/pomodoro'
@@ -33,7 +34,7 @@ const RESET_MINUTES = 1
 export function WorkPage() {
   const navigate = useNavigate()
   const { workspaceId } = useWorkspace()
-  const { data: tasks = [], isPending } = useTasks(workspaceId)
+  const { data: tasks = [], isPending, isError, refetch } = useTasks(workspaceId)
 
   const today = todayISO()
   const pick = useMemo(() => pickWork(tasks, today), [tasks, today])
@@ -87,7 +88,12 @@ export function WorkPage() {
         <p className="mt-1 text-text-muted">One thing, one timer. Everything else can wait.</p>
       </header>
 
-      {isPending ? (
+      {isError ? (
+        // Without this a failed fetch fell through to "Nothing open to work on
+        // — everything is done or cancelled", which is a cheerful lie with no
+        // way back but a manual reload.
+        <LoadError message="We couldn't work out what to start." onRetry={() => void refetch()} />
+      ) : isPending ? (
         <div className="h-64 animate-pulse rounded-2xl border border-white/5 bg-surface-2/40" />
       ) : !selected ? (
         <Card>
@@ -208,7 +214,7 @@ function RhythmButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'focus-ring inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium transition-colors',
+        'focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border px-4 py-2 text-sm font-medium transition-colors md:min-h-0',
         active
           ? 'border-transparent bg-brand-gradient text-white'
           : 'border-white/10 text-text-muted hover:text-text-primary',

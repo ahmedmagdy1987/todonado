@@ -318,7 +318,7 @@ function AttemptCard({
           type="button"
           onClick={onLeave}
           aria-label={`Leave ${challenge.title}`}
-          className="focus-ring -mr-1 -mt-1 rounded-lg p-1.5 text-text-muted hover:text-danger"
+          className="tap-44 focus-ring -mr-1 -mt-1 rounded-lg p-1.5 text-text-muted hover:text-danger"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -404,7 +404,7 @@ function OfferCard({
         <p className="font-display text-base font-semibold">{challenge.title}</p>
         <p className="mt-0.5 text-xs leading-relaxed text-text-muted">{challenge.goal}</p>
       </div>
-      <p className="font-mono text-[11px] text-text-muted/70">{challengeTerms(challenge)}</p>
+      <p className="font-mono text-xs text-text-muted">{challengeTerms(challenge)}</p>
       {/* The label names the challenge. A page of nine buttons all called "Join"
           is unusable with a screen reader, and it is exactly as ambiguous for a
           test — which is how this was caught. */}

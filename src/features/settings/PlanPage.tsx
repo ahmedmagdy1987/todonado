@@ -25,7 +25,9 @@ function formatDate(iso: string | null | undefined): string | null {
 }
 
 export function PlanPage() {
-  const { isPro, isFounding, billing, refetchBilling } = usePlan()
+  // `billingLoading` is not cosmetic: without it a paying subscriber is shown
+  // the Free badge and two Upgrade buttons for the length of the billing fetch.
+  const { isPro, isFounding, billing, billingLoading, refetchBilling } = usePlan()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [modalOpen, setModalOpen] = useState(false)
@@ -102,11 +104,21 @@ export function PlanPage() {
       </header>
 
       <Card className="p-6">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h3 className="font-display text-lg font-semibold">Current plan</h3>
-          <Badge variant={isPro ? 'brand' : 'outline'}>{label}</Badge>
+          {billingLoading ? (
+            <span
+              className="h-6 w-16 animate-pulse rounded-full bg-surface-2"
+              role="status"
+              aria-label="Checking your plan"
+            />
+          ) : (
+            <Badge variant={isPro ? 'brand' : 'outline'}>{label}</Badge>
+          )}
         </div>
-        <p className="mt-2 text-sm text-text-muted">{blurb}</p>
+        <p className="mt-2 text-sm text-text-muted">
+          {billingLoading ? 'Checking your plan…' : blurb}
+        </p>
 
         <ul className="mt-5 space-y-2.5">
           {PRO_FEATURES.map((f) => (
@@ -182,7 +194,7 @@ export function PlanPage() {
 
       <Link
         to="/settings"
-        className="focus-ring inline-flex items-center gap-1.5 rounded text-sm text-text-muted hover:text-text-primary"
+        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded px-2 text-sm text-text-muted hover:text-text-primary md:mx-0 md:min-h-0 md:px-0"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden /> Back to Settings
       </Link>

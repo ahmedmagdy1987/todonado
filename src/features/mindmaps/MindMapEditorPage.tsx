@@ -454,7 +454,7 @@ function BackLink() {
   return (
     <Link
       to="/vision/maps"
-      className="focus-ring inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-muted hover:text-text-primary"
+      className="focus-ring inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-text-muted hover:text-text-primary md:min-h-0"
     >
       <ArrowLeft className="h-4 w-4" aria-hidden /> Maps
     </Link>
@@ -577,7 +577,7 @@ function NodeList({
                 type="button"
                 onClick={() => onEdit(node)}
                 aria-label={`Edit ${node.title}`}
-                className="focus-ring rounded-lg p-1.5 text-text-muted hover:text-text-primary"
+                className="tap-44 focus-ring rounded-lg p-1.5 text-text-muted hover:text-text-primary"
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden />
               </button>
@@ -586,7 +586,7 @@ function NodeList({
                   type="button"
                   onClick={() => onDelete(node.id)}
                   aria-label={`Delete ${node.title}`}
-                  className="focus-ring rounded-lg p-1.5 text-text-muted hover:text-danger"
+                  className="tap-44 focus-ring rounded-lg p-1.5 text-text-muted hover:text-danger"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 </button>

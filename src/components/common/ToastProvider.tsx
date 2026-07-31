@@ -29,7 +29,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex flex-col items-center gap-2 px-4">
+      {/* Above the mobile bottom nav (fixed, h-16, z-40). At `bottom-6` a toast
+          sat directly on the Today/Inbox/Projects/Focus tabs for its whole
+          lifetime — and toasts are where every Undo lives. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 md:bottom-6">
         {toasts.map((toast) => (
           <div
             key={toast.id}

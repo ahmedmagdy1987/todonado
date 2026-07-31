@@ -331,7 +331,7 @@ function PastEntry({ entry, onDelete }: { entry: JournalEntry; onDelete: () => v
           type="button"
           onClick={onDelete}
           aria-label={`Delete the entry for ${entry.entry_date}`}
-          className="focus-ring rounded-lg p-1.5 text-text-muted hover:text-danger"
+          className="tap-44 focus-ring rounded-lg p-1.5 text-text-muted hover:text-danger"
         >
           <Trash2 className="h-4 w-4" aria-hidden />
         </button>

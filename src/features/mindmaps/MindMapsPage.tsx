@@ -135,7 +135,7 @@ export function MindMapsPage() {
                   type="button"
                   onClick={() => deleteMap.mutate(map.id)}
                   aria-label={`Delete ${map.title}`}
-                  className="focus-ring absolute right-3 top-3 rounded-lg p-2 text-text-muted opacity-0 transition-opacity hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+                  className="tap-44 focus-ring absolute right-3 top-3 rounded-lg p-2 text-text-muted opacity-100 transition-opacity hover:text-danger focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </button>

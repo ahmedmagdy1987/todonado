@@ -245,7 +245,7 @@ export function OnboardingOverlay() {
                   Add a few things you want to get done. Effort is optional.
                 </p>
               </div>
-              <QuickAdd autoFocus placeholder="Add a task… (press Enter)" onAdd={addTask} />
+              <QuickAdd autoFocus placeholder="Add a task…" onAdd={addTask} />
               {FEATURES.templates && (
                 <button
                   type="button"

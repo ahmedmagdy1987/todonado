@@ -42,7 +42,7 @@ export function WeekTaskItem({
         type="button"
         aria-label={`Move ${label} to another day`}
         className={cn(
-          'focus-ring absolute right-1 top-1 cursor-grab touch-none rounded p-1 text-text-muted/50',
+          'tap-44 focus-ring absolute right-1 top-1 cursor-grab touch-none rounded p-1 text-text-muted/50',
           'transition-opacity hover:text-text-muted active:cursor-grabbing',
           // Hidden until wanted on pointer devices; always there on touch, where
           // nothing can be revealed by hovering.

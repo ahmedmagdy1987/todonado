@@ -81,7 +81,7 @@ export function AudioSection({
       <header className="space-y-3">
         <Link
           to="/wellness"
-          className="focus-ring inline-flex items-center gap-1.5 rounded-lg text-sm text-text-muted transition-colors hover:text-text-primary"
+          className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm text-text-muted md:mx-0 md:min-h-0 md:px-0 transition-colors hover:text-text-primary"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Focus &amp; Calm

@@ -157,7 +157,7 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus, sugg
             aria-label={`Suggest ${suggestion.minutes} minutes${
               suggestion.basis === 'history' ? ', based on your similar tasks' : ', a quick estimate'
             }`}
-            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-dashed border-brand/50 px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand/10"
+            className="focus-ring inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-dashed border-brand/50 px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:bg-brand/10 md:min-h-0"
           >
             <Sparkles className="h-3 w-3" aria-hidden /> Suggest {formatMinutes(suggestion.minutes)}
           </button>
@@ -168,7 +168,7 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus, sugg
           onChange={(e) => setDue(e.target.value)}
           type="date"
           aria-label="Due date"
-          className="focus-ring h-7 rounded-lg border border-white/10 bg-surface-2/60 px-2 text-xs text-text-muted"
+          className="min-h-[44px] md:min-h-0 focus-ring h-7 rounded-lg border border-white/10 bg-surface-2/60 px-2 text-xs text-text-muted"
         />
       </div>
     </form>

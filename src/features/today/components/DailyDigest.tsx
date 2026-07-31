@@ -120,7 +120,7 @@ export function DailyDigest({
             type="button"
             onClick={onDismiss}
             aria-label="Dismiss today’s briefing"
-            className="focus-ring -mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-text-primary"
+            className="tap-44 focus-ring -mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-text-muted hover:bg-surface-2 hover:text-text-primary"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -265,7 +265,7 @@ export function DailyDigest({
             Finishing up?{' '}
             <Link
               to="/journal"
-              className="focus-ring rounded text-accent underline-offset-4 hover:underline"
+              className="tap-44 focus-ring inline-block rounded py-1 text-accent underline-offset-4 hover:underline"
             >
               Write down how today went
             </Link>

@@ -60,7 +60,7 @@ export function ProjectDetailPage() {
       <div className="animate-fade-in space-y-6">
         <Link
           to="/projects"
-          className="focus-ring inline-flex items-center gap-1 rounded text-sm text-text-muted hover:text-text-primary"
+          className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1 rounded px-2 text-sm text-text-muted hover:text-text-primary md:mx-0 md:min-h-0 md:px-0"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden /> Projects
         </Link>
@@ -134,12 +134,15 @@ export function ProjectDetailPage() {
     <div className="animate-fade-in space-y-6">
       <Link
         to="/projects"
-        className="focus-ring inline-flex items-center gap-1 rounded text-sm text-text-muted hover:text-text-primary"
+        className="focus-ring -mx-2 inline-flex min-h-[44px] items-center gap-1 rounded px-2 text-sm text-text-muted hover:text-text-primary md:mx-0 md:min-h-0 md:px-0"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden /> Projects
       </Link>
 
-      <header className="flex items-center gap-3">
+      {/* Wraps. The two ghost actions keep their max-content width while the
+          title button is the only `flex-1` child, so at 390px the project name
+          was rendering about 29px wide — roughly two characters. */}
+      <header className="flex flex-wrap items-center gap-3">
         <span
           className="h-4 w-4 shrink-0 rounded-full"
           style={{ backgroundColor: project.color }}
@@ -174,28 +177,30 @@ export function ProjectDetailPage() {
             <Pencil className="h-4 w-4 shrink-0 text-text-muted opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100" aria-hidden />
           </button>
         )}
-        {personalTemplatesAvailable && (
+        {/* `basis-full` until `sm`: wrapping alone would not fire, because the
+            title is `flex-1` and so has a hypothetical size of zero. */}
+        <div className="flex w-full basis-full items-center gap-2 sm:ml-auto sm:w-auto sm:basis-auto">
+          {personalTemplatesAvailable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={saveAsTemplate}
+              loading={createTemplate.isPending}
+            >
+              <BookmarkPlus className="h-4 w-4" aria-hidden /> Save as template
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
-            className="ml-auto"
-            onClick={saveAsTemplate}
-            loading={createTemplate.isPending}
+            onClick={() => {
+              archiveProject.mutate({ id: projectId, archived: true })
+              navigate('/projects')
+            }}
           >
-            <BookmarkPlus className="h-4 w-4" aria-hidden /> Save as template
+            <Archive className="h-4 w-4" aria-hidden /> Archive
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={personalTemplatesAvailable ? undefined : 'ml-auto'}
-          onClick={() => {
-            archiveProject.mutate({ id: projectId, archived: true })
-            navigate('/projects')
-          }}
-        >
-          <Archive className="h-4 w-4" aria-hidden /> Archive
-        </Button>
+        </div>
       </header>
 
       {showTemplateLimit && !canSaveTemplate && (

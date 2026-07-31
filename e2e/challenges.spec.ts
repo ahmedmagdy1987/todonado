@@ -140,6 +140,18 @@ test('challenges: progress is derived from real work, and finishing frees the sl
   await runJourney(page)
 
   // The row records that you joined and that you finished — never how far along.
+  //
+  // POLLED, not read once: leaving is optimistic, so the row disappears from the
+  // UI the instant it is tapped while the DELETE is still in flight. A single
+  // read here raced it and saw the abandoned attempt still present.
+  await expect
+    .poll(
+      async () =>
+        ((await rest('user_challenges?select=id', account.token)) as unknown[]).length,
+      { timeout: 15_000 },
+    )
+    .toBe(1)
+
   const rows = (await rest(
     'user_challenges?select=challenge_key,status,completed_at',
     account.token,

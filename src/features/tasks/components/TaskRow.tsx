@@ -89,9 +89,20 @@ export function TaskRow({
 
   return (
     <div className="group/row">
+      {/*
+        THE ACTIONS TAKE THEIR OWN ROW ON MOBILE.
+
+        Four IconButtons at `min-w-[44px]` are a hard 182px that never shrinks,
+        and the title is the only `min-w-0 flex-1` child — so it absorbed the
+        entire shortfall. At 390px "Client workshop prep" rendered as "Client ..."
+        and "Review the launch copy" as "Revie...", on the Inbox, which is the
+        app's capture surface. Wrapping is not enough on its own: a `flex-1`
+        sibling has a hypothetical size of 0 and never forces a line break, so
+        the action group needs `basis-full` to claim one.
+      */}
       <div
         className={cn(
-          'flex items-start gap-3 rounded-xl border px-4 py-3 transition-colors',
+          'flex flex-wrap items-start gap-x-3 gap-y-1 rounded-xl border px-4 py-3 transition-colors',
           nested
             ? 'border-white/10 bg-surface-2/70 hover:border-white/20 hover:bg-surface-2'
             : 'border-white/5 bg-surface hover:border-white/10 hover:bg-surface-2',
@@ -108,7 +119,7 @@ export function TaskRow({
           <button
             type="button"
             onClick={() => onEdit(task)}
-            className="focus-ring block w-full truncate rounded text-left text-sm"
+            className="tap-h-44 focus-ring block w-full truncate rounded text-left text-sm"
           >
             <span className={cn(done ? 'text-text-muted line-through' : 'text-text-primary')}>
               {task.title}
@@ -161,7 +172,7 @@ export function TaskRow({
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="focus-ring inline-flex items-center gap-1 rounded hover:text-text-primary"
+                className="tap-44 focus-ring inline-flex items-center gap-1 rounded hover:text-text-primary"
               >
                 {expanded ? (
                   <ChevronDown className="h-3 w-3" aria-hidden />
@@ -175,8 +186,9 @@ export function TaskRow({
         </div>
 
         {/* Touch has no hover: show row actions by default on mobile, reveal on
-            hover from md up. */}
-        <div className="flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/row:opacity-100">
+            hover from md up. `basis-full` puts them on their own line below the
+            title until there is room for both — see the note on the row. */}
+        <div className="flex basis-full items-center justify-end gap-0.5 opacity-100 transition-opacity md:basis-auto md:justify-start md:opacity-0 md:group-hover/row:opacity-100">
           {onScheduleToday && (
             <IconButton title="Schedule for today" onClick={() => onScheduleToday(task)}>
               <CalendarPlus className="h-4 w-4" aria-hidden />
