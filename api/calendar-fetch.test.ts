@@ -99,13 +99,19 @@ describe('method + configuration', () => {
     expect(await res.json()).toEqual({ error: 'method_not_allowed' })
   })
 
-  it('answers 503 with variable NAMES (never values) when unconfigured', async () => {
+  it('answers 503 to an ANONYMOUS caller without naming a single variable', async () => {
+    // Was asserting that the NAMES came back. Authentication needs both of those
+    // variables, so the check must stay ahead of it — what changed is that it no
+    // longer says which one is missing to someone who has not identified
+    // themselves.
     const res = await handler(post())
     expect(res.status).toBe(503)
-    const body = (await res.json()) as { error: string; missing: string[] }
+    const body = (await res.json()) as { error: string; missing?: string[] }
     expect(body.error).toBe('not_configured')
-    expect(body.missing).toEqual(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'])
-    expect(JSON.stringify(body)).not.toContain('service-role')
+    expect(body.missing, 'variable names must not reach an anonymous caller').toBeUndefined()
+    for (const name of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
+      expect(JSON.stringify(body)).not.toContain(name)
+    }
   })
 })
 

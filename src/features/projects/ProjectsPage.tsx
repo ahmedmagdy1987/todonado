@@ -10,6 +10,7 @@ import { isOptimisticId } from '@/lib/optimistic'
 import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
 import { LoadError } from '@/components/common/LoadError'
 import { useProjects, useProjectMutations } from './api/useProjects'
+import { LIMITS } from '@/lib/limits'
 
 const SWATCHES = ['#6C5CE7', '#4EA8FF', '#22D3A6', '#F59E0B', '#F43F5E', '#94A3B8']
 
@@ -71,6 +72,7 @@ export function ProjectsPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New project name…"
+          maxLength={LIMITS.projectName}
           className="min-w-[12rem] flex-1"
           aria-label="New project name"
         />

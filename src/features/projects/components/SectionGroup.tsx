@@ -7,6 +7,7 @@ import { QuickAdd } from '@/features/tasks/components/QuickAdd'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
 import { useEffortSuggester } from '@/features/tasks/api/useEffortSuggester'
 import { todayISO } from '@/lib/date'
+import { LIMITS } from '@/lib/limits'
 
 interface SectionGroupProps {
   workspaceId: string
@@ -63,6 +64,7 @@ export function SectionGroup({
               autoFocus
               className="h-8"
               aria-label="Section name"
+              maxLength={LIMITS.sectionName}
             />
           </form>
         ) : (

@@ -23,6 +23,7 @@ import { useProjects, useProjectMutations } from './api/useProjects'
 import { useSections, useSectionMutations } from './api/useSections'
 import { SectionGroup } from './components/SectionGroup'
 import { capDecision } from '@/features/billing/gate'
+import { LIMITS } from '@/lib/limits'
 
 export function ProjectDetailPage() {
   const { projectId = '' } = useParams()
@@ -173,6 +174,7 @@ export function ProjectDetailPage() {
               autoFocus
               className="h-9 max-w-sm font-display text-lg"
               aria-label="Project name"
+              maxLength={LIMITS.projectName}
             />
           </form>
         ) : (

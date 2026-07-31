@@ -72,10 +72,14 @@ async function calendarFetch(req: Request): Promise<Response> {
   if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
 
   const env = serverEnv()
-  const missing: string[] = []
-  if (!env.supabaseUrl) missing.push('SUPABASE_URL')
-  if (!env.supabaseServiceRoleKey) missing.push('SUPABASE_SERVICE_ROLE_KEY')
-  if (missing.length > 0) return apiError(503, 'not_configured', { missing })
+
+  /*
+   * NO VARIABLE NAMES TO AN ANONYMOUS CALLER. This used to list exactly which
+   * of SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY was unset, before checking who
+   * was asking — a free map of the deployment. Authentication needs both, so
+   * the check has to stay first; what changes is that it no longer says which.
+   */
+  if (!env.supabaseUrl || !env.supabaseServiceRoleKey) return apiError(503, 'not_configured')
 
   const user = await getUserFromAuthHeader(
     req.headers.get('authorization'),

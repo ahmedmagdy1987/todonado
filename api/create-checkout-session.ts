@@ -22,9 +22,22 @@ async function checkout(req: Request): Promise<Response> {
   if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
 
   const env = serverEnv()
-  const missing = missingServerBillingVars(env)
-  // Names only — never values.
-  if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
+
+  /*
+   * TWO CONFIG CHECKS, AND THE ORDER IS THE FIX.
+   *
+   * The single check used to run before authentication and return the NAMES of
+   * every unset variable. To an anonymous caller that is a free map of the
+   * deployment: whether billing is live, whether the webhook is armed, and that
+   * this function holds a service-role key. Values were never included; the
+   * names alone were the leak.
+   *
+   * It cannot simply move after the auth check, because authentication itself
+   * needs the Supabase pair. So it splits: what auth requires is checked first
+   * and answers WITHOUT names (the caller is still anonymous), and the useful
+   * list is returned only once we know who is asking.
+   */
+  if (!env.supabaseUrl || !env.supabaseServiceRoleKey) return apiError(503, 'not_configured')
 
   const user = await getUserFromAuthHeader(
     req.headers.get('authorization'),
@@ -32,6 +45,10 @@ async function checkout(req: Request): Promise<Response> {
     env.supabaseServiceRoleKey,
   )
   if (!user) return apiError(401, 'unauthorized')
+
+  const missing = missingServerBillingVars(env)
+  // Names only — never values.
+  if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
 
   let body: { priceId?: unknown } = {}
   try {
@@ -58,12 +75,22 @@ async function checkout(req: Request): Promise<Response> {
       success_url: `${origin}/settings/plan?checkout=success`,
       cancel_url: `${origin}/settings/plan?checkout=cancel`,
     })
-    if (!session.url) return apiError(502, 'stripe_error', { message: 'No checkout URL returned' })
+    if (!session.url) return apiError(502, 'stripe_error')
     return json(200, { url: session.url })
   } catch (err) {
+    /*
+     * LOGGED, NOT RETURNED.
+     *
+     * The upstream message was echoed to the caller. It never carried a key —
+     * `redactSecrets` covers those — but it did confirm live-vs-test mode and
+     * whether a guessed price or customer id exists in this account, which is a
+     * useful oracle to pair with a substituted priceId. The client has always
+     * ignored the message and shown its own copy, so nothing is lost by keeping
+     * it on our side of the wire.
+     */
     const message = redactSecrets(err instanceof Error ? err.message : 'Checkout failed')
     console.error('[api/create-checkout-session] stripe error:', message)
-    return apiError(502, 'stripe_error', { message })
+    return apiError(502, 'stripe_error')
   }
 }
 

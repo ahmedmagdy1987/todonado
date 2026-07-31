@@ -5,6 +5,7 @@ import { SortableList } from '@/components/common/SortableList'
 import { newPositionForMove } from '@/lib/reorder'
 import { cn } from '@/lib/utils'
 import { useSubtasks, useSubtaskMutations } from '../api/useSubtasks'
+import { LIMITS } from '@/lib/limits'
 
 export function SubtaskList({ taskId }: { taskId: string }) {
   const { data: subtasks = [], isPending } = useSubtasks(taskId)
@@ -68,6 +69,7 @@ export function SubtaskList({ taskId }: { taskId: string }) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Add subtask…"
+          maxLength={LIMITS.subtaskTitle}
           aria-label="Add subtask"
           className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted/60 focus:outline-none"
         />

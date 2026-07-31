@@ -26,8 +26,20 @@ async function webhook(req: Request): Promise<Response> {
   if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
 
   const env = serverEnv()
+  /*
+   * NAMES GO TO THE LOG, NOT TO THE CALLER.
+   *
+   * The other endpoints can name the unset variables once they know who is
+   * asking. This one never does: its caller is Stripe, identified by a
+   * signature it cannot check until `STRIPE_WEBHOOK_SECRET` is set — which is
+   * one of the very variables in question. So there is no point at which a
+   * trusted caller exists, and the list simply must not be in the response.
+   */
   const missing = missingWebhookVars(env)
-  if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
+  if (missing.length > 0) {
+    console.error('[api/stripe-webhook] not configured, missing:', missing.join(', '))
+    return apiError(503, 'not_configured')
+  }
 
   const signature = req.headers.get('stripe-signature')
   if (!signature) return apiError(400, 'missing_signature')

@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { setAnalyticsUser, trackDayReturnedOncePerDay } from '@/features/analytics/track'
 import { AuthContext, type AuthContextValue } from './auth-context'
+import { clearAccountLocalState } from '@/lib/localState'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -52,6 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isConfigured: isSupabaseConfigured,
       signOut: async () => {
         await supabase.auth.signOut()
+        // Account-scoped local state goes with the session. Device preferences
+        // (sound, chime, start screen) deliberately stay — see localState.ts.
+        clearAccountLocalState()
       },
     }),
     [session, loading],

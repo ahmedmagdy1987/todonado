@@ -14,6 +14,7 @@ import { PRIORITY_LABELS } from '../priority'
 import { useTaskMutations } from '../api/useTaskMutations'
 import { useEffortSuggester } from '../api/useEffortSuggester'
 import { anchorForSave } from '../recurrence'
+import { LIMITS } from '@/lib/limits'
 
 const formSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
@@ -188,6 +189,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What needs doing?"
+            maxLength={LIMITS.taskTitle}
             autoFocus
           />
         </label>
@@ -198,6 +200,7 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Details, links, context…"
+            maxLength={LIMITS.taskNotes}
           />
         </label>
 

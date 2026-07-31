@@ -84,13 +84,19 @@ describe.each([
     await expect(res.json()).resolves.toEqual({ error: 'method_not_allowed' })
   })
 
-  it('answers 503 with the missing var NAMES when nothing is configured', async () => {
+  it('answers 503 to an ANONYMOUS caller without naming a single variable', async () => {
+    // This used to assert the opposite — that the NAMES were returned — and the
+    // names were the leak: to a stranger they map the deployment (is billing
+    // live? is the webhook armed? does this hold a service-role key?). An
+    // unauthenticated caller now learns only that something is unset.
     const res = await handler(post({}))
     expect(res.status).toBe(503)
-    const body = (await res.json()) as { error: string; missing: string[] }
-    expect(body.error).toBe('billing_not_configured')
-    expect(body.missing).toContain('STRIPE_SECRET_KEY')
-    expect(body.missing).toContain('SUPABASE_SERVICE_ROLE_KEY')
+    const body = (await res.json()) as { error: string; missing?: string[] }
+    expect(body.error).toBe('not_configured')
+    expect(body.missing, 'variable names must not reach an anonymous caller').toBeUndefined()
+    for (const name of ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_URL']) {
+      expect(JSON.stringify(body)).not.toContain(name)
+    }
   })
 })
 
@@ -204,13 +210,21 @@ describe('stripe-webhook', () => {
     spy.mockRestore()
   })
 
-  it('503 lists STRIPE_WEBHOOK_SECRET when only that is missing', async () => {
+  it('503 says nothing about WHICH variable is missing', async () => {
+    /*
+     * This used to assert `missing: ['STRIPE_WEBHOOK_SECRET']` came back in the
+     * body. The webhook's caller is Stripe, identified by a signature it cannot
+     * verify until that very secret is set — so there is no moment at which a
+     * trusted caller exists, and anyone on the internet could read the list.
+     * The names go to the server log instead.
+     */
     configure()
     delete process.env.STRIPE_WEBHOOK_SECRET
     const res = await webhook(post({ id: 'evt_1' }))
     expect(res.status).toBe(503)
-    const body = (await res.json()) as { error: string; missing: string[] }
-    expect(body.error).toBe('billing_not_configured')
-    expect(body.missing).toEqual(['STRIPE_WEBHOOK_SECRET'])
+    const body = (await res.json()) as { error: string; missing?: string[] }
+    expect(body.error).toBe('not_configured')
+    expect(body.missing).toBeUndefined()
+    expect(JSON.stringify(body)).not.toContain('STRIPE_WEBHOOK_SECRET')
   })
 })

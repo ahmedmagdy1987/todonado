@@ -8,6 +8,11 @@
 > does it. **INFERENCE** = reasoned from code, not executed. Every finding says which, because a
 > report that blurs the two cannot be acted on.
 >
+> **Updated 2026-07-31, later the same day.** Six of the sixteen flagged items were taken in a
+> follow-up pass and are marked **CLOSED** below with the commit that did it. Everything still
+> flagged is either billing-dependent (and cannot be verified until Stripe is live) or needs
+> infrastructure. Nothing was silently dropped.
+>
 > This supersedes nothing. `docs/AUDIT_2026-07-31_final.md` covered the same ground earlier the
 > same day; this pass re-ran all of it and went further into the four `/api` endpoints, the two
 > recurring bug classes, and the surfaces added since.
@@ -19,14 +24,17 @@
 **Nothing found here would embarrass a FREE launch.** No data of one user is reachable by another,
 by anonymous callers, or through storage. The database is doing the work, not the client.
 
-**Two things would embarrass a PAID launch**, and both are in the flagged list rather than fixed,
-because they touch billing: the dev-only Pro preview switch still works in production
-(**FLAG-1**), and checkout accepts any price id while the webhook grants Pro without checking what
-was bought (**FLAG-2**). Neither is exploitable today — Stripe keys are unset, so nothing can be
-bought at all — and both should be closed before the first paid customer.
+**FLAG-1 is now closed** (the dev Pro preview switch no longer exists in a production bundle).
+What remains for a PAID launch is billing-shaped and unverifiable until Stripe is live: checkout
+accepts any price id while the webhook grants Pro without checking what was bought (**FLAG-2**),
+and the webhook has no event de-duplication, so a retried out-of-order `subscription.deleted`
+downgrades a paying customer (**FLAG-3**). Neither is exploitable today, because nothing can be
+bought at all.
 
-Nine issues were fixed in this pass; sixteen are flagged for an owner decision because fixing them
-means touching RLS, auth, billing, a storage policy, infrastructure, or a migration.
+Thirteen issues were fixed in the first pass. The follow-up closed four outright (FLAG-1, 12, 13,
+16) and closed the client half of two more (FLAG-7's quota, FLAG-9's input caps) whose server
+halves need a storage policy and a migration respectively. **Ten remain fully open**, plus those
+two server halves: every one of them is billing-dependent or needs infrastructure.
 
 ---
 
@@ -230,7 +238,7 @@ demonstrated exploit; fixed because it is the single place where the pattern exi
 Each of these touches RLS, auth, billing, a storage policy, infrastructure, or needs a migration.
 None was changed.
 
-### FLAG-1 · **High** · FACT — The dev Pro preview switch works in production
+### FLAG-1 · **High** · FACT — ~~The dev Pro preview switch works in production~~ **CLOSED**
 
 `src/features/billing/plan.ts:46`
 
@@ -247,9 +255,12 @@ reachable. It is revenue leakage, not a breach.
 the `VITE_PRO_PREVIEW` branch immediately below it already does, so a production bundle cannot read
 it at all.
 
-**Not fixed here** because it is billing entitlement and you asked to be consulted. It costs
-nothing today (Stripe is unset, so nobody can pay to be cheated) and it should not survive the day
-billing goes live.
+**CLOSED.** `readPlanOverride` now returns `null` unless `import.meta.env.DEV`. Vite replaces
+that with a literal at build time, so the branch is dropped from the production bundle entirely —
+verified by grepping the built assets: the key `todonado.plan` no longer appears in `dist/` (the
+only remaining hit is the unrelated `todonado.planScope` prefix). The E2E suite drives the dev
+server, so its Pro preview still works. `planOverride.test.ts` pins both directions, and with the
+condition removed it fails on the production case.
 
 ### FLAG-2 · Medium · FACT — Checkout accepts any price id; the webhook grants Pro regardless
 
@@ -317,7 +328,7 @@ network to reach), which is why this is Medium and not High.
 **Fix:** pin the connection to the address that was validated — an undici `Agent` with a custom
 `lookup` returning the checked IP, keeping the original `Host` header and SNI.
 
-### FLAG-7 · Medium · FACT — Journal audio has no per-user quota
+### FLAG-7 · Medium · FACT — ~~Journal audio has no per-user quota~~ **PARTLY CLOSED**
 
 `src/features/journal/api/useJournal.ts:178`
 
@@ -327,8 +338,15 @@ storage; every request is RLS-legal, so nothing refuses it. The recorder's entit
 fails open during billing load (`isPro || billingLoading`), which is correct for a button and wrong
 for a write.
 
-**Fix:** a per-user object/byte quota (a storage policy or a counted column), and re-check the plan
-at upload rather than only at render.
+**PARTLY CLOSED.** `uploadJournalAudio` now measures the user's folder and refuses a recording
+that would take the account past **200 MB** (about 400 notes, or a year of recording daily), with a
+message that names the numbers and offers two ways out. Enforced at the upload rather than at the
+button, so it covers every path to a write.
+
+**Still open, and honestly so:** this is a CLIENT-side quota. A determined caller talking to the
+storage API directly is unaffected, because the bucket policy is about whose folder, not how big.
+A true quota is a storage policy or a counted column, i.e. a migration. The plan re-check at upload
+is also still outstanding.
 
 ### FLAG-8 · Medium · INFERENCE — Founding access is granted by email string
 
@@ -342,7 +360,7 @@ server-side Pro.
 **Fix:** move founding access into data the user cannot set: seed a `billing` row with
 `plan='pro'` for those user ids (the table has no client write path) and delete the email list.
 
-### FLAG-9 · Medium · FACT — Core tables have no length constraints
+### FLAG-9 · Medium · FACT — ~~Core tables have no length constraints~~ **CLIENT HALF CLOSED**
 
 `supabase/migrations/20260602120000_initial_schema.sql` and others
 
@@ -359,9 +377,15 @@ Today this is self-inflicted only. It stops being self-inflicted the day shared 
 because `tasks`, `projects` and `sections` are workspace-scoped: a 10 MB task title written by one
 member becomes a denial of service against every other member.
 
-**This needs a migration, so it is not in this commit.** The SQL is in
-`docs/CLEANUP_length_caps.sql`, committed and **NOT applied** — nothing in the cloud database has
-changed, and `supabase db push` must not run until you decide.
+**CLIENT HALF CLOSED.** `src/lib/limits.ts` holds the caps and every affected input now carries a
+`maxLength`: task title (which had none at all), task notes, project name, section name, subtask
+title. `limits.test.ts` READS `docs/CLEANUP_length_caps.sql` and asserts every constant matches
+it, so the two halves cannot drift apart between now and the day the SQL runs.
+
+**The database half is still yours.** The SQL is in `docs/CLEANUP_length_caps.sql`, committed and
+**NOT applied** — nothing in the cloud has changed, and `supabase db push` must not run until you
+decide. Until then CLAUDE.md's own rule still applies: this is client-side filtering, and the
+client is assumed hostile.
 
 ### FLAG-10 · Medium · FACT — No rate limit on any endpoint
 
@@ -382,11 +406,11 @@ inline scripts, promoting it to enforcing is the easy case.
 
 | # | Finding | Where |
 | --- | --- | --- |
-| FLAG-12 | Unauthenticated callers learn which server env vars are unset (the 503 `missing` array is returned before the auth check) | `api/create-checkout-session.ts:27` |
-| FLAG-13 | Upstream Stripe error messages are echoed to the caller; the redactor does not know the newer `sb_secret_` key format | `api/create-checkout-session.ts:66` |
+| ~~FLAG-12~~ **CLOSED** | Unauthenticated callers learned which server env vars were unset. The check now splits: what authentication itself needs is verified first and answers **without names**, and the useful list is returned only after the caller is known. The webhook, whose caller can never be identified before the secret exists, logs the names and returns a bare 503. | `api/create-checkout-session.ts`, `create-portal-session.ts`, `calendar-fetch.ts`, `stripe-webhook.ts` |
+| ~~FLAG-13~~ **CLOSED** | Upstream Stripe messages are no longer returned. They are logged and the caller gets the bare `stripe_error` code, which is all the client ever used. The `sb_secret_` gap in the redactor stops mattering for the response path. | `api/create-checkout-session.ts` |
 | FLAG-14 | Checkout never reuses the stored Stripe customer or refuses an existing subscription, so one user can hold several paid subscriptions while `billing` remembers only the last | `api/create-checkout-session.ts:50` |
 | FLAG-15 | SSRF fetch timeout and byte cap are per hop, not per request; redirect bodies are never drained | `api/_lib/ssrf.ts:218` |
-| FLAG-16 | `todonado.*` localStorage keys (including account uuids in the plan-scope key) are never cleared at sign-out | `src/features/today/usePlanScope.ts:25` |
+| ~~FLAG-16~~ **CLOSED** | Sign-out now clears every account-scoped `todonado.*` key. `todonado.prefs` is deliberately KEPT: sound, chime and start screen are properties of the device, and wiping them would reset a shared laptop every time anyone left. | `src/lib/localState.ts` |
 
 ---
 

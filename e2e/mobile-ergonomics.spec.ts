@@ -133,21 +133,55 @@ test('390px: primary actions clear 44px, and labels never wrap inside a pill', a
   await page.goto('/today')
   await expect(page.getByRole('heading', { level: 2 })).toBeVisible({ timeout: 20_000 })
 
+  /*
+   * WAIT FOR THE PAGE TO STOP MOVING BEFORE MEASURING IT.
+   *
+   * This test measured as soon as the h2 appeared, and then failed
+   * intermittently in the full suite while passing every time in isolation.
+   * The h2 renders on the first paint; Today does NOT stop changing there.
+   * Tasks, the calendar and the plan all arrive afterwards, and each one
+   * re-renders this row: `PlanMyDay` is disabled until the calendar has been
+   * consulted, and the briefing above it grows a suggestion block (Pro) or a
+   * teaser (Free) when the planner produces a result — which, since the planner
+   * learned to see undated project work, is now most of the time.
+   *
+   * So the measurement was racing a layout that was still settling. The two
+   * signals below are the page's own definition of settled: the calendar gate
+   * has opened (the trigger is enabled) and the webfonts that decide a label's
+   * width are in. `expect.poll` then retries the measurement rather than
+   * asserting once against whatever frame it happened to catch.
+   *
+   * Deliberately NOT a fixed sleep — that would trade a flaky test for a slow
+   * one that is still flaky on a loaded CI runner.
+   */
+  const planTrigger = page.getByRole('button', { name: /Plan my day|Adjust/ }).first()
+  await expect(planTrigger).toBeEnabled({ timeout: 20_000 })
+  await page.evaluate(() => document.fonts.ready)
+
   for (const name of [/Get to work/, /Plan my day/]) {
     const button = page.getByRole('button', { name }).first()
     if ((await button.count()) === 0) continue
-    const box = await button.evaluate((el) => ({
-      h: el.getBoundingClientRect().height,
-      // `scrollHeight / lineHeight` would just measure the pill's own height —
-      // the real question is whether the LABEL had to break, which `white-space`
-      // answers directly and `scrollWidth` confirms.
-      nowrap: getComputedStyle(el).whiteSpace === 'nowrap',
-      clippedH: el.scrollWidth > el.clientWidth + 1,
-    }))
-    expect(box.h, `${name} is under 44px`).toBeGreaterThanOrEqual(44)
-    // "Get to / work" inside an h-11 pill is the failure this prevents.
-    expect(box.nowrap, `${name} may wrap its label`).toBe(true)
-    expect(box.clippedH, `${name} overflows its pill`).toBe(false)
+
+    // One poll over the whole measurement: a re-render between reading the
+    // height and reading the width cannot produce a mixed verdict.
+    await expect
+      .poll(
+        async () =>
+          button.evaluate((el) => ({
+            h: el.getBoundingClientRect().height,
+            // `scrollHeight / lineHeight` would just measure the pill's own
+            // height — the real question is whether the LABEL had to break,
+            // which `white-space` answers directly and `scrollWidth` confirms.
+            nowrap: getComputedStyle(el).whiteSpace === 'nowrap',
+            clippedH: el.scrollWidth > el.clientWidth + 1,
+          })),
+        { timeout: 10_000, message: `${name} never settled into a legal shape` },
+      )
+      .toEqual({ h: expect.any(Number), nowrap: true, clippedH: false })
+
+    // Height is asserted separately so the failure says the number.
+    const height = await button.evaluate((el) => el.getBoundingClientRect().height)
+    expect(height, `${name} is under 44px`).toBeGreaterThanOrEqual(44)
   }
 
   await deleteTestAccount(account, 'ergonomics buttons')

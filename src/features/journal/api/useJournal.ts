@@ -177,6 +177,18 @@ export function useJournalMutations(userId: string) {
  * readable.
  */
 export async function uploadJournalAudio(path: string, blob: Blob): Promise<void> {
+  /*
+   * THE QUOTA IS CHECKED HERE, at the one place an object is created, rather
+   * than at the button that starts a recording. A check on the button is a
+   * suggestion; a check on the write is a rule, and it also covers the paths
+   * that never touch that button.
+   */
+  const userId = path.split('/')[0] ?? ''
+  if (userId) {
+    const usage = await journalAudioUsage(userId)
+    if (exceedsQuota(usage, blob.size)) throw new JournalAudioQuotaError(usage)
+  }
+
   const { error } = await supabase.storage.from(AUDIO_BUCKET).upload(path, blob, {
     contentType: blob.type || 'audio/webm',
     // Never overwrite: each recording gets a fresh key, so an upsert here could
@@ -226,8 +238,101 @@ export interface AudioStore {
   list(
     prefix: string,
     options: { limit: number; offset: number },
-  ): Promise<{ data: { id: string | null; name: string }[] | null; error: { message: string } | null }>
+  ): Promise<{
+    data: { id: string | null; name: string; metadata?: { size?: number } | null }[] | null
+    error: { message: string } | null
+  }>
   remove(paths: string[]): Promise<{ error: { message: string } | null }>
+}
+
+/**
+ * HOW MUCH AUDIO ONE ACCOUNT MAY STORE.
+ *
+ * The bucket caps a single object at 10 MB and restricts its MIME type, both
+ * server-side. Neither says anything about how MANY objects one account may
+ * have, and signup is free and autoconfirmed — so any account could loop
+ * uploads into its own folder and consume unbounded paid storage. Every one of
+ * those requests is RLS-legal and owner-scoped, which is exactly why nothing in
+ * the database refuses it: the policy is about WHOSE folder, not how big.
+ *
+ * 200 MB, checked rather than guessed: a two-minute Opus note is roughly half a
+ * megabyte and the journal is one entry per day, so this is about 400
+ * recordings, or a year of recording something every single day. Comfortable
+ * for ordinary use, and it bites long before an abuser costs real money. The
+ * message at the limit says what to do about it.
+ *
+ * Client-enforced, and honest about being so: a true quota belongs in a storage
+ * policy or a counted column, which is a migration. This closes the accidental
+ * and casual cases now, and FLAG-7 in the audit records what a determined
+ * caller can still do by talking to PostgREST directly.
+ */
+export const JOURNAL_AUDIO_QUOTA_BYTES = 200 * 1024 * 1024
+
+export interface AudioUsage {
+  bytes: number
+  count: number
+}
+
+/** Thrown when a recording would take the account past its quota. */
+export class JournalAudioQuotaError extends Error {
+  constructor(public readonly usage: AudioUsage) {
+    super(quotaMessage(usage))
+    this.name = 'JournalAudioQuotaError'
+  }
+}
+
+const mb = (bytes: number) => Math.max(0, bytes) / (1024 * 1024)
+
+/** What the user is told at the limit. Names the number, and what to do. */
+export function quotaMessage(usage: AudioUsage): string {
+  const used = mb(usage.bytes)
+  return (
+    `Your voice notes are using ${used.toFixed(used < 10 ? 1 : 0)} MB of ` +
+    `${Math.round(mb(JOURNAL_AUDIO_QUOTA_BYTES))} MB. Delete an older recording to make room, ` +
+    `or save this entry as text.`
+  )
+}
+
+/** Would this recording take the account over? Pure, so it is trivially tested. */
+export function exceedsQuota(
+  usage: AudioUsage,
+  incomingBytes: number,
+  quota: number = JOURNAL_AUDIO_QUOTA_BYTES,
+): boolean {
+  return usage.bytes + Math.max(0, incomingBytes) > quota
+}
+
+/**
+ * Total bytes and object count in one user's folder.
+ *
+ * The offset ADVANCES here, unlike the delete sweep: nothing is being removed,
+ * so the page below stays where it is. Getting that backwards in either
+ * direction is how you silently miss half someone's recordings.
+ */
+export async function journalAudioUsageIn(
+  store: AudioStore,
+  userId: string,
+  pageSize = AUDIO_PAGE,
+): Promise<AudioUsage> {
+  let bytes = 0
+  let count = 0
+  let offset = 0
+
+  for (;;) {
+    const { data, error } = await store.list(userId, { limit: pageSize, offset })
+    if (error) throw new Error(error.message)
+    const objects = (data ?? []).filter((o) => o.id)
+    for (const o of objects) {
+      count += 1
+      bytes += typeof o.metadata?.size === 'number' ? o.metadata.size : 0
+    }
+    if (objects.length < pageSize) return { bytes, count }
+    offset += (data ?? []).length
+  }
+}
+
+export function journalAudioUsage(userId: string): Promise<AudioUsage> {
+  return journalAudioUsageIn(supabase.storage.from(AUDIO_BUCKET), userId)
 }
 
 /** How many objects one `list` call returns. Storage caps a page; so do we. */

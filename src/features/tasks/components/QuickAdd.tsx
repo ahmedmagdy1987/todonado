@@ -7,6 +7,7 @@ import { track } from '@/features/analytics/track'
 import { EFFORT_PRESETS, parseEffortInput, toggleEffortPreset } from '../effort'
 import { isEffortPreset } from '../autoEffort'
 import type { EffortSuggester } from '../api/useEffortSuggester'
+import { LIMITS } from '@/lib/limits'
 
 export interface QuickAddValue {
   title: string
@@ -104,6 +105,7 @@ export function QuickAdd({ onAdd, placeholder = 'Add a task…', autoFocus, sugg
           onChange={(e) => setTitle(e.target.value)}
           placeholder={placeholder}
           aria-label="Task title"
+          maxLength={LIMITS.taskTitle}
           className="h-10 min-w-[8rem] flex-1 bg-transparent px-1 text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none"
         />
         <Button type="submit" size="sm" disabled={!title.trim()}>

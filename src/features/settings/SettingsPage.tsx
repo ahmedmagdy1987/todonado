@@ -156,7 +156,15 @@ function AccountSection() {
     <Section icon={User} title="Account" description="Your name, username, and login email.">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Name">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" maxLength={80} />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+            /* 80 is tighter than the 120 the database will allow; the tighter of
+               the two is the one to keep, so nothing a user types is ever
+               rejected later. */
+            maxLength={80}
+          />
         </Field>
         <Field label="Username">
           <Input

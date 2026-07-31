@@ -44,6 +44,22 @@ export function resolvePlan(
  * Returns null when no override is set (the normal path).
  */
 export function readPlanOverride(): Plan | null {
+  /*
+   * DEVELOPMENT BUILDS ONLY, and this condition is the whole point.
+   *
+   * Without it, `localStorage.todonado.plan = 'pro'` granted the entire paid
+   * tier to anyone who opened devtools on the production site: week planning,
+   * Insights, unlimited history, voice notes and every unlimited cap. Nothing
+   * was breached — `resolveServerPlan` reads the `billing` table and ignores
+   * this, so the one server-gated feature stayed gated — but the client half of
+   * the paywall was a suggestion.
+   *
+   * `import.meta.env.DEV` is replaced by a literal at build time, so the whole
+   * branch is dropped from the production bundle: there is no string left to
+   * find. The E2E suite drives the dev server, so it keeps its Pro preview.
+   */
+  if (!import.meta.env.DEV) return null
+
   try {
     if (typeof localStorage !== 'undefined') {
       const v = localStorage.getItem('todonado.plan')
