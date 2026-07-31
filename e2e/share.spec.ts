@@ -190,6 +190,37 @@ test('settings: sounds, the briefing switch and the honest invite card', async (
   // delete policy, so a click would leave an undeletable row on every CI run.
   await expect(page.getByRole('button', { name: /referral rewards/i })).toBeVisible()
 
+  /*
+   * --- The delete-account promise -----------------------------------------
+   * It used to name five things — "tasks, projects, focus history, wellness
+   * log, and calendar sources" — while the cascade took eleven. The journal
+   * and its VOICE RECORDINGS were the ones missing that mattered: the
+   * recordings are also the only part no cascade reaches, so they are removed
+   * explicitly before the account goes. The modal is opened but never
+   * confirmed; the account is deleted through the RPC below as usual.
+   */
+  await page.getByRole('button', { name: 'Delete account' }).first().click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  const warning = ((await dialog.textContent()) ?? '').toLowerCase()
+  for (const named of [
+    'task',
+    'project',
+    'focus history',
+    'journal',
+    'voice recording',
+    'quit-tracker',
+    'vision',
+    'mind map',
+    'challenge',
+    'personal template',
+    'supplement',
+    'calendar source',
+  ]) {
+    expect(warning, `the delete warning must name "${named}"`).toContain(named)
+  }
+  await page.getByRole('button', { name: 'Keep my account' }).click()
+
   await deleteTestAccount(account, 'settings prefs')
 })
 

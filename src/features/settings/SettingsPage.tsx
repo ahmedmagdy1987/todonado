@@ -29,6 +29,7 @@ import { useToast } from '@/components/common/toast-context'
 import { usernameError } from '@/features/auth/identifier'
 import { checkUsernameAvailable } from '@/features/auth/api/accounts'
 import { InterestChip } from '@/components/common/InterestChip'
+import { removeAllJournalAudio } from '@/features/journal/api/useJournal'
 import { playTone } from '@/features/focus/sound'
 import { CHIME_TONES, setPrefs, usePrefs, type StartScreen } from './prefs'
 import { useUpdateProfile, UsernameTakenError } from './api/useUpdateProfile'
@@ -288,6 +289,8 @@ function DataSection() {
 }
 
 function DangerSection() {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
   const [confirm, setConfirm] = useState(false)
   const [phrase, setPhrase] = useState('')
   const [busy, setBusy] = useState(false)
@@ -305,6 +308,34 @@ function DangerSection() {
     if (!armed || busy) return
     setBusy(true)
     setError(null)
+
+    /*
+     * THE RECORDINGS GO FIRST, AND THEIR FAILURE STOPS THE DELETE.
+     *
+     * The FK graph does not reach storage: `delete_own_account()` removes the
+     * `journal_entries` row that names a recording, while the recording itself
+     * stays in the bucket — the most sensitive thing this app holds, kept after
+     * the account that owned it is gone, and now unreachable by the only person
+     * entitled to it. It has to happen while the user still HAS a session,
+     * because the bucket policy grants them their own folder and nothing else.
+     *
+     * A failure here aborts rather than continuing, because the alternative is
+     * telling someone their recordings are deleted and leaving them on a
+     * server. The button stays exactly where it was, so a transient error costs
+     * a retry rather than the account.
+     */
+    if (userId) {
+      try {
+        await removeAllJournalAudio(userId)
+      } catch {
+        setBusy(false)
+        setError(
+          'Could not delete your voice recordings, so nothing was deleted — please try again in a moment.',
+        )
+        return
+      }
+    }
+
     const { error: rpcError } = await supabase.rpc('delete_own_account')
     if (rpcError) {
       setBusy(false)
@@ -337,9 +368,12 @@ function DangerSection() {
       <Modal open={confirm} onClose={close} title="Delete account">
         <div className="space-y-4 p-5">
           <p className="text-sm text-text-muted">
-            This permanently deletes your account and everything in it — tasks, projects, focus
-            history, wellness log, and calendar sources. There is no undo. If you want a copy,
-            export your data from the section above first.
+            This permanently deletes your account and everything in it: tasks, projects and
+            sections, focus history, your journal entries <em>and their voice recordings</em>,
+            quit-tracker habits and check-ins, vision goals, mind maps, challenges, personal
+            templates, your supplement log, and calendar sources. There is no undo. If you want a
+            copy, export your data from the section above first — and download any voice recordings
+            you want to keep, because the export file cannot contain audio.
           </p>
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-text-muted">

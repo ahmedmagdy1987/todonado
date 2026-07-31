@@ -166,7 +166,51 @@ thing it is missing from. There is no placeholder summary and no invented insigh
 If you wire a provider later, note that `CLAUDE.md §5` currently lists AI features as out of scope —
 a scope decision to make deliberately, not to drift into.
 
-### 3.8 Deploy config to confirm once, during the §4 smoke test
+### 3.8 Supabase platform settings — THE ONE PART OF THE SECURITY AUDIT NOBODY COULD REACH
+
+`docs/AUDIT_2026-07-31_final.md` probed the database, the RLS policies, the storage bucket, the
+`/api` endpoints and the built bundle. Its closing caveat names the one thing it could not:
+*"a review of Supabase's own platform configuration (project-level API settings, JWT expiry, email
+rate limits) — that last one is a dashboard concern I cannot reach from here and **should be
+checked before launch**."* It is a dashboard, so no test and no migration can cover it. This is
+that item.
+
+**Status: UNVERIFIED.** Project ref `lplsbfduankkpglyusjp`.
+
+1. **JWT expiry** — *Authentication → Sessions* (and *Project Settings → API → JWT Settings*).
+   The default access-token lifetime is 3600s. Confirm it, and confirm **refresh-token rotation is
+   ON** with reuse detection. Do **not** raise the access-token lifetime to reduce refreshes: this
+   app has no server-side session revocation, so the token's lifetime IS the window in which a
+   stolen token still works.
+2. **Session timebox** — same page. Decide deliberately whether a session should expire at all
+   (*Time-box user sessions*) and whether an idle session should (*Inactivity timeout*). Both are
+   off by default, which means a session on a shared or stolen device lasts forever. There is no
+   right answer here, only a decided one.
+3. **Email rate limits** — *Authentication → Rate Limits*. The defaults are low (a handful of
+   emails per hour on the built-in SMTP), which is fine now and becomes a signup outage the moment
+   there is traffic. This is the same item as §3.5: raising it properly means configuring a real
+   SMTP provider, not raising the number.
+   **Mailer autoconfirm must stay ON** — the E2E suite depends on signup returning a session with
+   no email step. Turning it off turns CI red.
+4. **Project API settings** — *Project Settings → API*.
+   - Confirm the **exposed schemas** are `public` and `graphql_public` only. `auth` or `storage`
+     must never be listed; RLS would still hold, but the surface has no reason to exist.
+   - Confirm **Max rows** is set (1000 is the default). Without it a single unbounded `select`
+     can pull an entire table into one response.
+   - Confirm the **anon key in the dashboard matches the one baked into `src/lib/env.ts`**. It is
+     public and RLS-protected by design, so this is a correctness check, not a secret check.
+   - The **`service_role` key must appear in exactly two places**: Vercel's environment variables
+     and the Supabase dashboard. If it is anywhere else — a `.env`, a commit, a note — rotate it
+     now rather than after launch.
+5. **Point-in-time recovery / backups** — *Database → Backups*. The free tier keeps daily backups
+   and no PITR. Know which one you have before someone's journal depends on it.
+6. **Leaked-password protection** — *Authentication → Policies*. Supabase can check new passwords
+   against HaveIBeenPwned. It is off by default and costs nothing to turn on.
+
+Write the date you checked these next to the status line above. There is no artifact to point at
+afterwards, so an unrecorded check is the same as no check.
+
+### 3.9 Deploy config to confirm once, during the §4 smoke test
 
 - `vercel.json` headers are live — in particular `Permissions-Policy: microphone=(self)`.
   **Confirm a voice note records on the real domain.** The previous value denied the microphone to

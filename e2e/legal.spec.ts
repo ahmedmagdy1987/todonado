@@ -92,6 +92,48 @@ test('legal: export and deletion point at the buttons that exist, not at an inbo
   expect(text).toMatch(/cannot (contain|hold) audio|not embedded/)
 })
 
+test('legal: the deletion promise names everything that is actually deleted', async ({ page }) => {
+  await page.goto('/privacy')
+  const text = ((await page.locator('main').textContent()) ?? '').toLowerCase()
+
+  /*
+   * "Removes your account and the data attached to it" is not a promise anyone
+   * can check. Every store below cascades from `auth.users` — verified against
+   * the migrations, not against a list someone wrote once — so the policy has
+   * to name them. The copy in Settings says the same thing; when a feature adds
+   * a table, BOTH lines need the entry and this test is what says so.
+   */
+  for (const deleted of [
+    'task',
+    'project',
+    'focus history',
+    'journal',
+    'voice recording',
+    'quit-tracker',
+    'vision',
+    'mind map',
+    'challenge',
+    'personal template',
+    'supplement',
+    'calendar source',
+  ]) {
+    expect(text, `deletion must name "${deleted}"`).toContain(deleted)
+  }
+
+  // The recordings are the ones a cascade does NOT reach: storage has no FK to
+  // auth.users, so they are removed explicitly, before the account goes.
+  expect(
+    text,
+    'the policy must say recordings are deleted BEFORE the account, and that a failure aborts',
+  ).toMatch(/before the account/)
+
+  // And it must not overclaim: the anonymised counters outlive the account.
+  expect(
+    text,
+    'the policy must disclose that anonymous counters survive, stripped of any link to the user',
+  ).toMatch(/anonymous counters|loses every link/)
+})
+
 test('legal: the terms carry the not-medical-advice clause while the trackers ship', async ({
   page,
 }) => {

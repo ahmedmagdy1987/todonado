@@ -189,3 +189,72 @@ export async function removeJournalAudio(path: string): Promise<void> {
   const { error } = await supabase.storage.from(AUDIO_BUCKET).remove([path])
   if (error && !/not found/i.test(error.message)) throw error
 }
+
+/**
+ * Delete EVERY recording this user owns, and report how many went.
+ *
+ * ── WHY ACCOUNT DELETION NEEDS THIS ──────────────────────────────────────────
+ * `delete_own_account()` removes the `auth.users` row and the whole FK graph
+ * goes with it — including `journal_entries`. Storage does NOT follow. Objects
+ * live in `storage.objects`, whose link to a user is `owner`, and that has
+ * never been an ON DELETE CASCADE; the audio itself is only removed when the
+ * object row is deleted through the storage API.
+ *
+ * So the row that NAMED a recording vanished while the recording stayed in the
+ * bucket — the single most sensitive thing this app stores, kept after the
+ * account that owned it was gone, and still counted against the storage bill.
+ * Nothing surfaced it, because the entry pointing at it had been deleted.
+ *
+ * This runs from the CLIENT, before the RPC, deliberately: the user still holds
+ * a session, and the bucket's delete policy already grants them exactly their
+ * own `<user_id>/` folder. Doing it server-side would mean a new migration and
+ * a service-role reader over the most private data in the product, to achieve
+ * the same erasure.
+ *
+ * Paginated: `list` caps a page, and a user who journals daily for a year has
+ * more recordings than one page holds. Stopping at the first page would leave
+ * exactly the oldest recordings behind, which is the wrong half to keep.
+ */
+export async function removeAllJournalAudio(userId: string): Promise<number> {
+  return removeAllAudioIn(supabase.storage.from(AUDIO_BUCKET), userId)
+}
+
+/** The minimal slice of the storage client this needs (keeps it unit-testable). */
+export interface AudioStore {
+  list(
+    prefix: string,
+    options: { limit: number; offset: number },
+  ): Promise<{ data: { id: string | null; name: string }[] | null; error: { message: string } | null }>
+  remove(paths: string[]): Promise<{ error: { message: string } | null }>
+}
+
+/** How many objects one `list` call returns. Storage caps a page; so do we. */
+export const AUDIO_PAGE = 100
+
+export async function removeAllAudioIn(
+  store: AudioStore,
+  userId: string,
+  pageSize = AUDIO_PAGE,
+): Promise<number> {
+  let removed = 0
+
+  for (;;) {
+    const { data, error } = await store.list(userId, { limit: pageSize, offset: 0 })
+    if (error) throw new Error(error.message)
+
+    // Folders come back without an `id`; only real objects can be removed.
+    const paths = (data ?? []).filter((o) => o.id).map((o) => `${userId}/${o.name}`)
+    if (paths.length === 0) return removed
+
+    const { error: removeError } = await store.remove(paths)
+    if (removeError) throw new Error(removeError.message)
+    removed += paths.length
+
+    // OFFSET STAYS AT 0, and that is the whole trick. The page just deleted no
+    // longer exists, so the next page has moved up into its place — advancing
+    // the offset would step over exactly as many objects as were removed, and
+    // the ones skipped would be the OLDEST recordings, which is the wrong half
+    // to leave on a server after promising deletion.
+    if (paths.length < pageSize) return removed
+  }
+}

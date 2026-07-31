@@ -642,6 +642,16 @@ key shape is the authorisation. The bucket carries its own `file_size_limit` and
 a bucket made public by hand. `journalMigration.test.ts` pins the caps, the privacy flag and every
 policy.
 
+> **THE CASCADE DOES NOT REACH STORAGE.** `delete_own_account()` removes the `auth.users` row and
+> the whole FK graph goes with it — `journal_entries` included — but `storage.objects` has no
+> cascading FK to `auth.users`, so the recordings themselves survived an account deletion: the row
+> that NAMED a file was gone while the file stayed in the bucket, unreachable by the only person
+> entitled to it and still on the bill. `removeAllJournalAudio` (client-side, run BEFORE the RPC,
+> while the user still holds the session the bucket policy grants) closes it, and a failure there
+> aborts the deletion rather than leaving a false promise. Its header explains the paging trap;
+> `removeAllAudio.test.ts` pins it. **Any future bucket needs the same treatment** — a table is
+> covered by the FK graph, an object is not.
+
 **Personal templates (owner-only, user-scoped):** `user_templates` — full CRUD under
 `user_id = auth.uid()`, `set_updated_at` trigger, `user_id` index, and size/shape CHECKs
 (title 1–80, description ≤280, ≤100 tasks, `pg_column_size(tasks) ≤ 64KB`) as a backstop for the

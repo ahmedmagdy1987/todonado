@@ -79,8 +79,21 @@ export function PrivacyPage() {
           <strong className="text-text-primary">Settings</strong>:{' '}
           <strong className="text-text-primary">Export my data</strong> downloads your records as a
           JSON file, and <strong className="text-text-primary">Delete my account</strong> removes
-          your account and the data attached to it. Deletion is immediate and cannot be undone, so
+          your account and everything attached to it: tasks, projects and sections, focus history,
+          journal entries <em>and the voice recordings themselves</em>, quit-tracker habits and
+          check-ins, vision goals, mind maps, challenges, personal templates, your supplement log,
+          calendar sources, and your billing record. Deletion is immediate and cannot be undone, so
           export first if you want a copy.
+        </p>
+        <p>
+          Two honest details. Recordings are deleted from storage <em>before</em> the account is
+          removed — if that step fails, nothing is deleted and you are asked to try again, because
+          the alternative would be telling you a recording is gone while it is still on our server.
+          And the anonymous counters described above outlive the account by design: the row that
+          records <em>&ldquo;someone completed a task&rdquo;</em> or{' '}
+          <em>&ldquo;someone clicked upgrade&rdquo;</em> keeps its count but loses every link to
+          you — the user id is cleared and any email address you typed into an interest form is
+          erased in the same operation. What remains cannot be traced back to a person.
         </p>
         <p>
           One thing the export cannot contain: a JSON file cannot hold audio, so voice recordings
