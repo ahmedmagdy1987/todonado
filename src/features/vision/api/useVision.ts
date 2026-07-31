@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { NewVisionCardInput, VisionCard, VisionCardPatch } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** PostgREST / Postgres codes for "that table isn't there". */
 const TABLE_MISSING = new Set(['PGRST205', '42P01'])
@@ -68,6 +69,9 @@ export function useVisionMutations(userId: string) {
    */
   const createCard = useMutation({
     mutationFn: async (input: NewVisionCardInput) => {
+      // `vision_cards.project_id` is an optional uuid FK to a project whose id
+      // can still be a placeholder — linking a goal to a just-created project.
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('vision_cards')
         .insert({

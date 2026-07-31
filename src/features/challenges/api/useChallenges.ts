@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { UserChallenge } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** PostgREST / Postgres codes for "that table isn't there". */
 const TABLE_MISSING = new Set(['PGRST205', '42P01'])
@@ -59,6 +60,7 @@ export function useChallengeMutations(userId: string) {
    */
   const join = useMutation({
     mutationFn: async ({ challengeKey, startDay }: { challengeKey: string; startDay: string }) => {
+      assertRealIds({ user_id: userId })
       const { data, error } = await supabase
         .from('user_challenges')
         .insert({

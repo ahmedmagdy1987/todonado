@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { assertRealId, newOptimisticId } from '@/lib/optimistic'
+import { assertRealId, assertRealIds, isOptimisticId } from '@/lib/optimistic'
 import type { NewSectionInput, Section } from '@/types/database'
 
 export function useSections(projectId: string) {
   return useQuery({
     queryKey: qk.sections(projectId),
-    enabled: !!projectId,
+    // A project id can still be a placeholder (useProjects mints one), and
+    // `.eq('project_id', 'optimistic-…')` is a 22P02 PARSE error on a uuid
+    // column, not an empty result. Don't ask until the project is real.
+    enabled: !!projectId && !isOptimisticId(projectId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sections')
@@ -34,37 +37,34 @@ export function useSectionMutations(projectId: string) {
     void qc.invalidateQueries({ queryKey: key })
   }
 
+  /**
+   * Creating a section AWAITS the insert — it deliberately mints no placeholder.
+   *
+   * This is the exception `src/lib/optimistic.ts` names: await instead of
+   * minting "when the caller needs the real id immediately … to reference it
+   * from another table". `tasks.section_id` is precisely that, and the
+   * referencing write is ONE KEYSTROKE away — `SectionGroup` renders a QuickAdd
+   * directly beneath the section it has just drawn. Optimistically, that put a
+   * placeholder uuid on screen with a text box under it, and the first task
+   * typed into it reached PostgREST as `section_id: 'optimistic-…'` — a 22P02
+   * PARSE error, after which the global handler offered a Retry that replayed
+   * the same invalid id.
+   *
+   * The price is one round trip before the section appears. That is invisible
+   * next to an error toast on a task the user has already finished typing.
+   */
   const createSection = useMutation({
     mutationFn: async (input: NewSectionInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase.from('sections').insert(input).select('*').single()
       if (error) throw error
       return data as Section
     },
-    onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: key })
-      const prev = qc.getQueryData<Section[]>(key) ?? []
-      const now = new Date().toISOString()
-      const tempId = newOptimisticId()
-      setSections((p) => [
-        ...p,
-        {
-          id: tempId,
-          project_id: input.project_id,
-          name: input.name,
-          position: input.position ?? p.length,
-          created_at: now,
-          updated_at: now,
-        },
-      ])
-      return { prev, tempId }
+    onSuccess: (data) => {
+      // Put the REAL row in the cache at once, so the section is usable without
+      // waiting for the settle refetch to come back.
+      setSections((p) => (p.some((s) => s.id === data.id) ? p : [...p, data]))
     },
-    onSuccess: (data, _input, ctx) => {
-      // Swap the placeholder for the REAL row rather than waiting for the settle
-      // refetch: until this lands the row is on screen, fully interactive, and
-      // carrying an id no other write can use. See src/lib/optimistic.ts.
-      if (ctx?.tempId) setSections((p) => p.map((r) => (r.id === ctx.tempId ? data : r)))
-    },
-    onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
     // Non-idempotent insert: don't offer a one-click Retry (could double-insert).
     meta: { noRetry: true },

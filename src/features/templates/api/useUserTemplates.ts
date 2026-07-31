@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import { useAuth } from '@/features/auth/auth-context'
 import type { NewUserTemplateInput, UserTemplate, UserTemplatePatch } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /**
  * What a write reports back. `styleDropped` is true when a checklist style was
@@ -68,6 +69,7 @@ export function useUserTemplates() {
 
   const createTemplate = useMutation({
     mutationFn: async (input: NewUserTemplateInput): Promise<WriteResult> => {
+      assertRealIds(input)
       const base = {
         user_id: userId,
         title: input.title,

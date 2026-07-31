@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { assertRealId, isOptimisticId, newOptimisticId } from '@/lib/optimistic'
+import { assertRealId, assertRealIds, isOptimisticId, newOptimisticId } from '@/lib/optimistic'
 import type {
   NewWellnessItemInput,
   WellnessItem,
@@ -26,6 +26,7 @@ export function useWellnessMutations(userId: string) {
 
   const createItem = useMutation({
     mutationFn: async (input: NewWellnessItemInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('wellness_items')
         .insert({ ...input, user_id: userId })

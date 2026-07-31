@@ -57,3 +57,40 @@ export const STILL_SAVING_ERROR = 'That’s still being saved — try again in a
 export function assertRealId(id: string): void {
   if (isOptimisticId(id)) throw new Error(STILL_SAVING_ERROR)
 }
+
+/**
+ * Every key that names a row: the row's own `id`, or a FOREIGN KEY to another
+ * table (`task_id`, `section_id`, `project_id`, …). Every one of them is a
+ * `uuid` column in this schema.
+ */
+const ID_KEY = /^(id|[a-z0-9_]+_id)$/
+
+/**
+ * Throws if ANY id-shaped key in an insert/update payload is a placeholder.
+ *
+ * ── WHY THIS EXISTS SEPARATELY FROM `assertRealId` ───────────────────────────
+ * `assertRealId` guards the row a write ADDRESSES. It says nothing about the
+ * rows a write REFERENCES. Every hook in this repo guarded the first and none
+ * guarded the second, so the audit that closed the `quit_checkins.habit_id`
+ * leak left two identical leaks open: a task inserted with a placeholder
+ * `section_id`, and a subtask inserted with a placeholder `task_id`. Both are
+ * uuid FKs on a DIFFERENT table from the one that minted the id, which is
+ * exactly the blind spot — the minting hook is innocent, the guard belongs on
+ * the *referencing* write.
+ *
+ * Call it at the top of every mutationFn that sends a payload. It is a no-op
+ * for payloads with no id-shaped keys, so applying it uniformly costs nothing
+ * and removes the judgement call about which writes "need" it.
+ */
+export function assertRealIds(input: unknown): void {
+  if (input === null || typeof input !== 'object') return
+  for (const row of Array.isArray(input) ? input : [input]) {
+    if (row === null || typeof row !== 'object') continue
+    for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+      if (!ID_KEY.test(key)) continue
+      if (typeof value === 'string' && isOptimisticId(value)) {
+        throw new Error(STILL_SAVING_ERROR)
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { isOptimisticId, newOptimisticId } from '@/lib/optimistic'
+import { assertRealId, assertRealIds, isOptimisticId, newOptimisticId } from '@/lib/optimistic'
 import type {
   NewQuitHabitInput,
   QuitCheckin,
@@ -68,6 +68,7 @@ export function useQuitMutations(userId: string) {
    */
   const createHabit = useMutation({
     mutationFn: async (input: NewQuitHabitInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('quit_habits')
         .insert({
@@ -100,6 +101,7 @@ export function useQuitMutations(userId: string) {
 
   const updateHabit = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: QuitHabitPatch }) => {
+      assertRealId(id)
       const { data, error } = await supabase
         .from('quit_habits')
         .update(patch)
@@ -129,6 +131,7 @@ export function useQuitMutations(userId: string) {
    */
   const slip = useMutation({
     mutationFn: async (habit: QuitHabit) => {
+      assertRealId(habit.id)
       const patch = slipPatch(habit.quit_started_at, habit.longest_streak_days)
       const { data, error } = await supabase
         .from('quit_habits')
@@ -154,6 +157,7 @@ export function useQuitMutations(userId: string) {
 
   const deleteHabit = useMutation({
     mutationFn: async (id: string) => {
+      assertRealId(id)
       const { error } = await supabase.from('quit_habits').delete().eq('id', id)
       if (error) throw error
     },
@@ -183,6 +187,11 @@ export function useQuitMutations(userId: string) {
    */
   const checkIn = useMutation({
     mutationFn: async ({ habitId, day }: { habitId: string; day: string }) => {
+      // The write this whole module was built for: `quit_checkins.habit_id` was
+      // the first placeholder ever sent to a uuid column. `createHabit` awaits
+      // its insert now, so a placeholder habit id cannot exist — this states
+      // the invariant rather than relying on that staying true.
+      assertRealIds({ habit_id: habitId })
       const { data, error } = await supabase
         .from('quit_checkins')
         .insert({ user_id: userId, habit_id: habitId, checked_on: day })

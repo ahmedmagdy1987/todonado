@@ -1,6 +1,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { NewTaskInput, Task } from '@/types/database'
 import { buildNextOccurrence } from '../recurrence'
+import { assertRealIds } from '@/lib/optimistic'
 
 export interface CompleteTaskResult {
   task: Task
@@ -93,6 +94,10 @@ async function legacyComplete(
 
   const completed = data as Task
   if (next) {
+    // The spawned occurrence inherits `project_id` and `section_id` from the
+    // task just completed. Those are uuid FKs — copy a placeholder and the
+    // recurrence silently fails to spawn.
+    assertRealIds(next)
     const { error: spawnError } = await client.from('tasks').insert(next)
     if (spawnError) throw spawnError
     return { task: completed, spawnedNext: true }

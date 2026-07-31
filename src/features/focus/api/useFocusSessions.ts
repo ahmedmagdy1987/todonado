@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { FocusSession, FocusSessionPatch, NewFocusSessionInput } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** All focus sessions for the workspace (newest first). Drives the active
  *  session (re-entry on reload) and per-task focus stats from one cache. */
@@ -39,6 +40,10 @@ export function useFocusMutations(workspaceId: string) {
   // immediately — pause/interruption patches target the correct row.
   const startSession = useMutation({
     mutationFn: async (input: NewFocusSessionInput) => {
+      // `focus_sessions.task_id` is a uuid FK to `tasks`, whose id CAN still be
+      // a placeholder — creating a task and hitting Focus on it straight away
+      // is a normal thing to do, and it sent `optimistic-…` to the database.
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('focus_sessions')
         .insert(input)

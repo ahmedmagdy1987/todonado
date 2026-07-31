@@ -6,6 +6,7 @@ import { todayISO } from '@/lib/date'
 import type { NewProjectInput, NewSectionInput, NewTaskInput, Project, Section, Task } from '@/types/database'
 import { applyTemplate, type ApplyResult, type ApplyTargetKind } from './apply'
 import type { Template } from './types'
+import { assertRealIds } from '@/lib/optimistic'
 
 /**
  * Binds template apply to the app's real creation path: the SAME Supabase
@@ -18,16 +19,19 @@ export function useApplyTemplate(workspaceId: string) {
 
   const deps = {
     createProject: async (input: NewProjectInput): Promise<Project> => {
+      assertRealIds(input)
       const { data, error } = await supabase.from('projects').insert(input).select('*').single()
       if (error) throw error
       return data as Project
     },
     createSection: async (input: NewSectionInput): Promise<Section> => {
+      assertRealIds(input)
       const { data, error } = await supabase.from('sections').insert(input).select('*').single()
       if (error) throw error
       return data as Section
     },
     createTask: async (input: NewTaskInput): Promise<Task> => {
+      assertRealIds(input)
       const { data, error } = await supabase.from('tasks').insert(input).select('*').single()
       if (error) throw error
       return data as Task

@@ -17,6 +17,7 @@ import { formatMinutes, formatDateShort } from '@/lib/format'
 import { PRIORITY_META } from '../priority'
 import { recurrenceLabel } from '../recurrence'
 import { SubtaskList } from './SubtaskList'
+import { isOptimisticId } from '@/lib/optimistic'
 
 interface TaskRowProps {
   task: Task
@@ -168,7 +169,7 @@ export function TaskRow({
                 <Repeat className="h-3 w-3" aria-hidden />
               </span>
             )}
-            {expandable && (
+            {expandable && !isOptimisticId(task.id) && (
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
@@ -213,7 +214,11 @@ export function TaskRow({
         </div>
       </div>
 
-      {expandable && expanded && (
+      {/* Subtasks are hidden while the task itself is still being inserted:
+          `subtasks.task_id` is a uuid FK, so both the list query and the add
+          form would address the database with a placeholder id. The chevron
+          appears the moment the real row lands (one round trip). */}
+      {expandable && expanded && !isOptimisticId(task.id) && (
         <div className="ml-9 mt-1 pb-2">
           <SubtaskList taskId={task.id} />
         </div>

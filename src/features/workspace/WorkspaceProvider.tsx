@@ -10,9 +10,11 @@ import { useAuth } from '@/features/auth/auth-context'
 import { FullScreenLoader } from '@/components/common/FullScreenLoader'
 import { Button } from '@/components/ui'
 import { WorkspaceContext } from './workspace-context'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** Find the user's workspace, creating a default one if none exists (resilience). */
 async function ensureWorkspace(userId: string): Promise<Workspace> {
+  assertRealIds({ owner_id: userId })
   const { data, error } = await supabase
     .from('workspaces')
     .select('*')
@@ -38,6 +40,7 @@ async function ensureWorkspace(userId: string): Promise<Workspace> {
 
 /** Load the user's profile, creating it if the auth bootstrap hasn't run. */
 async function ensureProfile(user: User): Promise<Profile> {
+  assertRealIds({ id: user.id })
   const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).limit(1)
   if (error) throw error
   if (data && data.length > 0) return data[0] as Profile

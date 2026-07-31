@@ -4,6 +4,7 @@ import { qk } from '@/lib/queryKeys'
 import { track } from '@/features/analytics/track'
 import { useAuth } from '@/features/auth/auth-context'
 import type { CalendarSource, NewCalendarSourceInput } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /**
  * Owner-only calendar sources (RLS: user_id = auth.uid()). Mirrors the wellness
@@ -36,6 +37,7 @@ export function useCalendarSources() {
 
   const addSource = useMutation({
     mutationFn: async (input: NewCalendarSourceInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('calendar_sources')
         .insert({

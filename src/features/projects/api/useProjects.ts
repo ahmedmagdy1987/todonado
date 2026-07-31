@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { assertRealId, newOptimisticId } from '@/lib/optimistic'
+import { assertRealId, assertRealIds, newOptimisticId } from '@/lib/optimistic'
 import type { NewProjectInput, Project } from '@/types/database'
 
 export function useProjects(workspaceId: string) {
@@ -36,6 +36,7 @@ export function useProjectMutations(workspaceId: string) {
 
   const createProject = useMutation({
     mutationFn: async (input: NewProjectInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase.from('projects').insert(input).select('*').single()
       if (error) throw error
       return data as Project
@@ -79,6 +80,9 @@ export function useProjectMutations(workspaceId: string) {
       id: string
       patch: Partial<Pick<Project, 'name' | 'color' | 'status'>>
     }) => {
+      // The only id-addressing write in this file that lacked this, inside the
+      // very hook that mints project placeholders. `archiveProject` has it.
+      assertRealId(id)
       const { data, error } = await supabase
         .from('projects')
         .update(patch)

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { todayISO } from '@/lib/date'
+import { assertRealIds } from '@/lib/optimistic'
 import {
   buildEventRow,
   shouldTrackDayReturned,
@@ -29,6 +30,11 @@ export function setAnalyticsUser(userId: string | null): void {
 export function track(event: AnalyticsEvent, opts: TrackOptions = {}): void {
   try {
     const row = buildEventRow(event, currentUserId, opts)
+    // Telemetry must never carry a placeholder into a uuid column. Throwing
+    // here is caught by the surrounding try, so a half-saved row costs one
+    // dropped event rather than a 22P02 — which is the right trade for a
+    // fire-and-forget writer.
+    assertRealIds(row)
     void supabase
       .from('events')
       .insert(row)

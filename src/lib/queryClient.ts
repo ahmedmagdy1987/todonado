@@ -1,5 +1,6 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query'
 import { notifyToast } from '@/components/common/toastBridge'
+import { STILL_SAVING_ERROR } from './optimistic'
 
 /** Compile-time-checked keys for a mutation's `meta` (used by the global onError). */
 declare module '@tanstack/react-query' {
@@ -54,9 +55,15 @@ export const queryClient = new QueryClient({
     onError: (_error, variables, _context, mutation) => {
       const meta = mutation.meta
       if (meta?.skipErrorToast) return
-      const message = meta?.errorMessage ?? DEFAULT_MUTATION_ERROR
+      // "That's still being saved" is an answer; "Something went wrong" is not.
+      // The guards in src/lib/optimistic.ts throw a message written FOR the
+      // user, so let it through instead of flattening it to the generic text.
+      const isStillSaving = _error instanceof Error && _error.message === STILL_SAVING_ERROR
+      const message = meta?.errorMessage ?? (isStillSaving ? STILL_SAVING_ERROR : DEFAULT_MUTATION_ERROR)
       // Offer Retry only for retriable mutations (skip non-idempotent inserts).
-      const canRetry = shouldOfferRetry(meta, variables)
+      // Never for a still-saving refusal: the variables still hold the same
+      // placeholder id, so Retry could only fail again in exactly the same way.
+      const canRetry = shouldOfferRetry(meta, variables) && !isStillSaving
       notifyToast(message, {
         variant: 'error',
         // Retry re-runs the same mutation (re-applies its optimistic update too).

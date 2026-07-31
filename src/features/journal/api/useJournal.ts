@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
 import type { JournalEntry, JournalEntryPatch, NewJournalEntryInput } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** PostgREST / Postgres codes for "that table isn't there". */
 const TABLE_MISSING = new Set(['PGRST205', '42P01'])
@@ -82,6 +83,7 @@ export function useJournalMutations(userId: string) {
    */
   const saveEntry = useMutation({
     mutationFn: async (input: NewJournalEntryInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('journal_entries')
         .upsert(

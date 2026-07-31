@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import type { FocusSession } from '@/types/database'
 import { useFocusMutations } from '../api/useFocusSessions'
 import { POMODORO } from '../pomodoro'
+import { isOptimisticId } from '@/lib/optimistic'
 
 const PRESETS = [25, 50, 90]
 const DEFAULT_MINUTES = 50
@@ -25,7 +26,14 @@ export function SetupView({
   const { workspaceId } = useWorkspace()
   const { data: tasks = [] } = useTasks(workspaceId)
   const { startSession } = useFocusMutations(workspaceId)
-  const [taskId, setTaskId] = useState(initialTaskId ?? '')
+  // A task id arrives here from the URL (`/focus?task=…`), which survives the
+  // cache reconcile that repairs everything else — so a placeholder parked in
+  // the address bar stayed poisonous for as long as the page was open. Drop it
+  // and fall back to "General focus" rather than carrying it into
+  // `focus_sessions.task_id`.
+  const [taskId, setTaskId] = useState(
+    initialTaskId && !isOptimisticId(initialTaskId) ? initialTaskId : '',
+  )
   const [minutes, setMinutes] = useState(DEFAULT_MINUTES)
   const [pomodoro, setPomodoro] = useState(FEATURES.pomodoro && initialPomodoro)
   const prefilledFor = useRef<string | null>(null)

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { env } from '@/lib/env'
 import { qk } from '@/lib/queryKeys'
 import type { MindMap, MindMapPatch, NewMindMapInput } from '@/types/database'
+import { assertRealIds } from '@/lib/optimistic'
 
 /** PostgREST / Postgres codes for "that table isn't there". */
 const TABLE_MISSING = new Set(['PGRST205', '42P01'])
@@ -151,6 +152,7 @@ export function useMindMapMutations(userId: string) {
    */
   const createMap = useMutation({
     mutationFn: async (input: NewMindMapInput) => {
+      assertRealIds(input)
       const { data, error } = await supabase
         .from('mind_maps')
         .insert({

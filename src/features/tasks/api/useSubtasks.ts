@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { assertRealId, newOptimisticId } from '@/lib/optimistic'
+import { assertRealId, assertRealIds, isOptimisticId, newOptimisticId } from '@/lib/optimistic'
 import type { NewSubtaskInput, Subtask } from '@/types/database'
 
 export function useSubtasks(taskId: string, enabled = true) {
   return useQuery({
     queryKey: qk.subtasks(taskId),
-    enabled: enabled && !!taskId,
+    // A task id can still be a placeholder (useTaskMutations mints one so the
+    // row appears instantly). `.eq('task_id', 'optimistic-…')` against a uuid
+    // column is a 22P02 PARSE error, not an empty list — so don't ask at all
+    // until the parent task is real. The list fills in on the settle refetch.
+    enabled: enabled && !!taskId && !isOptimisticId(taskId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from('subtasks')
@@ -36,6 +40,10 @@ export function useSubtaskMutations(taskId: string) {
 
   const addSubtask = useMutation({
     mutationFn: async (input: NewSubtaskInput) => {
+      // Guards the PARENT, not this row: `subtasks.task_id` is a uuid FK to a
+      // table whose id can still be a placeholder. `assertRealId` never covered
+      // this — it only ever guarded the row a write addresses.
+      assertRealIds(input)
       const { data, error } = await supabase.from('subtasks').insert(input).select('*').single()
       if (error) throw error
       return data as Subtask

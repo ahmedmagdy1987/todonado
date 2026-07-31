@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
-import { assertRealId, newOptimisticId } from '@/lib/optimistic'
+import { assertRealId, assertRealIds, newOptimisticId } from '@/lib/optimistic'
 import { track } from '@/features/analytics/track'
 import type { NewTaskInput, Task, TaskPatch } from '@/types/database'
 import { completeTask } from './completeTask'
@@ -55,6 +55,11 @@ export function useTaskMutations(workspaceId: string) {
 
   const createTask = useMutation({
     mutationFn: async (input: NewTaskInput) => {
+      // A task REFERENCES two rows that may not exist yet: `project_id` and
+      // `section_id`. Both are uuid FKs, and `SectionGroup`'s QuickAdd sends a
+      // freshly created section's id straight into the second one. Guarding
+      // only `id` — which is all this hook did — never looked at either.
+      assertRealIds(input)
       const { data, error } = await supabase.from('tasks').insert(input).select('*').single()
       if (error) throw error
       return data as Task
@@ -86,6 +91,10 @@ export function useTaskMutations(workspaceId: string) {
   const updateTask = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: TaskPatch }) => {
       assertRealId(id)
+      // The PATCH can move a task into a project or section — TaskDialog builds
+      // both from selects fed by caches that hold placeholders. Guarding `id`
+      // alone let a real task be pointed at an unreal parent.
+      assertRealIds(patch)
       const { data, error } = await supabase
         .from('tasks')
         .update(patch)
