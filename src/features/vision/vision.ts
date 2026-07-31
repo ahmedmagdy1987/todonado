@@ -39,6 +39,15 @@ export function nextVisionPosition(cards: VisionCard[]): number {
  * May this user create ANOTHER vision card?
  * Asked about creation only — everything already written keeps working.
  */
+/**
+ * ARITHMETIC ONLY — not the page-facing decision.
+ *
+ * This answers "is the count under the limit", which is a different question
+ * from "may this user create one". It cannot know whether its inputs have
+ * LOADED, and a cap judged on data that has not arrived is not a cap. Pages
+ * must go through capDecision() in src/features/billing/gate.ts, which has a
+ * third answer for exactly that.
+ */
 export function canCreateVisionCard(
   currentCount: number,
   isPro: boolean,

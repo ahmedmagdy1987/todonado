@@ -124,7 +124,8 @@ function LiveSyncUpsell({ onUpgradeClick }: { onUpgradeClick: () => void }) {
  */
 export function CalendarSettings() {
   const { sources, addSource, removeSource } = useCalendarSources()
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
+  const planKnown = !billingLoading
   const { user } = useAuth()
   const { updatedAt, refresh, hadError } = useCalendarBusy(todayISO())
   const toast = useToast()
@@ -151,6 +152,12 @@ export function CalendarSettings() {
       toast.show('Enter an https:// or webcal:// .ics URL')
       return
     }
+    // NOTHING HAPPENS UNTIL THE PLAN IS KNOWN. `usePlan` fails closed, so for
+    // one round trip a paying subscriber reads as Free — and this branch does
+    // not merely show them the wrong card, it INSERTS an `upgrade_intents` row
+    // that has no delete policy. An unrecoverable write on information that
+    // has not arrived yet.
+    if (!planKnown) return
     // The gate: Free keeps the input (so the value is obvious) but submitting
     // explains the limit instead of silently failing. The real enforcement is
     // server-side in /api/calendar-fetch — this is just the honest UI half.
@@ -205,13 +212,18 @@ export function CalendarSettings() {
         </div>
       </div>
 
+      {/* Optimistic-Pro while the plan loads (the JournalPage idiom): a
+          subscriber must not watch their working calendars flash "Paused —
+          live sync is a Pro feature" on every cold load. Failing in the user's
+          favour costs nothing here, because the real enforcement is
+          server-side in /api/calendar-fetch, not in this flag. */}
       {sources.length > 0 && (
         <ul className="mb-4 space-y-2">
           {sources.map((s) => (
             <SourceRow
               key={s.id}
               source={s}
-              isPro={isPro}
+              isPro={isPro || billingLoading}
               lastRefreshed={updatedAt}
               onRemove={() => removeSource.mutate(s.id)}
             />
@@ -242,12 +254,18 @@ export function CalendarSettings() {
             onChange={(e) => setUrl(e.target.value)}
             aria-label="Calendar .ics URL"
           />
-          <Button type="button" onClick={addUrl} loading={addSource.isPending} className="sm:w-auto">
+          <Button
+            type="button"
+            onClick={addUrl}
+            loading={addSource.isPending || !planKnown}
+            disabled={!planKnown}
+            className="sm:w-auto"
+          >
             <Link2 className="h-4 w-4" aria-hidden /> Subscribe
           </Button>
         </div>
 
-        {showUpsell && !isPro && (
+        {showUpsell && !isPro && planKnown && (
           <LiveSyncUpsell onUpgradeClick={() => recordIntent('calendar_live_sync_link')} />
         )}
 

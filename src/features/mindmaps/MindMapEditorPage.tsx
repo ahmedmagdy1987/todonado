@@ -105,6 +105,19 @@ export function MindMapEditorPage() {
     setLoaded(true)
   }, [map, loaded])
 
+  /**
+   * NOTHING MAY EDIT THE GRAPH BEFORE THE SERVER'S COPY HAS ARRIVED.
+   *
+   * `graph` is seeded with a one-node placeholder so the canvas has something
+   * to draw, and the effect above replaces it once. Between those two moments
+   * the editor holds a document that is NOT the user's — and every edit here
+   * marks it dirty and autosaves. On a cold load, a throttled connection or a
+   * phone waking up, one tap on "Add idea" therefore overwrote a forty-node map
+   * with a two-node one, permanently, with no undo. The same class as a cap
+   * judged before its count arrives, but the loss is the user's own work.
+   */
+  const ready = !isPending && loaded
+
   // ---- autosave ------------------------------------------------------------
   const latest = useRef<MindMapGraph>(graph)
   latest.current = graph
@@ -198,6 +211,11 @@ export function MindMapEditorPage() {
   // ---- graph edits ---------------------------------------------------------
   const apply = useCallback(
     (next: MindMapGraph) => {
+      // THE ONE CHOKE POINT every edit passes through — add, connect, drag,
+      // rename, delete. Refusing here is what makes the rule true for paths
+      // that have no button to disable (a pointer drag on the canvas, the
+      // keyboard handlers on a node), rather than only for the toolbar.
+      if (!ready) return
       setGraph((prev) => {
         // Every graph op returns the SAME reference when it refused, so this is
         // how a rejected edit avoids scheduling a pointless save.
@@ -206,7 +224,7 @@ export function MindMapEditorPage() {
         return next
       })
     },
-    [touch],
+    [ready, touch],
   )
 
   /** Ids are only ever unique within one map, so a short random one is enough. */
@@ -347,11 +365,12 @@ export function MindMapEditorPage() {
       {/* Toolbar. Every control here has a keyboard-reachable twin in the list
           below, so nothing depends on being able to point at the canvas. */}
       <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Map tools">
-        <Button size="sm" onClick={addIdea} disabled={graph.nodes.length >= MAX_MAP_NODES}>
+        <Button size="sm" onClick={addIdea} disabled={!ready || graph.nodes.length >= MAX_MAP_NODES}>
           <Plus className="h-4 w-4" aria-hidden /> Add idea
         </Button>
         <Button
           size="sm"
+          disabled={!ready}
           variant={mode === 'connect' ? 'primary' : 'outline'}
           aria-pressed={mode === 'connect'}
           onClick={() => {

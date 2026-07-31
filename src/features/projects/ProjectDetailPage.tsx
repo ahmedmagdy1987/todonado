@@ -12,7 +12,6 @@ import { useToast } from '@/components/common/toast-context'
 import { usePlan } from '@/features/billing/usePlan'
 import { useUserTemplates } from '@/features/templates/api/useUserTemplates'
 import {
-  canCreatePersonalTemplate,
   captureProjectAsTemplate,
   toUserTemplateTasks,
 } from '@/features/templates/personal'
@@ -23,6 +22,7 @@ import { HistoryCutoffCard } from '@/features/history/components/HistoryCutoffCa
 import { useProjects, useProjectMutations } from './api/useProjects'
 import { useSections, useSectionMutations } from './api/useSections'
 import { SectionGroup } from './components/SectionGroup'
+import { capDecision } from '@/features/billing/gate'
 
 export function ProjectDetailPage() {
   const { projectId = '' } = useParams()
@@ -45,7 +45,7 @@ export function ProjectDetailPage() {
   const [nameDraft, setNameDraft] = useState('')
   const [showTemplateLimit, setShowTemplateLimit] = useState(false)
   const toast = useToast()
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const {
     templates: personalRows,
     available: personalTemplatesAvailable,
@@ -54,12 +54,14 @@ export function ProjectDetailPage() {
   } = useUserTemplates()
   // See TemplatesPage: the cap is client-side only, so it must not be judged
   // against an empty list while the query is still in flight.
-  const countKnown = !personalPending
-  const canSaveTemplate = canCreatePersonalTemplate(
-    personalRows.length,
+  const countKnown = !personalPending && !billingLoading
+  const decision = capDecision({
+    planKnown: !billingLoading,
+    countKnown: !personalPending,
     isPro,
-    FREE_PERSONAL_TEMPLATES,
-  )
+    count: personalRows.length,
+    limit: FREE_PERSONAL_TEMPLATES,
+  })
 
   const project = projects.find((p) => p.id === projectId)
 
@@ -109,7 +111,7 @@ export function ProjectDetailPage() {
   function saveAsTemplate() {
     if (!project || createTemplate.isPending || !countKnown) return
     if (sectionsPending || sectionsError) return
-    if (!canSaveTemplate) {
+    if (decision === 'capped') {
       setShowTemplateLimit(true)
       return
     }
@@ -213,7 +215,7 @@ export function ProjectDetailPage() {
         </div>
       </header>
 
-      {showTemplateLimit && !canSaveTemplate && (
+      {showTemplateLimit && decision === 'capped' && (
         <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />
       )}
 

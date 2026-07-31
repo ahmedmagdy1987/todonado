@@ -173,6 +173,15 @@ export function personalToTemplate(row: UserTemplate): Template {
  * Note this is only ever asked about CREATION. Existing templates keep working
  * and applying however many there are — the limit never reaches backwards.
  */
+/**
+ * ARITHMETIC ONLY — not the page-facing decision.
+ *
+ * This answers "is the count under the limit", which is a different question
+ * from "may this user create one". It cannot know whether its inputs have
+ * LOADED, and a cap judged on data that has not arrived is not a cap. Pages
+ * must go through capDecision() in src/features/billing/gate.ts, which has a
+ * third answer for exactly that.
+ */
 export function canCreatePersonalTemplate(
   currentCount: number,
   isPro: boolean,

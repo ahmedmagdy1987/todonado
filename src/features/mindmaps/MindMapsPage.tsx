@@ -6,8 +6,9 @@ import { useAuth } from '@/features/auth/auth-context'
 import { usePlan } from '@/features/billing/usePlan'
 import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
 import { FREE_MIND_MAPS } from '@/lib/config'
-import { emptyGraph, canCreateMindMap } from './graph'
+import { emptyGraph } from './graph'
 import { useMindMapMutations, useMindMaps } from './api/useMindMaps'
+import { capDecision } from '@/features/billing/gate'
 
 /**
  * The list of maps.
@@ -18,7 +19,7 @@ import { useMindMapMutations, useMindMaps } from './api/useMindMaps'
 export function MindMapsPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const navigate = useNavigate()
 
   const { data, isPending } = useMindMaps(userId)
@@ -33,21 +34,31 @@ export function MindMapsPage() {
   // so for one round trip `maps` does not include it yet and the Free cap is
   // client-side only. Without this a fast second tap makes a second map.
   const pending = createMap.isPending ? 1 : 0
-  const canCreate = canCreateMindMap(maps.length + pending, isPro, FREE_MIND_MAPS)
 
   /**
-   * UNTIL THE LIST HAS LOADED, THE COUNT IS ZERO AND EVERY CAP LOOKS SATISFIED.
+   * UNTIL THE LIST HAS LOADED, THE COUNT IS ZERO AND EVERY CAP LOOKS SATISFIED
+   * — and until BILLING has loaded, every subscriber looks Free.
    *
-   * That is not hypothetical: with the migration applied, the E2E tapped "New
-   * map" on a freshly-opened list and got a SECOND map on a plan that allows
-   * one — because `maps` was still `[]`. A cap computed from data that has not
-   * arrived is not a cap, so creation waits for the answer.
+   * Neither is hypothetical. The first shipped: with the migration applied, the
+   * E2E tapped "New map" on a freshly-opened list and got a SECOND map on a
+   * one-map plan, because `maps` was still `[]`. The second was the same
+   * mistake with the other input — `countKnown` folded this list and never the
+   * plan, so a Pro user with one map was told, on every cold load, that they
+   * had hit a limit they had paid to remove. A cap computed from data that has
+   * not arrived is not a cap, whichever half is missing.
    */
-  const countKnown = !isPending
+  const decision = capDecision({
+    planKnown: !billingLoading,
+    countKnown: !isPending,
+    isPro,
+    count: maps.length + pending,
+    limit: FREE_MIND_MAPS,
+  })
+  const ready = decision !== 'unknown'
 
   function create() {
-    if (!countKnown) return
-    if (!canCreate) {
+    if (!ready) return
+    if (decision === 'capped') {
       setShowLimit(true)
       return
     }
@@ -76,7 +87,7 @@ export function MindMapsPage() {
         {available && (
           <Button
             onClick={create}
-            disabled={createMap.isPending || !countKnown}
+            disabled={createMap.isPending || !ready}
             className="shrink-0"
           >
             <Plus className="h-4 w-4" aria-hidden /> New map
@@ -84,7 +95,7 @@ export function MindMapsPage() {
         )}
       </header>
 
-      {showLimit && !canCreate && <MapLimitUpsell limit={FREE_MIND_MAPS} />}
+      {showLimit && decision === 'capped' && <MapLimitUpsell limit={FREE_MIND_MAPS} />}
 
       {!available ? (
         <NotSwitchedOnCard />

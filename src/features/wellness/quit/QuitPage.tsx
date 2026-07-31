@@ -18,6 +18,7 @@ import { QuitHabitDialog } from './components/QuitHabitDialog'
 import { QuitLimitUpsell } from './components/QuitLimitUpsell'
 import { SlipDialog } from './components/SlipDialog'
 import { SupportNote } from './components/SupportNote'
+import { capDecision } from '@/features/billing/gate'
 
 /**
  * The Quit area — habits the user is BREAKING.
@@ -34,7 +35,7 @@ import { SupportNote } from './components/SupportNote'
 export function QuitPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const toast = useToast()
 
   const { data: habitsData, isPending } = useQuitHabits(userId)
@@ -59,17 +60,24 @@ export function QuitPage() {
   // Free cap is client-side only, so without this a fast second tap could create
   // a second habit past a one-habit limit.
   const creating = useIsMutating({ mutationKey: quitCreateKey(userId) }) > 0
-  const canCreate = isPro || habits.length + (creating ? 1 : 0) < FREE_QUIT_HABITS
   // `available` deliberately defaults to true while loading so the Add button
   // does not flicker — which means the CAP is computed from `habits === []`
   // until the SELECT lands. Same shape as the mind-map and Vision bypasses:
-  // a limit derived from data that has not arrived is not a limit.
-  const countKnown = !isPending
+  // a limit derived from data that has not arrived is not a limit. The plan is
+  // the other half of the same question — see src/features/billing/gate.ts.
+  const decision = capDecision({
+    planKnown: !billingLoading,
+    countKnown: !isPending,
+    isPro,
+    count: habits.length + (creating ? 1 : 0),
+    limit: FREE_QUIT_HABITS,
+  })
+  const ready = decision !== 'unknown'
   const justSlipped = habits.find((h) => h.id === justSlippedId) ?? null
 
   function openAdd() {
-    if (!countKnown) return
-    if (!canCreate) {
+    if (!ready) return
+    if (decision === 'capped') {
       // The gate is a card in the flow, never a modal — and the editor must not
       // open behind it. Same contract as the personal-template limit.
       setShowLimit(true)
@@ -120,7 +128,7 @@ export function QuitPage() {
             </p>
           </div>
           {available && (
-            <Button onClick={openAdd} disabled={!countKnown} className="shrink-0">
+            <Button onClick={openAdd} disabled={!ready} className="shrink-0">
               <Plus className="h-4 w-4" aria-hidden /> Add habit
             </Button>
           )}
@@ -129,7 +137,7 @@ export function QuitPage() {
 
       <SupportNote />
 
-      {showLimit && !canCreate && <QuitLimitUpsell limit={FREE_QUIT_HABITS} />}
+      {showLimit && decision === 'capped' && <QuitLimitUpsell limit={FREE_QUIT_HABITS} />}
 
       {justSlipped && (
         <AfterSlipCard

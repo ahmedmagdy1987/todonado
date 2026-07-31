@@ -48,13 +48,21 @@ export function TopBar({ onAddTask }: { onAddTask?: () => void }) {
   const today = format(new Date(), 'EEEE, MMM d')
   const { user, signOut } = useAuth()
   const { profile } = useWorkspace()
-  const { plan, isFounding } = usePlan()
+  const { plan, isFounding, billingLoading } = usePlan()
   const navigate = useNavigate()
   const [profileOpen, setProfileOpen] = useState(false)
 
   const name = profile?.full_name || profile?.display_name || user?.email || 'Account'
   const initial = (name || '?').charAt(0).toUpperCase()
-  const planLabel = isFounding ? 'Founding' : plan === 'pro' ? 'Pro' : 'Free'
+  // Shown on EVERY authenticated screen, so this was the plan misread a
+  // subscriber saw most often. Say nothing rather than say "Free".
+  const planLabel = billingLoading
+    ? '…'
+    : isFounding
+      ? 'Founding'
+      : plan === 'pro'
+        ? 'Pro'
+        : 'Free'
 
   const go = (to: string) => {
     setProfileOpen(false)

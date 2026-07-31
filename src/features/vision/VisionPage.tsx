@@ -15,13 +15,13 @@ import { newPositionForMove } from '@/lib/reorder'
 import type { VisionCard } from '@/types/database'
 import { useVisionCards, useVisionMutations } from './api/useVision'
 import {
-  canCreateVisionCard,
   linkedProject,
   nextVisionPosition,
   sortVisionCards,
 } from './vision'
 import { VisionCardDialog } from './components/VisionCardDialog'
 import { VisionCardItem } from './components/VisionCardItem'
+import { capDecision } from '@/features/billing/gate'
 
 /**
  * Vision — the goals behind the work.
@@ -38,7 +38,7 @@ import { VisionCardItem } from './components/VisionCardItem'
 export function VisionPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const { workspaceId } = useWorkspace()
   const { data: projects = [] } = useProjects(workspaceId)
 
@@ -60,16 +60,23 @@ export function VisionPage() {
   // Free cap is client-side only. Without this a fast second tap could add a
   // fourth goal past a three-goal limit.
   const pendingCreate = createCard.isPending ? 1 : 0
-  const canCreate = canCreateVisionCard(cards.length + pendingCreate, isPro, FREE_VISION_CARDS)
   // Until the list has loaded the count is zero and the cap looks satisfied, so
   // a tap during load would add a fourth goal to a three-goal plan. Found on
   // Mind maps once its migration was applied; this is the identical shape, and
-  // the Add button is likewise rendered outside the loading branch.
-  const countKnown = !isPending
+  // the Add button is likewise rendered outside the loading branch. The PLAN is
+  // the other half of the same question — see src/features/billing/gate.ts.
+  const decision = capDecision({
+    planKnown: !billingLoading,
+    countKnown: !isPending,
+    isPro,
+    count: cards.length + pendingCreate,
+    limit: FREE_VISION_CARDS,
+  })
+  const ready = decision !== 'unknown'
 
   function openAdd() {
-    if (!countKnown) return
-    if (!canCreate) {
+    if (!ready) return
+    if (decision === 'capped') {
       // A card in the flow, never a modal — and the editor must not open behind it.
       setShowLimit(true)
       return
@@ -124,14 +131,14 @@ export function VisionPage() {
             </Link>
           )}
           {available && (
-            <Button onClick={openAdd} disabled={!countKnown}>
+            <Button onClick={openAdd} disabled={!ready}>
               <Plus className="h-4 w-4" aria-hidden /> Add goal
             </Button>
           )}
         </div>
       </header>
 
-      {showLimit && !canCreate && <VisionLimitUpsell limit={FREE_VISION_CARDS} />}
+      {showLimit && decision === 'capped' && <VisionLimitUpsell limit={FREE_VISION_CARDS} />}
 
       {!available ? (
         <NotSwitchedOnCard />

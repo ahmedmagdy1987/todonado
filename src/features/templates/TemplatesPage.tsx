@@ -15,8 +15,8 @@ import { TemplateCard } from './components/TemplateCard'
 import { PersonalTemplateEditor } from './components/PersonalTemplateEditor'
 import { PersonalLimitUpsell } from './components/PersonalLimitUpsell'
 import { useUserTemplates } from './api/useUserTemplates'
+import { capDecision } from '@/features/billing/gate'
 import {
-  canCreatePersonalTemplate,
   personalToTemplate,
   toTemplateStyle,
   toUserTemplateTasks,
@@ -72,7 +72,7 @@ export function TemplatesPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showLimit, setShowLimit] = useState(false)
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const { workspaceId } = useWorkspace()
   const {
     templates: personalRows,
@@ -86,7 +86,7 @@ export function TemplatesPage() {
   // The personal-template cap is client-side only — the migration has size
   // CHECKs but no row-count constraint — so it must not be evaluated against
   // an empty list during load.
-  const countKnown = !personalPending
+  const countKnown = !personalPending && !billingLoading
 
   // One adaptation at the boundary — from here on a personal template IS a
   // Template, so the card, search and preview below are the shared code path.
@@ -95,11 +95,13 @@ export function TemplatesPage() {
     () => filterTemplates(personal, category, query),
     [personal, category, query],
   )
-  const canCreate = canCreatePersonalTemplate(
-    personalRows.length + (createTemplate.isPending ? 1 : 0),
+  const decision = capDecision({
+    planKnown: !billingLoading,
+    countKnown: !personalPending,
     isPro,
-    FREE_PERSONAL_TEMPLATES,
-  )
+    count: personalRows.length + (createTemplate.isPending ? 1 : 0),
+    limit: FREE_PERSONAL_TEMPLATES,
+  })
 
   const editing = editingId ? personalRows.find((r) => r.id === editingId) : undefined
   const editingDraft: PersonalTemplateDraft | undefined = editing
@@ -116,7 +118,7 @@ export function TemplatesPage() {
   function startNew() {
     if (!countKnown) return
     // The limit gates CREATION only — never viewing or applying what exists.
-    if (!canCreate) {
+    if (decision === 'capped') {
       setShowLimit(true)
       return
     }
@@ -220,7 +222,7 @@ export function TemplatesPage() {
         )}
       </header>
 
-      {showLimit && !canCreate && <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />}
+      {showLimit && decision === 'capped' && <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />}
 
       <div className="relative">
         <Search

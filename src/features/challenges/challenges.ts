@@ -459,6 +459,15 @@ export function offerableChallenges(opts: {
  * attempts count — a finished or lapsed one never blocks starting something new,
  * which is what stops the limit from feeling like a punishment for not finishing.
  */
+/**
+ * ARITHMETIC ONLY — not the page-facing decision.
+ *
+ * This answers "is the count under the limit", which is a different question
+ * from "may this user create one". It cannot know whether its inputs have
+ * LOADED, and a cap judged on data that has not arrived is not a cap. Pages
+ * must go through capDecision() in src/features/billing/gate.ts, which has a
+ * third answer for exactly that.
+ */
 export function canJoinChallenge(activeCount: number, isPro: boolean, limit: number): boolean {
   if (isPro) return true
   return activeCount < limit

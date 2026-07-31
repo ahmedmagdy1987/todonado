@@ -19,7 +19,6 @@ import {
   type ChallengeData,
   type ChallengePhase,
   type ChallengeProgress,
-  canJoinChallenge,
   challengeFor,
   challengeProgress,
   challengeTerms,
@@ -30,6 +29,7 @@ import {
 } from './challenges'
 import { useChallengeMutations, useUserChallenges } from './api/useChallenges'
 import { useJournalEntries } from '@/features/journal/api/useJournal'
+import { capDecision } from '@/features/billing/gate'
 
 /**
  * Challenges — a structured push you opt into, and nothing you are opted into.
@@ -47,7 +47,7 @@ import { useJournalEntries } from '@/features/journal/api/useJournal'
 export function ChallengesPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   // `capacityMinutes` already resolves the profile value or the default, so the
   // capacity challenge and the Today meter can never disagree about what "fits".
   const { workspaceId, profile, capacityMinutes } = useWorkspace()
@@ -99,7 +99,21 @@ export function ChallengesPage() {
   )
 
   const activeCount = attempts.filter((a) => a.phase === 'active').length
-  const canJoin = canJoinChallenge(activeCount + (join.isPending ? 1 : 0), isPro, FREE_ACTIVE_CHALLENGES)
+  /**
+   * The only cap page whose Join had NO knowledge guard at all — it was
+   * protected structurally, because the offer cards happen to render inside the
+   * `isPending` skeleton branch. A refactor that moved a Join button into the
+   * header would have reintroduced the bypass with nothing to catch it. Now the
+   * decision states its own preconditions. See src/features/billing/gate.ts.
+   */
+  const decision = capDecision({
+    planKnown: !billingLoading,
+    countKnown: !isPending,
+    isPro,
+    count: activeCount + (join.isPending ? 1 : 0),
+    limit: FREE_ACTIVE_CHALLENGES,
+  })
+  const ready = decision !== 'unknown'
 
   /**
    * Write the outcome once, when the derived number first reaches the target.
@@ -129,7 +143,8 @@ export function ChallengesPage() {
   const openToJoin = offerable.filter((c) => !joinedKeys.has(c.key))
 
   function start(challenge: Challenge) {
-    if (!canJoin) {
+    if (!ready) return
+    if (decision === 'capped') {
       setShowLimit(true)
       return
     }
@@ -155,7 +170,7 @@ export function ChallengesPage() {
         </div>
       </header>
 
-      {showLimit && !canJoin && <ChallengeLimitUpsell limit={FREE_ACTIVE_CHALLENGES} />}
+      {showLimit && decision === 'capped' && <ChallengeLimitUpsell limit={FREE_ACTIVE_CHALLENGES} />}
 
       {!available ? (
         <NotSwitchedOnCard />
@@ -236,7 +251,7 @@ export function ChallengesPage() {
               <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {openToJoin.map((c) => (
                   <li key={c.key}>
-                    <OfferCard challenge={c} onStart={() => start(c)} busy={join.isPending} />
+                    <OfferCard challenge={c} onStart={() => start(c)} busy={join.isPending || !ready} />
                   </li>
                 ))}
               </ul>

@@ -470,6 +470,15 @@ export function validateNode(draft: { title: string; note: string | null }): Val
 }
 
 /** May this user create ANOTHER map? Creation only — existing maps always open. */
+/**
+ * ARITHMETIC ONLY — not the page-facing decision.
+ *
+ * This answers "is the count under the limit", which is a different question
+ * from "may this user create one". It cannot know whether its inputs have
+ * LOADED, and a cap judged on data that has not arrived is not a cap. Pages
+ * must go through capDecision() in src/features/billing/gate.ts, which has a
+ * third answer for exactly that.
+ */
 export function canCreateMindMap(currentCount: number, isPro: boolean, limit: number): boolean {
   if (isPro) return true
   return currentCount < limit

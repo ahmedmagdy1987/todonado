@@ -195,8 +195,10 @@ function AccountSection() {
 }
 
 function PlanSection() {
-  const { isPro, isFounding } = usePlan()
-  const label = isFounding ? 'Founding' : isPro ? 'Pro' : 'Free'
+  const { isPro, isFounding, billingLoading } = usePlan()
+  // "Free" is a claim about someone's account, not a placeholder — do not make
+  // it before the billing row has answered. PlanPage.tsx has always done this.
+  const label = billingLoading ? 'Checking…' : isFounding ? 'Founding' : isPro ? 'Pro' : 'Free'
   return (
     <Section icon={Crown} title="Plan" description="Your subscription tier.">
       <div className="flex items-center justify-between gap-3">
@@ -206,7 +208,7 @@ function PlanSection() {
         </div>
         <Link to="/settings/plan">
           <Button variant="secondary" size="sm">
-            {isPro ? 'View plan' : 'View & upgrade'}
+            {isPro || billingLoading ? 'View plan' : 'View & upgrade'}
           </Button>
         </Link>
       </div>

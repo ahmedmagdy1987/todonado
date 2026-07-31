@@ -170,7 +170,7 @@ export function TodayPage() {
   //  from whatever is cached — a not-yet-loaded input simply means a section
   //  stays quiet, never a spinner and never a blocked page.
   // ---------------------------------------------------------------------------
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const { data: focusSessions = [] } = useFocusSessions(workspaceId)
   const { dismissed: digestDismissed, dismiss: dismissDigest, reopen: reopenDigest } =
     useDigestDismissal(today)
@@ -204,7 +204,12 @@ export function TodayPage() {
     () =>
       composeDigest({
         todayStr: today,
-        isPro,
+        // Optimistic-Pro while billing loads. Today is the app's default screen,
+        // so the unfolded read here was the highest-traffic instance of it: a
+        // paying subscriber got the FREE briefing — no plan to accept, no
+        // estimation nudge, no priority alerts — plus a proTeaser block
+        // pitching Pro to someone who already bought it, on every cold load.
+        isPro: isPro || billingLoading,
         accountAgeDays,
         streak,
         rolloverTasks: overdue,
@@ -217,7 +222,7 @@ export function TodayPage() {
         tasks,
       }),
     [
-      today, isPro, accountAgeDays, streak, overdue, hasCalendar,
+      today, isPro, billingLoading, accountAgeDays, streak, overdue, hasCalendar,
       cal.busyMinutes, summary.freeMinutes, summary.status, dayPlan, bias, tasks,
     ],
   )
