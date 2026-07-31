@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Wand2 } from 'lucide-react'
 import { Button, Modal } from '@/components/ui'
 import { formatMinutes } from '@/lib/format'
@@ -18,6 +18,15 @@ interface PlanMyDayProps {
   label?: string
   /** Open the preview immediately — the Hub's "Build my day" tile deep-links here. */
   defaultOpen?: boolean
+  /**
+   * False while the calendar is still being consulted.
+   *
+   * The button promises the plan will never go over capacity, and it can only
+   * keep that promise once it knows how much of the day the calendar has
+   * already taken. Confirming inside that window planned — and wrote — a day
+   * the app believed was empty.
+   */
+  ready?: boolean
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
@@ -43,8 +52,24 @@ export function PlanMyDay({
   variant = 'compact',
   label = 'Plan my day',
   defaultOpen = false,
+  ready = true,
 }: PlanMyDayProps) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(false)
+  /**
+   * The deep link (`/today?plan=1`) opens the preview — but only ONCE the
+   * calendar has been consulted, because the whole point of the gate is that a
+   * plan built before then is built on a day the app wrongly believes is empty.
+   *
+   * This has to be an effect, not initial state: `ready` is false on the first
+   * render by definition, so `useState(defaultOpen && ready)` never opened at
+   * all. `autoOpened` makes it fire exactly once, so closing it stays closed.
+   */
+  const autoOpened = useRef(false)
+  useEffect(() => {
+    if (!defaultOpen || !ready || autoOpened.current) return
+    autoOpened.current = true
+    setOpen(true)
+  }, [defaultOpen, ready])
   const plan = useMemo(
     () => planDay(tasks, capacityMinutes, today, estimate),
     [tasks, capacityMinutes, today, estimate],
@@ -53,6 +78,10 @@ export function PlanMyDay({
   const hasPlan = !plan.capacityFull && plan.picks.length > 0
 
   function confirm() {
+    // Belt and braces: the trigger is disabled while `ready` is false, but the
+    // preview can also be opened by a deep link, and a confirm must never apply
+    // a plan built without the calendar.
+    if (!ready) return
     onApply(plan.picks)
     setOpen(false)
   }
@@ -62,6 +91,8 @@ export function PlanMyDay({
       <Button
         type="button"
         onClick={() => setOpen(true)}
+        disabled={!ready}
+        title={ready ? undefined : 'Checking your calendar…'}
         variant={variant === 'prominent' ? 'primary' : 'secondary'}
         size={variant === 'prominent' ? 'lg' : 'sm'}
       >

@@ -82,8 +82,12 @@ export function suggestTasksToMoveTomorrow(
   todayTasks: Task[],
   capacityMinutes: number,
 ): Task[] {
+  // `>= 0` — see the note in autoPlan.ts. This is passed `effectiveCapacity`
+  // (capacity minus meetings), which is legitimately zero on a fully-booked day.
+  // With `> 0` that zero became six hours, `over` came out negative, and the
+  // overbooking guard silently returned nothing on exactly the day it exists for.
   const capacity =
-    Number.isFinite(capacityMinutes) && capacityMinutes > 0
+    Number.isFinite(capacityMinutes) && capacityMinutes >= 0
       ? capacityMinutes
       : DEFAULT_DAILY_CAPACITY_MINUTES
   // Base "over" on remaining (movable) effort — completed work shouldn't count.

@@ -67,7 +67,10 @@ function InsightsSkeleton() {
 }
 
 export function InsightsPage() {
-  const { isPro } = usePlan()
+  // `billingLoading` matters here more than anywhere: without it a paying
+  // subscriber sees the blurred teaser and an Upgrade CTA on every cold load,
+  // and clicking it writes an `upgrade_intents` row that has no delete policy.
+  const { isPro, billingLoading } = usePlan()
   const { workspaceId, capacityMinutes } = useWorkspace()
   const { data: tasks = [], isPending: tasksPending } = useTasks(workspaceId)
   const { data: sessions = [], isPending: focusPending } = useFocusSessions(workspaceId)
@@ -82,7 +85,9 @@ export function InsightsPage() {
     [tasks, sessions, capacityMinutes, today],
   )
 
-  const loading = tasksPending || focusPending
+  // `billingLoading` folded in, so the Pro gate below is never judged before
+  // the plan is known.
+  const loading = tasksPending || focusPending || billingLoading
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -93,7 +98,11 @@ export function InsightsPage() {
       {isPro && FEATURES.points && !loading && (
         <PointsPanel tasks={tasks} sessions={sessions} today={today} />
       )}
-      {!isPro ? (
+      {/* The skeleton, not the teaser and not nothing: until the plan is known
+          we must neither claim the user is Free nor leave the page blank. */}
+      {billingLoading ? (
+        <InsightsSkeleton />
+      ) : !isPro ? (
         <InsightsTeaser />
       ) : loading ? (
         <InsightsSkeleton />

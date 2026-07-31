@@ -30,7 +30,11 @@ export function ProjectDetailPage() {
   const { workspaceId } = useWorkspace()
   const { data: projects = [], isPending: projectsPending } = useProjects(workspaceId)
   const { data: tasks = [] } = useTasks(workspaceId)
-  const { data: sections = [] } = useSections(projectId)
+  // `captureProjectAsTemplate` treats an unknown section id as unsectioned, so
+  // capturing while this is empty-but-not-authoritative silently saves a FLAT
+  // template — with a success toast — and an errored fetch makes that permanent.
+  const { data: sections = [], isPending: sectionsPending, isError: sectionsError } =
+    useSections(projectId)
   const { createSection, renameSection, deleteSection, reorderSection } =
     useSectionMutations(projectId)
   const { updateProject, archiveProject } = useProjectMutations(workspaceId)
@@ -46,7 +50,11 @@ export function ProjectDetailPage() {
     templates: personalRows,
     available: personalTemplatesAvailable,
     createTemplate,
+    isPending: personalPending,
   } = useUserTemplates()
+  // See TemplatesPage: the cap is client-side only, so it must not be judged
+  // against an empty list while the query is still in flight.
+  const countKnown = !personalPending
   const canSaveTemplate = canCreatePersonalTemplate(
     personalRows.length,
     isPro,
@@ -99,7 +107,8 @@ export function ProjectDetailPage() {
    * completed work, which a template excludes anyway).
    */
   function saveAsTemplate() {
-    if (!project || createTemplate.isPending) return
+    if (!project || createTemplate.isPending || !countKnown) return
+    if (sectionsPending || sectionsError) return
     if (!canSaveTemplate) {
       setShowTemplateLimit(true)
       return
@@ -185,6 +194,7 @@ export function ProjectDetailPage() {
               variant="ghost"
               size="sm"
               onClick={saveAsTemplate}
+              disabled={!countKnown || sectionsPending || sectionsError}
               loading={createTemplate.isPending}
             >
               <BookmarkPlus className="h-4 w-4" aria-hidden /> Save as template

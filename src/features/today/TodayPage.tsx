@@ -81,7 +81,12 @@ export function TodayPage() {
   const { cutoffDay: historyCutoff } = useHistoryWindow(today)
 
   // Today's calendar busy-minutes (0 when the feature/sources are off or fail).
-  const { busyMinutes, hadError: calendarError, enabled: hasCalendar } = useCalendarBusy(today)
+  const {
+    busyMinutes,
+    hadError: calendarError,
+    enabled: hasCalendar,
+    ready: calendarReady,
+  } = useCalendarBusy(today)
 
   const todayTasks = selectToday(tasks, today)
   const overdue = selectRolloverTasks(tasks, today)
@@ -301,6 +306,7 @@ export function TodayPage() {
               onApply={applyPlan}
               variant="compact"
               defaultOpen={planOnLoad}
+              ready={calendarReady}
             />
           )}
         </div>
@@ -324,7 +330,7 @@ export function TodayPage() {
             name={name}
             todayStr={today}
             onDismiss={dismissDigest}
-            onAccept={() => applyPlan(digest.suggestion?.picks ?? [])}
+            onAccept={() => calendarReady && applyPlan(digest.suggestion?.picks ?? [])}
             planAction={
               FEATURES.autoPlan ? (
                 <PlanMyDay
@@ -335,6 +341,7 @@ export function TodayPage() {
                   onApply={applyPlan}
                   variant={digest.suggestion ? 'compact' : 'prominent'}
                   label={digest.suggestion ? 'Adjust' : 'Plan my day'}
+                  ready={calendarReady}
                 />
               ) : null
             }

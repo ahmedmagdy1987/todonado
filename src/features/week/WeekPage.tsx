@@ -52,7 +52,7 @@ export function WeekPage() {
 
   const today = todayISO()
   const dates = useMemo(() => weekDates(today), [today])
-  const { byDate } = useCalendarBusyByDate(dates)
+  const { byDate, ready: calendarReady } = useCalendarBusyByDate(dates)
 
   const days = useMemo(
     () => buildWeek({ todayStr: today, tasks, capacityMinutes, busyByDate: byDate }),
@@ -105,7 +105,11 @@ export function WeekPage() {
 
   // Free users get the honest sample-data preview, never their own week teased.
   if (!isPro && !billingLoading) return <WeekUpsell />
-  if (billingLoading || isPending) return <FullScreenLoader label="Loading your week…" />
+  // `calendarReady` is in the gate for the same reason it is on Today: until
+  // the calendar has been consulted every day looks empty, and "Plan my week"
+  // writes SEVEN days at once.
+  if (billingLoading || isPending || !calendarReady)
+    return <FullScreenLoader label="Loading your week…" />
   if (isError) {
     return (
       <div className="animate-fade-in">

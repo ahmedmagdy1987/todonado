@@ -64,8 +64,21 @@ export function planDay(
   todayStr: string,
   estimate: (task: Task) => number,
 ): DayPlan {
+  // `>= 0`, NOT `> 0`. This receives a DERIVED REMAINDER, not a raw setting:
+  // TodayPage passes `cal.effectiveCapacity`, which is `max(0, capacity − busy)`
+  // and is legitimately ZERO on a day the calendar has filled.
+  //
+  // Treating that zero as "unset" and substituting six hours meant the planner
+  // filled a day that had no room, then wrote it — while `/week`, which computes
+  // the same remainder without a fallback, correctly refused the same day. It is
+  // the app's central promise ("we refuse to pretend a 14-hour day fits in 8")
+  // failing precisely when the calendar says the day is full.
+  //
+  // `computeCapacity` deliberately keeps `> 0`: it is fed the RAW profile value
+  // and divides by it, where a zero really is nonsense. The capacity editor's
+  // own floor is 15 minutes, so a raw zero cannot come from the UI either way.
   const capacity =
-    Number.isFinite(capacityMinutes) && capacityMinutes > 0
+    Number.isFinite(capacityMinutes) && capacityMinutes >= 0
       ? capacityMinutes
       : DEFAULT_DAILY_CAPACITY_MINUTES
 

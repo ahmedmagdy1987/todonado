@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { assertRealId, isOptimisticId, newOptimisticId } from '@/lib/optimistic'
 import type {
   NewWellnessItemInput,
   WellnessItem,
@@ -38,7 +39,7 @@ export function useWellnessMutations(userId: string) {
       const prev = qc.getQueryData<WellnessItem[]>(itemsKey) ?? []
       const now = new Date().toISOString()
       const optimistic: WellnessItem = {
-        id: `optimistic-${crypto.randomUUID()}`,
+        id: newOptimisticId(),
         user_id: userId,
         name: input.name,
         dose: input.dose ?? null,
@@ -48,7 +49,14 @@ export function useWellnessMutations(userId: string) {
         updated_at: now,
       }
       setItems((p) => [...p, optimistic])
-      return { prev }
+      return { prev, tempId: optimistic.id }
+    },
+    onSuccess: (data, _input, ctx) => {
+      // Swap in the real row. `markTaken` sends this id as
+      // `wellness_logs.item_id`, a `uuid not null references` column — a
+      // placeholder there is a 22P02, exactly the failure that shipped once as
+      // the quit-tracker check-in bug.
+      if (ctx?.tempId) setItems((p) => p.map((i) => (i.id === ctx.tempId ? data : i)))
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(itemsKey, ctx.prev)
@@ -60,6 +68,7 @@ export function useWellnessMutations(userId: string) {
 
   const updateItem = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: WellnessItemPatch }) => {
+      assertRealId(id)
       const { data, error } = await supabase
         .from('wellness_items')
         .update(patch)
@@ -83,6 +92,7 @@ export function useWellnessMutations(userId: string) {
 
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
+      assertRealId(id)
       const { error } = await supabase.from('wellness_items').delete().eq('id', id)
       if (error) throw error
     },
@@ -107,6 +117,7 @@ export function useWellnessMutations(userId: string) {
 
   const markTaken = useMutation({
     mutationFn: async (itemId: string) => {
+      assertRealId(itemId)
       const { data, error } = await supabase
         .from('wellness_logs')
         .insert({ item_id: itemId, user_id: userId })
@@ -119,7 +130,7 @@ export function useWellnessMutations(userId: string) {
       await qc.cancelQueries({ queryKey: logsKey })
       const prev = qc.getQueryData<WellnessLog[]>(logsKey) ?? []
       const now = new Date().toISOString()
-      const tempId = `optimistic-${crypto.randomUUID()}`
+      const tempId = newOptimisticId()
       const optimistic: WellnessLog = {
         id: tempId,
         user_id: userId,
@@ -148,7 +159,7 @@ export function useWellnessMutations(userId: string) {
    *  the UI can scope the pending state and block a same-item re-toggle race. */
   const undoTaken = useMutation({
     mutationFn: async ({ logIds }: { itemId: string; logIds: string[] }) => {
-      const realIds = logIds.filter((id) => !id.startsWith('optimistic-'))
+      const realIds = logIds.filter((id) => !isOptimisticId(id))
       if (realIds.length === 0) return
       const { error } = await supabase.from('wellness_logs').delete().in('id', realIds)
       if (error) throw error

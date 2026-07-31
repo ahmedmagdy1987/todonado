@@ -190,3 +190,36 @@ export function recurrenceLabel(task: RecurrenceFields): string {
   if (n <= 1) return `Repeats ${task.recurrence_freq}`
   return `Every ${n} ${UNIT[task.recurrence_freq]}s`
 }
+
+/**
+ * The `recurrence_anchor` a save should write.
+ *
+ * THE ANCHOR IS THE SERIES' MEMORY OF WHICH DAY OF THE MONTH IT WANTS. A task
+ * due on the 31st clamps to the 28th in February; without a stable anchor the
+ * next occurrence is computed from the 28th and the series silently walks
+ * backwards, never to return. `nextOccurrence` carries it forward correctly —
+ * the hole was the EDIT path, which never loaded the existing anchor and
+ * rewrote it from whatever the current occurrence happened to show. Editing the
+ * notes of a February occurrence re-anchored the whole series to the 28th.
+ *
+ * So: moving a date is an instruction and re-anchors; touching anything else
+ * leaves the anchor exactly where it was.
+ */
+export function anchorForSave(input: {
+  /** Is the task recurring after this save? */
+  recurring: boolean
+  /** The anchor already stored on the task, if any. */
+  existingAnchor: string | null
+  /** The dates as they were before this edit (null for a new task). */
+  previous: { scheduled: string | null; due: string | null } | null
+  /** The dates the form is about to write. */
+  next: { scheduled: string | null; due: string | null }
+}): string | null {
+  if (!input.recurring) return null
+  const fallback = input.next.scheduled ?? input.next.due ?? null
+  if (!input.previous) return fallback
+  const moved =
+    input.next.scheduled !== input.previous.scheduled || input.next.due !== input.previous.due
+  if (moved) return fallback
+  return input.existingAnchor ?? fallback
+}

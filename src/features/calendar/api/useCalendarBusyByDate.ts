@@ -9,6 +9,12 @@ const HOUR = 60 * 60_000
 const MAX_BUSY = 24 * 60
 
 export interface CalendarBusyRange {
+  /**
+   * False until the calendar has actually been consulted. See the note in the
+   * hook: planning inside that window builds on a day it believes is empty.
+   */
+  ready: boolean
+
   /** date (yyyy-MM-dd) → busy minutes. Missing key ⇒ 0. */
   byDate: Map<string, number>
   hadError: boolean
@@ -17,6 +23,7 @@ export interface CalendarBusyRange {
 }
 
 const EMPTY: CalendarBusyRange = {
+  ready: true,
   byDate: new Map(),
   hadError: false,
   proRequired: false,
@@ -36,7 +43,7 @@ const EMPTY: CalendarBusyRange = {
 export function useCalendarBusyByDate(dates: string[]): CalendarBusyRange {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { sources } = useCalendarSources()
+  const { sources, isPending: sourcesPending } = useCalendarSources()
   const enabled = FEATURES.calendarImport && !!userId && sources.length > 0 && dates.length > 0
   const sig = sources.map((s) => `${s.id}:${s.updated_at}`).join('|')
   const range = dates.join(',')
@@ -67,8 +74,9 @@ export function useCalendarBusyByDate(dates: string[]): CalendarBusyRange {
     },
   })
 
-  if (!enabled) return EMPTY
+  if (!enabled) return { ...EMPTY, ready: !FEATURES.calendarImport || !sourcesPending }
   return {
+    ready: !sourcesPending && !query.isPending,
     byDate: query.data?.totals ?? new Map(),
     hadError: query.data?.hadError ?? false,
     proRequired: query.data?.proRequired ?? false,

@@ -19,6 +19,12 @@ const MAX_BUSY = 24 * 60
 export const URL_CALENDAR_STALE_MS = 12 * HOUR
 
 export interface CalendarBusy {
+  /**
+   * False until the calendar has actually been consulted. See the note in the
+   * hook: planning inside that window builds on a day it believes is empty.
+   */
+  ready: boolean
+
   /** Today's calendar busy minutes (0 when disabled / no sources / not loaded). */
   busyMinutes: number
   /** A source failed to load — surface a soft notice. */
@@ -48,7 +54,7 @@ export interface CalendarBusy {
 export function useCalendarBusy(todayStr: string): CalendarBusy {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { sources } = useCalendarSources()
+  const { sources, isPending: sourcesPending } = useCalendarSources()
   const enabled = FEATURES.calendarImport && !!userId && sources.length > 0
   const sig = sources.map((s) => `${s.id}:${s.updated_at}`).join('|')
   const hasUrlSources = sources.some((s) => s.kind === 'url')
@@ -78,6 +84,7 @@ export function useCalendarBusy(todayStr: string): CalendarBusy {
   })
 
   return {
+    ready: !FEATURES.calendarImport || (!sourcesPending && (!enabled || !query.isPending)),
     busyMinutes: enabled ? (query.data?.busyMinutes ?? 0) : 0,
     hadError: enabled ? (query.data?.hadError ?? false) : false,
     proRequired: enabled ? (query.data?.proRequired ?? false) : false,

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { isOptimisticId, newOptimisticId } from '@/lib/optimistic'
 import type {
   NewQuitHabitInput,
   QuitCheckin,
@@ -196,7 +197,7 @@ export function useQuitMutations(userId: string) {
     onMutate: async ({ habitId, day }) => {
       await qc.cancelQueries({ queryKey: checkinsKey })
       const prev = qc.getQueryData<QuitCheckin[]>(checkinsKey) ?? []
-      const tempId = `optimistic-${crypto.randomUUID()}`
+      const tempId = newOptimisticId()
       const optimistic: QuitCheckin = {
         id: tempId,
         user_id: userId,
@@ -221,7 +222,7 @@ export function useQuitMutations(userId: string) {
 
   const undoCheckIn = useMutation({
     mutationFn: async ({ ids }: { habitId: string; ids: string[] }) => {
-      const realIds = ids.filter((id) => !id.startsWith('optimistic-'))
+      const realIds = ids.filter((id) => !isOptimisticId(id))
       if (realIds.length === 0) return
       const { error } = await supabase.from('quit_checkins').delete().in('id', realIds)
       if (error) throw error

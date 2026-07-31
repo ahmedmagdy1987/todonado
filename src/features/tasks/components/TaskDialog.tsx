@@ -13,6 +13,7 @@ import type { RecurrenceFreq, Task, TaskPriority } from '@/types/database'
 import { PRIORITY_LABELS } from '../priority'
 import { useTaskMutations } from '../api/useTaskMutations'
 import { useEffortSuggester } from '../api/useEffortSuggester'
+import { anchorForSave } from '../recurrence'
 
 const formSchema = z.object({
   title: z.string().trim().min(1, 'Title is required'),
@@ -66,6 +67,12 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
   const [recurInterval, setRecurInterval] = useState('1')
   const [recurWeekdays, setRecurWeekdays] = useState<number[]>([])
   const [recurUntil, setRecurUntil] = useState('')
+  /**
+   * The series' stable anchor, carried through an edit rather than recomputed.
+   * See the write below — this is what keeps a 31st-of-the-month task on the
+   * 31st after February has clamped one occurrence to the 28th.
+   */
+  const [recurAnchor, setRecurAnchor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const { data: sections = [] } = useSections(projectId)
@@ -98,7 +105,9 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       setRecurInterval(String(task.recurrence_interval || 1))
       setRecurWeekdays(task.recurrence_weekdays ?? [])
       setRecurUntil(task.recurrence_until ?? '')
+      setRecurAnchor(task.recurrence_anchor ?? null)
     } else {
+      setRecurAnchor(null)
       setTitle('')
       setNotes('')
       setEffort('')
@@ -150,7 +159,16 @@ export function TaskDialog({ open, onClose, task, defaults }: TaskDialogProps) {
       recurrence_until: recurFreq && recurUntil ? recurUntil : null,
       // Anchor monthly/yearly to the chosen start date so the day-of-month is
       // preserved across occurrences (see recurrence.ts). Null when non-recurring.
-      recurrence_anchor: recurFreq ? scheduled || due || null : null,
+      // See `anchorForSave` — the decision is pure and unit-tested there,
+      // because getting it wrong walks a monthly series backwards for ever.
+      recurrence_anchor: anchorForSave({
+        recurring: !!recurFreq,
+        existingAnchor: recurAnchor,
+        previous: task
+          ? { scheduled: task.scheduled_for ?? null, due: task.due_date ?? null }
+          : null,
+        next: { scheduled: scheduled || null, due: due || null },
+      }),
     }
 
     if (isEdit && task) {

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { assertRealId, newOptimisticId } from '@/lib/optimistic'
 import type { NewSectionInput, Section } from '@/types/database'
 
 export function useSections(projectId: string) {
@@ -43,10 +44,11 @@ export function useSectionMutations(projectId: string) {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Section[]>(key) ?? []
       const now = new Date().toISOString()
+      const tempId = newOptimisticId()
       setSections((p) => [
         ...p,
         {
-          id: `optimistic-${crypto.randomUUID()}`,
+          id: tempId,
           project_id: input.project_id,
           name: input.name,
           position: input.position ?? p.length,
@@ -54,7 +56,13 @@ export function useSectionMutations(projectId: string) {
           updated_at: now,
         },
       ])
-      return { prev }
+      return { prev, tempId }
+    },
+    onSuccess: (data, _input, ctx) => {
+      // Swap the placeholder for the REAL row rather than waiting for the settle
+      // refetch: until this lands the row is on screen, fully interactive, and
+      // carrying an id no other write can use. See src/lib/optimistic.ts.
+      if (ctx?.tempId) setSections((p) => p.map((r) => (r.id === ctx.tempId ? data : r)))
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
@@ -64,6 +72,7 @@ export function useSectionMutations(projectId: string) {
 
   const renameSection = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      assertRealId(id)
       const { error } = await supabase.from('sections').update({ name }).eq('id', id)
       if (error) throw error
     },
@@ -79,6 +88,7 @@ export function useSectionMutations(projectId: string) {
 
   const deleteSection = useMutation({
     mutationFn: async (id: string) => {
+      assertRealId(id)
       const { error } = await supabase.from('sections').delete().eq('id', id)
       if (error) throw error
     },
@@ -94,6 +104,7 @@ export function useSectionMutations(projectId: string) {
 
   const reorderSection = useMutation({
     mutationFn: async ({ id, position }: { id: string; position: number }) => {
+      assertRealId(id)
       const { error } = await supabase.from('sections').update({ position }).eq('id', id)
       if (error) throw error
     },

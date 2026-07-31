@@ -80,8 +80,13 @@ export function TemplatesPage() {
     createTemplate,
     updateTemplate,
     deleteTemplate,
+    isPending: personalPending,
   } = useUserTemplates()
   const toast = useToast()
+  // The personal-template cap is client-side only — the migration has size
+  // CHECKs but no row-count constraint — so it must not be evaluated against
+  // an empty list during load.
+  const countKnown = !personalPending
 
   // One adaptation at the boundary — from here on a personal template IS a
   // Template, so the card, search and preview below are the shared code path.
@@ -90,7 +95,11 @@ export function TemplatesPage() {
     () => filterTemplates(personal, category, query),
     [personal, category, query],
   )
-  const canCreate = canCreatePersonalTemplate(personalRows.length, isPro, FREE_PERSONAL_TEMPLATES)
+  const canCreate = canCreatePersonalTemplate(
+    personalRows.length + (createTemplate.isPending ? 1 : 0),
+    isPro,
+    FREE_PERSONAL_TEMPLATES,
+  )
 
   const editing = editingId ? personalRows.find((r) => r.id === editingId) : undefined
   const editingDraft: PersonalTemplateDraft | undefined = editing
@@ -105,6 +114,7 @@ export function TemplatesPage() {
     : undefined
 
   function startNew() {
+    if (!countKnown) return
     // The limit gates CREATION only — never viewing or applying what exists.
     if (!canCreate) {
       setShowLimit(true)
@@ -197,7 +207,14 @@ export function TemplatesPage() {
           </p>
         </div>
         {personalAvailable && (
-          <Button type="button" variant="secondary" size="sm" onClick={startNew} className="shrink-0">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={startNew}
+            disabled={!countKnown}
+            className="shrink-0"
+          >
             <Plus className="h-4 w-4" aria-hidden /> New template
           </Button>
         )}

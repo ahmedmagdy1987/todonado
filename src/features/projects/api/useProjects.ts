@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { assertRealId, newOptimisticId } from '@/lib/optimistic'
 import type { NewProjectInput, Project } from '@/types/database'
 
 export function useProjects(workspaceId: string) {
@@ -43,10 +44,11 @@ export function useProjectMutations(workspaceId: string) {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Project[]>(key) ?? []
       const now = new Date().toISOString()
+      const tempId = newOptimisticId()
       setProjects((p) => [
         ...p,
         {
-          id: `optimistic-${crypto.randomUUID()}`,
+          id: tempId,
           workspace_id: input.workspace_id,
           name: input.name,
           color: input.color ?? '#6C5CE7',
@@ -55,7 +57,13 @@ export function useProjectMutations(workspaceId: string) {
           updated_at: now,
         },
       ])
-      return { prev }
+      return { prev, tempId }
+    },
+    onSuccess: (data, _input, ctx) => {
+      // Swap the placeholder for the REAL row rather than waiting for the settle
+      // refetch: until this lands the row is on screen, fully interactive, and
+      // carrying an id no other write can use. See src/lib/optimistic.ts.
+      if (ctx?.tempId) setProjects((p) => p.map((r) => (r.id === ctx.tempId ? data : r)))
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
@@ -92,6 +100,7 @@ export function useProjectMutations(workspaceId: string) {
 
   const archiveProject = useMutation({
     mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
+      assertRealId(id)
       const { error } = await supabase
         .from('projects')
         .update({ status: archived ? 'archived' : 'active' })

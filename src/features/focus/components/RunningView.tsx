@@ -85,9 +85,32 @@ export function RunningView({
     onEnded(session.id, reason)
   }
 
-  // Auto-complete when the sprint reaches zero.
+  /**
+   * Auto-complete when the sprint reaches zero — but ONLY if it plausibly just
+   * finished.
+   *
+   * `activeSession` returns any row still marked `running`, of any age, and this
+   * effect ran on mount. So a sprint started on Tuesday and abandoned by closing
+   * the tab was banked on Friday as a COMPLETED session of its full planned
+   * length: real focus minutes in Insights, real points, a real data point for
+   * estimation bias, and — at 25 minutes — a certified pomodoro that never
+   * happened. Nothing anywhere bounded it.
+   *
+   * The grace window is the planned duration plus fifteen minutes, mirroring the
+   * bound `pomodoroStore` already applies to a resumed break. Beyond that the
+   * session is closed as ABANDONED with zero seconds: it is the one write that
+   * cannot invent work that was not done. Whether the honest alternative — ask
+   * the user what to keep — is worth a screen is a product call, and it is
+   * flagged rather than guessed at here.
+   */
   useEffect(() => {
     if (!complete || endingRef.current || session.status !== 'running') return
+    const startedAt = Date.parse(session.started_at)
+    const graceMs = (session.planned_minutes * 60 + 15 * 60) * 1000
+    if (Number.isFinite(startedAt) && Date.now() - startedAt > graceMs) {
+      end('abandoned', 0, 'stopped')
+      return
+    }
     if (soundOn) playEndTone()
     end('completed', total, 'finished')
     // eslint-disable-next-line react-hooks/exhaustive-deps

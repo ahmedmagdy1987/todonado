@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { assertRealId, newOptimisticId } from '@/lib/optimistic'
 import { track } from '@/features/analytics/track'
 import type { NewTaskInput, Task, TaskPatch } from '@/types/database'
 import { completeTask } from './completeTask'
@@ -8,7 +9,7 @@ import { completeTask } from './completeTask'
 function optimisticTask(input: NewTaskInput): Task {
   const now = new Date().toISOString()
   return {
-    id: `optimistic-${crypto.randomUUID()}`,
+    id: newOptimisticId(),
     workspace_id: input.workspace_id,
     project_id: input.project_id ?? null,
     section_id: input.section_id ?? null,
@@ -61,10 +62,16 @@ export function useTaskMutations(workspaceId: string) {
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Task[]>(key) ?? []
-      setTasks((p) => [...p, optimisticTask(input)])
-      return { prev }
+      const placeholder = optimisticTask(input)
+      setTasks((p) => [...p, placeholder])
+      return { prev, tempId: placeholder.id }
     },
-    onSuccess: (_data, input) => {
+    onSuccess: (data, input, ctx) => {
+      // SWAP THE PLACEHOLDER FOR THE REAL ROW, rather than waiting for the
+      // settle refetch. Until this landed there was a window — the whole insert
+      // round trip — in which the row on screen carried an id no other write
+      // could use, and every control on it was live.
+      if (ctx?.tempId) setTasks((p) => p.map((t) => (t.id === ctx.tempId ? data : t)))
       const hasEffort = input.effort_minutes != null
       track('task_created', { flag: hasEffort })
       if (hasEffort) track('effort_entered', { source: 'create' })
@@ -78,6 +85,7 @@ export function useTaskMutations(workspaceId: string) {
 
   const updateTask = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: TaskPatch }) => {
+      assertRealId(id)
       const { data, error } = await supabase
         .from('tasks')
         .update(patch)
@@ -108,8 +116,10 @@ export function useTaskMutations(workspaceId: string) {
     // Returns the full CompleteTaskResult so callers can gate the recurrence
     // toast on the RPC's authoritative `spawnedNext` (no false toast on a
     // compare-and-swap miss / already-done complete).
-    mutationFn: ({ task, done }: { task: Task; done: boolean }) =>
-      completeTask(supabase, { task, done }),
+    mutationFn: ({ task, done }: { task: Task; done: boolean }) => {
+      assertRealId(task.id)
+      return completeTask(supabase, { task, done })
+    },
     onMutate: async ({ task, done }) => {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Task[]>(key) ?? []
@@ -135,6 +145,7 @@ export function useTaskMutations(workspaceId: string) {
 
   const deleteTask = useMutation({
     mutationFn: async (id: string) => {
+      assertRealId(id)
       const { error } = await supabase.from('tasks').delete().eq('id', id)
       if (error) throw error
     },
@@ -155,6 +166,7 @@ export function useTaskMutations(workspaceId: string) {
    */
   const reorderTask = useMutation({
     mutationFn: async ({ id, position }: { id: string; position: number }) => {
+      assertRealId(id)
       const { error } = await supabase.from('tasks').update({ position }).eq('id', id)
       if (error) throw error
     },

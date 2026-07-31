@@ -6,6 +6,7 @@ import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
 import { cn } from '@/lib/utils'
+import { isOptimisticId } from '@/lib/optimistic'
 import { StartFromTemplateCTA } from '@/features/templates/components/StartFromTemplateCTA'
 import { LoadError } from '@/components/common/LoadError'
 import { useProjects, useProjectMutations } from './api/useProjects'
@@ -106,9 +107,18 @@ export function ProjectsPage() {
             const count = selectByProject(tasks, p.id).filter((t) => t.status !== 'done').length
             return (
               <Card key={p.id} className="group relative transition-colors hover:border-white/10">
+                {/* A project being created still carries a placeholder id, and
+                    /projects/optimistic-… resolves to "Project not found." The
+                    reconcile in useProjects closes this within one round trip;
+                    this makes the dead link unreachable in the meantime. */}
                 <Link
                   to={`/projects/${p.id}`}
-                  className="focus-ring block rounded-2xl p-4"
+                  onClick={(e) => isOptimisticId(p.id) && e.preventDefault()}
+                  aria-disabled={isOptimisticId(p.id) || undefined}
+                  className={cn(
+                    'focus-ring block rounded-2xl p-4',
+                    isOptimisticId(p.id) && 'pointer-events-none opacity-70',
+                  )}
                 >
                   <div className="flex items-center gap-2">
                     <span

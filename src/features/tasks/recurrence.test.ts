@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { computeNextOccurrence, buildNextOccurrence, nextOccurrenceDate } from './recurrence'
+import {
+  anchorForSave,
+  buildNextOccurrence,
+  computeNextOccurrence,
+  nextOccurrenceDate,
+} from './recurrence'
 import { makeTask } from '@/test/factories'
 
 // Reference: 2026-06-01 is a Monday (getDay 1).
@@ -293,5 +298,95 @@ describe('nextOccurrenceDate — overdue recovery (anchor from today)', () => {
   it('buildNextOccurrence spawns a future-dated clone for an overdue task', () => {
     const t = makeTask({ scheduled_for: '2026-05-20', recurrence_freq: 'daily', recurrence_interval: 1 })
     expect(buildNextOccurrence(t, '2026-06-04')?.scheduled_for).toBe('2026-06-05')
+  })
+})
+
+describe('anchorForSave — an edit must not re-anchor a monthly series', () => {
+  const JAN31 = { scheduled: null, due: '2026-01-31' }
+  const FEB28 = { scheduled: null, due: '2026-02-28' }
+
+  it('keeps the stored anchor when only non-date fields changed', () => {
+    // The bug: editing the NOTES of a February occurrence of a 31st-of-the-month
+    // task rewrote the anchor to the 28th, and the series never returned to 31.
+    expect(
+      anchorForSave({
+        recurring: true,
+        existingAnchor: '2026-01-31',
+        previous: FEB28,
+        next: FEB28,
+      }),
+    ).toBe('2026-01-31')
+  })
+
+  it('re-anchors when the user actually moves a date', () => {
+    expect(
+      anchorForSave({
+        recurring: true,
+        existingAnchor: '2026-01-31',
+        previous: FEB28,
+        next: { scheduled: null, due: '2026-03-15' },
+      }),
+    ).toBe('2026-03-15')
+  })
+
+  it('anchors a NEW recurring task to its own date', () => {
+    expect(
+      anchorForSave({ recurring: true, existingAnchor: null, previous: null, next: JAN31 }),
+    ).toBe('2026-01-31')
+  })
+
+  it('prefers scheduled over due, matching the spawn path', () => {
+    expect(
+      anchorForSave({
+        recurring: true,
+        existingAnchor: null,
+        previous: null,
+        next: { scheduled: '2026-01-20', due: '2026-01-31' },
+      }),
+    ).toBe('2026-01-20')
+  })
+
+  it('falls back to the current date when a series somehow has no anchor', () => {
+    expect(
+      anchorForSave({ recurring: true, existingAnchor: null, previous: FEB28, next: FEB28 }),
+    ).toBe('2026-02-28')
+  })
+
+  it('clears the anchor when recurrence is switched off', () => {
+    expect(
+      anchorForSave({
+        recurring: false,
+        existingAnchor: '2026-01-31',
+        previous: FEB28,
+        next: FEB28,
+      }),
+    ).toBeNull()
+  })
+
+  it('an anchored series survives a full year of edited occurrences', () => {
+    // The property that matters: preserve the anchor, and every occurrence of a
+    // 31st-of-the-month task still lands on the last-possible day.
+    let anchor: string | null = '2026-01-31'
+    let due = '2026-01-31'
+    for (let i = 0; i < 12; i += 1) {
+      const task = makeTask({
+        due_date: due,
+        recurrence_freq: 'monthly',
+        recurrence_interval: 1,
+        recurrence_anchor: anchor,
+      })
+      const next = buildNextOccurrence(task, due)
+      expect(next, 'the series must not end').not.toBeNull()
+      due = next!.due_date as string
+      // An edit that touches nothing but the title happens between occurrences.
+      anchor = anchorForSave({
+        recurring: true,
+        existingAnchor: next!.recurrence_anchor ?? null,
+        previous: { scheduled: null, due },
+        next: { scheduled: null, due },
+      })
+    }
+    // Back to a month with 31 days, and it is on the 31st again.
+    expect(due.endsWith('-31')).toBe(true)
   })
 })

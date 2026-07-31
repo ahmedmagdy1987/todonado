@@ -4,7 +4,7 @@ import { NotebookPen, Search, Trash2, Volume2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Textarea } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context'
 import { usePlan } from '@/features/billing/usePlan'
-import { historyCutoffDay } from '@/features/history/historyWindow'
+import { useHistoryWindow } from '@/features/history/useHistoryWindow'
 import { FREE_HISTORY_DAYS } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import { cn } from '@/lib/utils'
@@ -48,7 +48,7 @@ import { AiNotBuiltNote, VoiceNote } from './components/VoiceNote'
 export function JournalPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro } = usePlan()
+  const { isPro, billingLoading } = usePlan()
   const today = todayISO()
 
   const { data, isPending } = useJournalEntries(userId)
@@ -141,7 +141,11 @@ export function JournalPage() {
   }
 
   // Free sees the same rolling history window as every other history surface.
-  const cutoff = isPro ? null : historyCutoffDay(FREE_HISTORY_DAYS, today)
+  // Via the shared hook, NOT an inline `isPro ? null : …`: `useHistoryWindow`
+  // exists to hold the `billingLoading` guard, and re-deriving it here dropped
+  // that — so a Pro user could briefly be told 16 entries were behind a Free
+  // window. It fails in the user-favouring direction by design.
+  const { cutoffDay: cutoff } = useHistoryWindow(today)
   const past = rows.filter((e) => e.entry_date !== today)
   const { visible, hiddenCount } = windowEntries(past, cutoff)
   const listed = searchEntries(visible, query)
@@ -204,7 +208,7 @@ export function JournalPage() {
               </label>
 
               <VoiceNote
-                isPro={isPro}
+                isPro={isPro || billingLoading}
                 state={recorder.state}
                 seconds={recorder.seconds}
                 maxSeconds={recorder.maxSeconds}

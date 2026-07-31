@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
+import { assertRealId, newOptimisticId } from '@/lib/optimistic'
 import type { NewSubtaskInput, Subtask } from '@/types/database'
 
 export function useSubtasks(taskId: string, enabled = true) {
@@ -43,10 +44,11 @@ export function useSubtaskMutations(taskId: string) {
       await qc.cancelQueries({ queryKey: key })
       const prev = qc.getQueryData<Subtask[]>(key) ?? []
       const now = new Date().toISOString()
+      const tempId = newOptimisticId()
       setSubtasks((p) => [
         ...p,
         {
-          id: `optimistic-${crypto.randomUUID()}`,
+          id: tempId,
           task_id: input.task_id,
           title: input.title,
           done: false,
@@ -55,7 +57,13 @@ export function useSubtaskMutations(taskId: string) {
           updated_at: now,
         },
       ])
-      return { prev }
+      return { prev, tempId }
+    },
+    onSuccess: (data, _input, ctx) => {
+      // Swap the placeholder for the REAL row rather than waiting for the settle
+      // refetch: until this lands the row is on screen, fully interactive, and
+      // carrying an id no other write can use. See src/lib/optimistic.ts.
+      if (ctx?.tempId) setSubtasks((p) => p.map((r) => (r.id === ctx.tempId ? data : r)))
     },
     onError: (_e, _v, ctx) => rollback(ctx),
     onSettled: settle,
@@ -65,6 +73,7 @@ export function useSubtaskMutations(taskId: string) {
 
   const toggleSubtask = useMutation({
     mutationFn: async ({ id, done }: { id: string; done: boolean }) => {
+      assertRealId(id)
       const { error } = await supabase.from('subtasks').update({ done }).eq('id', id)
       if (error) throw error
     },
@@ -80,6 +89,7 @@ export function useSubtaskMutations(taskId: string) {
 
   const renameSubtask = useMutation({
     mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      assertRealId(id)
       const { error } = await supabase.from('subtasks').update({ title }).eq('id', id)
       if (error) throw error
     },
@@ -95,6 +105,7 @@ export function useSubtaskMutations(taskId: string) {
 
   const deleteSubtask = useMutation({
     mutationFn: async (id: string) => {
+      assertRealId(id)
       const { error } = await supabase.from('subtasks').delete().eq('id', id)
       if (error) throw error
     },
@@ -110,6 +121,7 @@ export function useSubtaskMutations(taskId: string) {
 
   const reorderSubtask = useMutation({
     mutationFn: async ({ id, position }: { id: string; position: number }) => {
+      assertRealId(id)
       const { error } = await supabase.from('subtasks').update({ position }).eq('id', id)
       if (error) throw error
     },

@@ -60,9 +60,15 @@ export function QuitPage() {
   // a second habit past a one-habit limit.
   const creating = useIsMutating({ mutationKey: quitCreateKey(userId) }) > 0
   const canCreate = isPro || habits.length + (creating ? 1 : 0) < FREE_QUIT_HABITS
+  // `available` deliberately defaults to true while loading so the Add button
+  // does not flicker — which means the CAP is computed from `habits === []`
+  // until the SELECT lands. Same shape as the mind-map and Vision bypasses:
+  // a limit derived from data that has not arrived is not a limit.
+  const countKnown = !isPending
   const justSlipped = habits.find((h) => h.id === justSlippedId) ?? null
 
   function openAdd() {
+    if (!countKnown) return
     if (!canCreate) {
       // The gate is a card in the flow, never a modal — and the editor must not
       // open behind it. Same contract as the personal-template limit.
@@ -114,7 +120,7 @@ export function QuitPage() {
             </p>
           </div>
           {available && (
-            <Button onClick={openAdd} className="shrink-0">
+            <Button onClick={openAdd} disabled={!countKnown} className="shrink-0">
               <Plus className="h-4 w-4" aria-hidden /> Add habit
             </Button>
           )}
