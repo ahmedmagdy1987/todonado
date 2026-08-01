@@ -85,6 +85,11 @@ function makeAdmin(current: Record<string, unknown> | null) {
     return { error: null }
   }
   const admin = {
+    // The webhook now writes through ONE atomic RPC, not a read-then-write.
+    rpc: async (_fn: string, args: Record<string, unknown>) => {
+      writes.push({ row: { plan: args.p_plan, ...args } })
+      return { data: 'applied', error: null }
+    },
     from: () => ({
       select: () => ({
         eq: () => ({ maybeSingle: async () => ({ data: current, error: null }) }),

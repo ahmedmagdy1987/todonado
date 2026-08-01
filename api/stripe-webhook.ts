@@ -10,35 +10,31 @@ import {
   priceIdsForEvent,
   type MinimalStripeEvent,
 } from '../src/features/billing/webhookMapping.js'
-import {
-  decideWebhookWrite,
-  type BillingRowState,
-} from '../src/features/billing/webhookOrdering.js'
-
-/** The columns the ordering decision reads — this string IS `BillingRowState`. */
-const ORDERING_COLUMNS = 'plan, stripe_subscription_id, last_stripe_event_id, last_stripe_event_at'
 
 /**
  * Does this failure mean `20260801140000_billing_event_ordering.sql` has not
- * been applied? Postgres raises 42703 for an undefined column and PostgREST can
- * surface a schema-cache miss instead, so both are matched — plus the column
- * name itself, which keeps an unrelated 42703 from being misreported as a
- * missing migration.
+ * been applied? Postgres raises 42703 for an undefined column and 42883 for an
+ * undefined function; PostgREST surfaces a schema-cache miss instead. All are
+ * matched, plus the identifier names, which keeps an unrelated error of the
+ * same code from being misreported as a missing migration.
  */
-function isMissingOrderingColumn(error: { code?: string; message?: string }): boolean {
+function isMissingOrderingSchema(error: { code?: string; message?: string }): boolean {
+  const message = error.message ?? ''
   return (
-    error.code === '42703' ||
+    error.code === '42703' || // undefined column
+    error.code === '42883' || // undefined function
+    error.code === 'PGRST202' || // PostgREST: function not found in schema cache
     error.code === 'PGRST204' ||
-    /last_stripe_event_(id|at)/.test(error.message ?? '')
+    /last_stripe_event_(id|at)/.test(message) ||
+    /apply_stripe_billing_event/.test(message)
   )
 }
 
 /**
  * POST /api/stripe-webhook
  *
- * RAW-body Stripe signature verification, then a READ → DECIDE → CONDITIONAL
- * WRITE against the caller's billing row via the SERVICE-ROLE key (bypasses
- * RLS). Handles:
+ * RAW-body Stripe signature verification, then ONE atomic database call via the
+ * SERVICE-ROLE key (bypasses RLS). Handles:
  *   - checkout.session.completed
  *   - customer.subscription.updated
  *   - customer.subscription.deleted
@@ -55,8 +51,17 @@ function isMissingOrderingColumn(error: { code?: string; message?: string }): bo
  * meeting a write with no memory of what it already applied.
  *
  * The row now carries a high-water mark (`last_stripe_event_id`,
- * `last_stripe_event_at`). `webhookOrdering.ts` decides; this handler enforces
- * with a compare-and-swap so two concurrent deliveries cannot both win.
+ * `last_stripe_event_at`), and EVERY ordering rule is evaluated inside
+ * `apply_stripe_billing_event`, under a row lock.
+ *
+ * The first version of this fix decided in JavaScript between a SELECT and an
+ * UPDATE. That held the ordering but not the downgrade guards, which are
+ * derived from the row as READ: two instances that both saw `plan='free'`
+ * would each skip the "a downgrade must name the subscription we hold" check,
+ * and a cancel for an old subscription could revoke access bought seconds
+ * earlier. Reproduced in api/stripeWebhookConcurrency.test.ts. There is now no
+ * JavaScript decision on the write path at all — the rules live in exactly one
+ * place, the SQL, and api/billingEventOrderingMigration.test.ts pins them there.
  */
 async function webhook(req: Request): Promise<Response> {
   if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
@@ -96,80 +101,29 @@ async function webhook(req: Request): Promise<Response> {
     return apiError(400, 'invalid_signature')
   }
 
-  /*
-   * Mapped once here only to learn WHOSE row to read; the authoritative mapping
-   * happens inside decideWebhookWrite, which owns the whole decision.
-   */
+  // Maps the event to the columns it is authoritative for. Ordering is NOT
+  // decided here — that is the SQL function's job, under a lock.
   const preview = mapStripeEventToBilling(event)
   if (!preview) return json(200, { received: true }) // unknown / no-op event
 
   const admin = getSupabaseAdmin(env.supabaseUrl, env.supabaseServiceRoleKey)
 
-  // READ — the state we are about to reason against.
-  const { data: current, error: readError } = await admin
-    .from('billing')
-    .select(ORDERING_COLUMNS)
-    .eq('user_id', preview.user_id)
-    .maybeSingle()
-
-  if (readError) {
-    /*
-     * FAIL CLOSED IF THE MIGRATION IS NOT IN. There is deliberately no
-     * fallback to the old blind upsert: this is the billing path, and silently
-     * degrading to the behaviour that caused FLAG-3 is worse than refusing.
-     * Stripe retries a 503, so once the migration lands the queued events
-     * deliver normally and nothing is lost.
-     */
-    if (isMissingOrderingColumn(readError)) {
-      console.error(
-        '[api/stripe-webhook] billing is missing the event-ordering columns — apply ' +
-          'supabase/migrations/20260801140000_billing_event_ordering.sql. ' +
-          'Refusing to write. Detail:',
-        redactSecrets(readError.message),
-      )
-      return apiError(503, 'billing_schema_outdated')
-    }
-    console.error('[api/stripe-webhook] billing read failed:', redactSecrets(readError.message))
-    return apiError(500, 'billing_read_failed')
-  }
-
-  // DECIDE — pure, and unit-tested in webhookOrdering.test.ts.
-  const decision = decideWebhookWrite(event, current as BillingRowState | null)
-  if (decision.action === 'skip') {
-    /*
-     * A skip is a SUCCESS. Answering anything but 2xx would make Stripe retry
-     * an event we have deliberately declined, forever.
-     */
-    console.warn(
-      `[api/stripe-webhook] ignoring event ${event.id ?? '<no id>'} (${event.type}): ${decision.reason}`,
-    )
-    return json(200, { received: true, skipped: decision.reason })
-  }
-
   /*
    * VERIFY WHAT WAS BOUGHT BEFORE GRANTING ANYTHING (audit FLAG-2).
    *
-   * The webhook used to grant `plan: 'pro'` for any completed checkout without
-   * inspecting the purchase. Paired with a checkout endpoint that accepted any
-   * price id, that meant a subscription at ANY recurring price in the account
-   * bought the full paid tier.
-   *
-   * The check is asymmetric on purpose, and it is the same asymmetry as the
-   * ordering guard: GRANTING requires proof, REVOKING does not. A cancellation
-   * of a subscription on a price we no longer sell must still be honoured, or
-   * retiring a price would strand its subscribers on Pro forever.
+   * Asymmetric on purpose, the same asymmetry as the ordering rules: GRANTING
+   * requires proof, REVOKING does not. A cancellation on a price we retired
+   * must still be honoured or its subscribers keep Pro forever.
    */
-  if (decision.upsert.plan === 'pro') {
+  if (preview.plan === 'pro') {
     const allowed = configuredPriceIds(env)
     const purchased = priceIdsForEvent(event)
     const unrecognised = purchased.filter((id) => !allowed.includes(id))
 
     if (purchased.length === 0 || unrecognised.length > 0) {
-      // LOUDLY: this is either a misconfiguration or someone buying something
-      // we do not sell, and both need a human to look.
       console.error(
         '[api/stripe-webhook] REFUSING to grant Pro — event ' +
-          `${event.id ?? '<no id>'} (${event.type}) for user ${decision.upsert.user_id} ` +
+          `${event.id ?? '<no id>'} (${event.type}) for user ${preview.user_id} ` +
           (purchased.length === 0
             ? 'carried no readable price id'
             : `named unconfigured price(s): ${unrecognised.join(', ')}`) +
@@ -179,51 +133,75 @@ async function webhook(req: Request): Promise<Response> {
     }
   }
 
-  const row = {
-    ...decision.upsert,
-    last_stripe_event_id: decision.eventId,
-    last_stripe_event_at: decision.eventAt,
+  /*
+   * IDENTITY THE EVENT MUST CARRY. Both are optional in the type so mapping
+   * fixtures need not invent them, but every event Stripe signs has both, and
+   * one we can neither order nor de-duplicate is exactly what must be refused.
+   */
+  const eventId = typeof event.id === 'string' && event.id.length > 0 ? event.id : null
+  const createdMs =
+    typeof event.created === 'number' && Number.isFinite(event.created)
+      ? event.created * 1000
+      : null
+  if (eventId === null || createdMs === null) {
+    console.error(
+      `[api/stripe-webhook] refusing an event with no usable id/created (${event.type})`,
+    )
+    return json(200, { received: true, skipped: 'missing_event_identity' })
   }
 
-  // WRITE — compare-and-swap, so a concurrent newer delivery cannot be undone.
-  if (current === null) {
-    const { error } = await admin.from('billing').insert(row)
-    if (error) {
-      /*
-       * 23505 means another delivery inserted this user's row between our read
-       * and our write. That delivery applied its own ordering decision, so the
-       * safe move is to let it stand — Stripe will redeliver ours if it still
-       * matters, and by then there is a row to compare against.
-       */
-      if (error.code === '23505') {
-        console.warn('[api/stripe-webhook] lost the insert race, deferring to the concurrent write')
-        return json(200, { received: true, skipped: 'insert_race' })
-      }
-      console.error('[api/stripe-webhook] billing insert failed:', redactSecrets(error.message))
-      return apiError(500, 'billing_upsert_failed')
-    }
-    return json(200, { received: true })
-  }
-
-  const { data: updated, error } = await admin
-    .from('billing')
-    .update(row)
-    .eq('user_id', row.user_id)
-    // The guard repeats the ordering check IN THE STATEMENT, so a newer event
-    // that landed since our read cannot be overwritten by this one.
-    .or(`last_stripe_event_at.is.null,last_stripe_event_at.lte.${decision.eventAt}`)
-    .select('user_id')
+  /*
+   * ONE ATOMIC DATABASE OPERATION — see the header of
+   * 20260801140000_billing_event_ordering.sql for the interleaving that forced
+   * this. `apply_stripe_billing_event` takes a row lock and evaluates every
+   * ordering rule against LIVE state, so two Vercel instances that read the
+   * same snapshot cannot both act on it. There is no read-then-write here, and
+   * deliberately no JavaScript decision on the write path: the rules live in
+   * exactly one place.
+   */
+  const { data: outcome, error } = await admin.rpc('apply_stripe_billing_event', {
+    p_user_id: preview.user_id,
+    p_event_id: eventId,
+    p_event_at: new Date(createdMs).toISOString(),
+    p_plan: preview.plan ?? 'free',
+    p_customer_id: preview.stripe_customer_id ?? null,
+    p_subscription_id: preview.stripe_subscription_id ?? null,
+    p_status: preview.subscription_status ?? null,
+    p_period_end: preview.current_period_end ?? null,
+    // `checkout.session.completed` omits the key entirely; anything else that
+    // resolved it (even to null) is authoritative for that column.
+    p_set_period_end: Object.hasOwn(preview, 'current_period_end'),
+  })
 
   if (error) {
-    console.error('[api/stripe-webhook] billing update failed:', redactSecrets(error.message))
+    /*
+     * FAIL CLOSED IF THE MIGRATION IS NOT IN. There is deliberately no fallback
+     * to the old unordered upsert: silently degrading to the behaviour that
+     * caused FLAG-3 is worse than refusing, and Stripe retries a 503.
+     */
+    if (isMissingOrderingSchema(error)) {
+      console.error(
+        '[api/stripe-webhook] apply_stripe_billing_event is missing — apply ' +
+          'supabase/migrations/20260801140000_billing_event_ordering.sql. ' +
+          'Refusing to write. Detail:',
+        redactSecrets(error.message ?? ''),
+      )
+      return apiError(503, 'billing_schema_outdated')
+    }
+    console.error('[api/stripe-webhook] billing write failed:', redactSecrets(error.message ?? ''))
     return apiError(500, 'billing_upsert_failed')
   }
-  if (!updated || updated.length === 0) {
-    // Lost the race to a newer event. Correct, and not a failure.
+
+  const result = typeof outcome === 'string' ? outcome : 'applied'
+  if (result !== 'applied') {
+    /*
+     * A skip is a SUCCESS. Anything but 2xx makes Stripe retry a decision we
+     * made on purpose, forever.
+     */
     console.warn(
-      `[api/stripe-webhook] event ${decision.eventId} superseded by a newer write, no-op`,
+      `[api/stripe-webhook] ignoring event ${eventId} (${event.type}): ${result}`,
     )
-    return json(200, { received: true, skipped: 'superseded' })
+    return json(200, { received: true, skipped: result })
   }
 
   return json(200, { received: true })

@@ -56,3 +56,126 @@ comment on column public.billing.last_stripe_event_at is
   'Stripe event.created of the last webhook event applied to this row — Stripe''s '
   'clock, never arrival time. An event older than this is dropped so a retried, '
   'out-of-order subscription.deleted cannot downgrade a paying customer.';
+
+-- ============================================================================
+--  THE DECISION MUST HAPPEN INSIDE ONE LOCKED STATEMENT
+--
+--  The first version of this fix read the row, decided in JavaScript, then
+--  wrote with a compare-and-swap on the timestamp. That is three steps with two
+--  gaps, and Stripe delivers concurrently to as many Vercel instances as happen
+--  to be warm. The timestamp CAS did hold the ORDERING, but the downgrade
+--  guards did not, because they are derived from the row as READ:
+--
+--    row: plan='free', subscription='sub_old'
+--    A = checkout.session.completed  sub_new  t1   (the customer pays)
+--    B = customer.subscription.deleted sub_old t2   (the lapsed one cancels)
+--
+--  Both instances read plan='free', so B never classifies itself as a
+--  downgrade and its "must name the subscription we hold" guard is skipped
+--  entirely. B is genuinely newer, so the timestamp CAS lets it through, and
+--  the customer is downgraded seconds after paying. Reproduced in
+--  api/stripeWebhookConcurrency.test.ts before this function existed.
+--
+--  `select … for update` serialises concurrent callers on the row itself, so
+--  every rule below is evaluated against live state, not a snapshot.
+-- ============================================================================
+
+create or replace function public.apply_stripe_billing_event(
+  p_user_id          uuid,
+  p_event_id         text,
+  p_event_at         timestamptz,
+  p_plan             text,
+  p_customer_id      text,
+  p_subscription_id  text,
+  p_status           text,
+  p_period_end       timestamptz,
+  -- checkout.session.completed carries no period end; without this flag a NULL
+  -- would erase a value customer.subscription.updated had already written.
+  p_set_period_end   boolean
+) returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cur          public.billing%rowtype;
+  is_downgrade boolean;
+begin
+  if p_plan not in ('free', 'pro') then
+    raise exception 'apply_stripe_billing_event: invalid plan %', p_plan;
+  end if;
+
+  select * into cur from public.billing where user_id = p_user_id for update;
+
+  if not found then
+    insert into public.billing (
+      user_id, plan, stripe_customer_id, stripe_subscription_id,
+      subscription_status, current_period_end,
+      last_stripe_event_id, last_stripe_event_at
+    ) values (
+      p_user_id, p_plan, p_customer_id, p_subscription_id,
+      p_status, case when p_set_period_end then p_period_end else null end,
+      p_event_id, p_event_at
+    )
+    on conflict (user_id) do nothing;
+
+    if found then
+      return 'applied';
+    end if;
+
+    -- Another caller inserted between our select and our insert. Re-read under
+    -- the lock and fall through to the ordinary rules.
+    select * into cur from public.billing where user_id = p_user_id for update;
+  end if;
+
+  -- 1. Exact redelivery of an event already applied.
+  if cur.last_stripe_event_id is not distinct from p_event_id then
+    return 'duplicate_event';
+  end if;
+
+  -- 2. Older than the high-water mark, whatever it would do.
+  if cur.last_stripe_event_at is not null and p_event_at < cur.last_stripe_event_at then
+    return 'stale_event';
+  end if;
+
+  -- 3. Downgrades face a stricter test. Granting Pro wrongly for a few minutes
+  --    is a rounding error; revoking it from someone who is paying is the bug.
+  is_downgrade := (p_plan = 'free' and cur.plan = 'pro');
+  if is_downgrade then
+    -- event.created has SECOND precision, so a cancel and the renewal that
+    -- superseded it can tie. A tie is not good enough to revoke access.
+    if cur.last_stripe_event_at is not null and p_event_at <= cur.last_stripe_event_at then
+      return 'stale_downgrade';
+    end if;
+    -- Cancel-then-resubscribe produces a NEW subscription id. The old one's
+    -- delete is legitimate for that object and says nothing about the one now
+    -- paying. Clock-independent, so it holds even when the mark is NULL.
+    if cur.stripe_subscription_id is not null
+       and p_subscription_id is not null
+       and cur.stripe_subscription_id <> p_subscription_id then
+      return 'downgrade_for_other_subscription';
+    end if;
+  end if;
+
+  update public.billing set
+    plan                   = p_plan,
+    stripe_customer_id     = coalesce(p_customer_id, stripe_customer_id),
+    stripe_subscription_id = coalesce(p_subscription_id, stripe_subscription_id),
+    subscription_status    = p_status,
+    current_period_end     = case when p_set_period_end
+                                  then p_period_end
+                                  else current_period_end end,
+    last_stripe_event_id   = p_event_id,
+    last_stripe_event_at   = p_event_at
+  where user_id = p_user_id;
+
+  return 'applied';
+end;
+$$;
+
+-- The webhook calls this with the SERVICE-ROLE key, which bypasses RLS anyway.
+-- Revoking the default public grant keeps it off the anon/authenticated API
+-- surface, so no client can drive it directly.
+revoke all on function public.apply_stripe_billing_event(
+  uuid, text, timestamptz, text, text, text, text, timestamptz, boolean
+) from public, anon, authenticated;
