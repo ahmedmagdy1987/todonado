@@ -379,21 +379,38 @@ test('security headers are served on every response (audit M1)', async ({ page }
     expect(h['permissions-policy'], `${path} mic must be self`).toContain('microphone=(self)')
     expect(h['strict-transport-security'], `${path} HSTS`).toContain('includeSubDomains')
 
-    const csp = h['content-security-policy']
-    expect(csp, `${path} CSP-Report-Only`).toBeTruthy()
+    /*
+     * THIS SUITE DRIVES THE VITE DEV SERVER, WHICH SERVES THE POLICY
+     * REPORT-ONLY ON PURPOSE (audit FLAG-11).
+     *
+     * Production enforces it. Dev cannot: Vite injects an inline HMR preamble
+     * and connects over ws://localhost, both of which `script-src 'self'` and
+     * the connect-src list forbid, so an enforcing header here would break the
+     * dev server this very suite runs against. vercelSecurityHeaders() in
+     * vite.config.ts downgrades the KEY only, so the VALUE asserted below is
+     * byte-for-byte the production policy.
+     *
+     * That production ships it ENFORCING is pinned separately, against
+     * vercel.json itself, in src/test/securityHeaders.test.ts — which is the
+     * right place for it, because that file is what Vercel actually applies and
+     * no amount of dev-server behaviour can prove anything about it.
+     */
+    const csp = h['content-security-policy'] ?? h['content-security-policy-report-only']
+    expect(csp, `${path} CSP header (enforcing in prod, report-only in dev)`).toBeTruthy()
     expect(csp).toContain("default-src 'self'")
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
+    expect(csp).toContain("script-src 'self'")
     // Realtime is enabled — the websocket origin must be allowed or sync breaks
-    // the moment this policy is switched to enforcing.
+    // now that this policy actually enforces.
     expect(csp).toContain('wss://lplsbfduankkpglyusjp.supabase.co')
 
-    // Still REPORT-ONLY. Enforcing is a deliberate follow-up once the report
-    // queue is clean, not something that should land by accident.
+    // Whichever key is served, exactly ONE of them must be.
     expect(
-      h['content-security-policy-report-only'],
-      `${path} must enforce CSP, not merely report it (audit FLAG-11)`,
-    ).toBeUndefined()
+      Boolean(h['content-security-policy']) !==
+        Boolean(h['content-security-policy-report-only']),
+      `${path} must send exactly one CSP header, never both`,
+    ).toBe(true)
   }
 })
 
