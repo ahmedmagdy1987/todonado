@@ -132,14 +132,57 @@ describe('20260801150000_checkout_attempts — exposure', () => {
     expect(paths.length).toBe(defs.length)
   })
 
-  it('no function is reachable by anon or authenticated', () => {
+  it('revokes from PUBLIC, not just anon and authenticated', () => {
+    /*
+     * PostgreSQL grants EXECUTE to PUBLIC on CREATE FUNCTION. Revoking only
+     * anon and authenticated leaves every function callable by anybody, and
+     * executing the migration against a real database is what showed it: with
+     * the PUBLIC revoke removed, four privilege tests turn red.
+     */
+    expect(flat).toContain('from public, anon, authenticated, service_role')
+  })
+
+  it('GRANTS execute to service_role explicitly, rather than inheriting it', () => {
+    /*
+     * Access was previously arriving from Supabase's ALTER DEFAULT PRIVILEGES.
+     * It worked, but a change to those defaults would have removed the money
+     * path's database access with no code change.
+     */
+    expect(flat).toContain('grant execute on function %s to service_role')
+  })
+
+  it('names every function in the privilege loop', () => {
     for (const fn of [
       'reserve_checkout_attempt',
       'mark_checkout_attempt',
       'bind_verified_checkout',
       'apply_stripe_subscription_event',
+      // Declared here so 20260801140000 stays exactly as reviewed.
+      'apply_stripe_billing_event',
     ]) {
-      expect(flat, `${fn} must be revoked`).toContain(`revoke all on function public.${fn}`)
+      expect(flat, `${fn} must be in the privilege loop`).toContain(`public.${fn}(`)
     }
+  })
+
+  it('removes DIRECT table access from service_role too', () => {
+    // Every access goes through the SECURITY DEFINER functions.
+    expect(flat).toContain('revoke all on table public.checkout_attempts from service_role')
+  })
+
+  it('ENTITLEMENT is a parameter, not a hard-coded grant', () => {
+    /*
+     * bind_verified_checkout used to pass a literal 'pro'. A Session can be
+     * complete while its Subscription is incomplete, unpaid, paused or already
+     * canceled; binding and granting are different decisions.
+     */
+    expect(flat).toContain('p_plan text')
+    expect(flat).toContain("if p_plan not in ('free', 'pro')")
+    expect(flat).not.toMatch(/apply_stripe_billing_event\( attempt\.user_id, p_event_id, p_event_at, 'pro'/)
+  })
+
+  it('the REAL privilege proof is the database job, not this file', () => {
+    // Stated so nobody mistakes text matching for evidence. db-tests/
+    // permissions.db.test.ts reads has_function_privilege on a live database.
+    expect(flat).toContain('revoke all on function')
   })
 })

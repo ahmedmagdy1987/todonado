@@ -319,3 +319,40 @@ handler code runs, which is why the error boundary cannot catch it.
 A handler exported a Web-shaped `(req) => Response` where Vercel invokes the legacy `(req, res)`
 Node contract, so nothing ever wrote to `res`. Every handler now exports both, and
 `api/handlers.test.ts` asserts the default export has arity 2.
+
+---
+
+## 11. Renewal, refunds and disputes — what is and is not automated
+
+Documented rather than built, so nobody assumes coverage that does not exist. Only
+`checkout.session.completed`, `customer.subscription.updated` and `customer.subscription.deleted`
+are handled; every other event type is acknowledged with `skipped: unhandled_event_type`.
+
+| Situation | What Stripe emits | What Todonado does | Classification |
+|---|---|---|---|
+| Card fails, Stripe retries | subscription → `past_due` (via `customer.subscription.updated`) | **Automatic.** Access is KEPT during dunning. | working as intended |
+| Retries exhausted | subscription → `unpaid` or `canceled`, per your Stripe dunning setting | **Automatic**, provided the setting moves the SUBSCRIPTION. Access is revoked. | see the warning below |
+| Customer cancels in the portal | `customer.subscription.updated` then `deleted` | **Automatic.** Access returns to Free. | working as intended |
+| Subscription paused | subscription → `paused` | **Automatic.** Access revoked (`paused` is Free). | working as intended |
+| **Refund** | `charge.refunded` — **not** a subscription event | **NOTHING.** A refund alone does not change access. | **accepted manual process** |
+| **Dispute / chargeback** | `charge.dispute.created` | **NOTHING.** | **accepted manual process** |
+
+> ### The dunning setting is load-bearing
+>
+> Because `invoice.*` is ignored, access after a failed renewal changes **only** if your Stripe
+> retry settings end by changing the subscription's status. In the Stripe dashboard, under
+> **Settings → Billing → Subscriptions and emails → Manage failed payments**, the behaviour after
+> all retries must be **Cancel the subscription** or **Mark the subscription as unpaid**. If it is
+> set to **Leave the subscription as is**, a subscriber who stops paying keeps Pro indefinitely and
+> nothing in this codebase will notice. Verify this before going live.
+
+> ### Refunds and disputes are a manual process, on purpose for launch
+>
+> Neither revokes access automatically. To revoke after a refund or a chargeback, **cancel the
+> subscription in Stripe** — that emits `customer.subscription.deleted`, which the webhook does
+> handle, and access returns to Free within seconds. Automating it means handling
+> `charge.refunded` and `charge.dispute.created`, mapping a charge back to a subscription, and
+> deciding whether a partial refund should revoke anything. That is a real feature, not a
+> one-liner, and it is **post-launch** work rather than a launch blocker: the manual path exists,
+> takes one click, and at launch volume it is tractable.
+

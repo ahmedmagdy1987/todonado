@@ -189,7 +189,10 @@ create or replace function public.bind_verified_checkout(
   p_subscription_id text,
   p_price_id        text,
   p_status          text,
-  p_period_end      timestamptz
+  p_period_end      timestamptz,
+  -- The entitlement the CALLER derived from the subscription status it
+  -- retrieved from Stripe. See the note above the call site below.
+  p_plan            text
 ) returns text
 language plpgsql
 security definer
@@ -228,6 +231,10 @@ begin
     return 'attempt_price_mismatch';
   end if;
 
+  if p_plan not in ('free', 'pro') then
+    raise exception 'bind_verified_checkout: invalid plan %', p_plan;
+  end if;
+
   update public.checkout_attempts
      set status                 = 'consumed',
          stripe_subscription_id = p_subscription_id
@@ -236,11 +243,27 @@ begin
   -- The ordering and downgrade rules live in exactly one place:
   -- 20260801140000_billing_event_ordering.sql. This runs inside the same
   -- transaction, so consuming the attempt and writing billing are atomic.
+  /*
+   * ENTITLEMENT IS NOT IMPLIED BY A COMPLETED CHECKOUT.
+   *
+   * This used to pass a hard-coded 'pro'. That is wrong, and executing the
+   * migration against a real database is what exposed it: a Session can be
+   * `complete` while the Subscription it created is `incomplete` (SCA never
+   * finished), `unpaid`, `paused`, or already `canceled` by the time the
+   * webhook is processed. Binding is about IDENTITY — this attempt belongs to
+   * this user and this subscription — and entitlement is a separate question
+   * answered by the subscription's CURRENT status.
+   *
+   * The binding still happens in the non-entitled cases, deliberately: the
+   * attempt is consumed so the user is not stuck, and the subscription id is
+   * recorded so a later customer.subscription.updated can upgrade them without
+   * a second checkout.
+   */
   outcome := public.apply_stripe_billing_event(
     attempt.user_id,
     p_event_id,
     p_event_at,
-    'pro',
+    p_plan,
     p_customer_id,
     p_subscription_id,
     p_status,
@@ -308,14 +331,46 @@ begin
 end;
 $$;
 
--- Every function here is service-role only, exactly like the table.
-revoke all on function public.reserve_checkout_attempt(uuid, text)
-  from public, anon, authenticated;
-revoke all on function public.mark_checkout_attempt(uuid, text, text)
-  from public, anon, authenticated;
-revoke all on function public.bind_verified_checkout(
-  uuid, text, timestamptz, text, text, text, text, timestamptz
-) from public, anon, authenticated;
-revoke all on function public.apply_stripe_subscription_event(
-  text, text, timestamptz, text, text, text, timestamptz, boolean
-) from public, anon, authenticated;
+-- ============================================================================
+--  PRIVILEGES — revoked from everyone, then granted to exactly one role
+--
+--  Two things were found by auditing the INSTALLED privileges rather than the
+--  text of the migration, which is the only way either would have surfaced:
+--
+--  1. `revoke … from public, anon, authenticated` says nothing about
+--     service_role, so the webhook's access was arriving purely from Supabase's
+--     ALTER DEFAULT PRIVILEGES on the public schema. It worked, but it was
+--     incidental: a change to those defaults, or a function created by another
+--     role, would have removed the money path's database access with no code
+--     change. The grants below make it intentional.
+--
+--  2. service_role also held SELECT/INSERT/UPDATE/DELETE on checkout_attempts
+--     from the same defaults. Nothing needs it — every access goes through the
+--     SECURITY DEFINER functions, which run as the table owner. Direct table
+--     privileges are removed so the functions really are the only path.
+--
+--  PUBLIC is revoked explicitly because PostgreSQL grants EXECUTE on a new
+--  function to PUBLIC by default. Revoking only anon and authenticated would
+--  leave every one of these callable by anybody.
+-- ============================================================================
+
+revoke all on table public.checkout_attempts from service_role;
+
+do $$
+declare
+  fn text;
+begin
+  foreach fn in array array[
+    'public.reserve_checkout_attempt(uuid, text)',
+    'public.mark_checkout_attempt(uuid, text, text)',
+    'public.bind_verified_checkout(uuid, text, timestamptz, text, text, text, text, timestamptz, text)',
+    'public.apply_stripe_subscription_event(text, text, timestamptz, text, text, text, timestamptz, boolean)',
+    -- Declared here rather than in 20260801140000 so that file stays exactly as
+    -- reviewed. Same reasoning applies to it.
+    'public.apply_stripe_billing_event(uuid, text, timestamptz, text, text, text, text, timestamptz, boolean)'
+  ] loop
+    execute format('revoke all on function %s from public, anon, authenticated, service_role', fn);
+    execute format('grant execute on function %s to service_role', fn);
+  end loop;
+end
+$$;

@@ -155,7 +155,10 @@ export function makeFakeDb(options: FakeDbOptions = {}) {
         data: applyOrdering({
           ...args,
           p_user_id: a.user_id,
-          p_plan: 'pro',
+          // The plan is the CALLER's, derived from the retrieved subscription
+          // status. Hard-coding 'pro' here is the defect the real database
+          // execution exposed.
+          p_plan: args.p_plan,
           p_set_period_end: args.p_period_end != null,
         }),
         error: null,

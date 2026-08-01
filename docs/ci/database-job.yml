@@ -1,0 +1,57 @@
+# ============================================================================
+#  PROPOSED CI JOB — paste into .github/workflows/ci.yml under `jobs:`
+#
+#  It lives here rather than in the workflow because the Personal Access Token
+#  used for this branch does not carry the `workflow` scope, and GitHub refuses
+#  a push that edits .github/workflows without it. Two ways to land it:
+#
+#    1. Paste the block below into .github/workflows/ci.yml yourself; or
+#    2. Re-issue the token with `workflow` scope and I will push it.
+#
+#  UNTIL IT IS IN CI, THE DATABASE TESTS DO NOT RUN ON PUSH. They do run
+#  locally:  npm run db:start && npm run db:apply && npm run test:db
+#  (63 tests, executed against real PostgreSQL — see the report.)
+# ============================================================================
+
+  database:
+    name: migrations + real postgres (disposable)
+    runs-on: ubuntu-latest
+    # A real PostgreSQL. The clause-pinning suites in api/ read the migration
+    # TEXT; only this job proves the SQL parses, installs, locks, and enforces
+    # privileges. It never touches the production Supabase project.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # From EMPTY, in chronological order, every migration — not just the two
+      # pending ones. A migration that only works when its predecessors were
+      # applied by hand is not a migration that works.
+      - name: Apply the full migration chain
+        run: node supabase/test/apply.mjs --reset
+
+      # Idempotence of the whole procedure: a clean reset must succeed twice.
+      - name: Apply again from scratch
+        run: node supabase/test/apply.mjs --reset
+
+      - name: Privilege and concurrency tests (real connections)
+        run: npm run test:db
+        timeout-minutes: 10

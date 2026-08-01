@@ -253,6 +253,19 @@ async function handleCheckoutCompleted(
       return json(200, { received: true, skipped: 'unrecognised_price' })
     }
 
+    /*
+     * ENTITLEMENT COMES FROM THE SUBSCRIPTION'S CURRENT STATUS, NOT FROM THE
+     * FACT THAT A SESSION COMPLETED.
+     *
+     * A Session can be `complete` while the Subscription it created is
+     * `incomplete` (SCA never finished), `unpaid`, `paused`, or already
+     * `canceled` by the time this webhook is processed. Binding and granting
+     * are two different decisions: the binding always happens so the attempt is
+     * consumed and the subscription id is recorded, but the plan is whatever
+     * `planForStatus` says about the status Stripe reports right now.
+     */
+    const grantedPlan = planForStatus(subscription.status)
+
     const { data: outcome, error } = await admin.rpc('bind_verified_checkout', {
       p_attempt_id: attemptId,
       p_event_id: eventId,
@@ -260,8 +273,9 @@ async function handleCheckoutCompleted(
       p_customer_id: customerId,
       p_subscription_id: subscriptionId,
       p_price_id: purchased[0],
-      p_status: subscription.status ?? 'active',
+      p_status: subscription.status ?? null,
       p_period_end: toIso(subscription.current_period_end),
+      p_plan: grantedPlan,
     })
 
     if (error) return schemaOrServerError(error, 'bind_verified_checkout')
@@ -271,7 +285,16 @@ async function handleCheckoutCompleted(
       console.warn(`[api/stripe-webhook] event ${eventId} not applied: ${result}`)
       return json(200, { received: true, skipped: result })
     }
-    return json(200, { received: true })
+    if (grantedPlan !== 'pro') {
+      // Bound, consumed, and deliberately NOT entitled. Recorded loudly because
+      // the customer completed a checkout and does not have Pro; a later
+      // customer.subscription.updated is what upgrades them.
+      console.warn(
+        `[api/stripe-webhook] bound ${subscriptionId} for attempt ${attemptId} but the ` +
+          `subscription is '${subscription.status}', so the plan stays free`,
+      )
+    }
+    return json(200, { received: true, plan: grantedPlan })
   } catch (err) {
     console.error(
       `[api/stripe-webhook] could not verify session ${sessionId}:`,
