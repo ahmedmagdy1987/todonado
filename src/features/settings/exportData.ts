@@ -27,6 +27,8 @@ export const EXCLUDED: Record<string, string> = {
     'Insert-only fake-door capture with no select policy by design. The client cannot read it back, and it holds no content of yours beyond the fact that you tapped "notify me".',
   upgrade_intents:
     'Insert-only willingness-to-pay capture with no select policy, for the same reason.',
+  checkout_attempts:
+    'Server-only bookkeeping for in-flight Stripe checkouts. It has no client policy at all, not even select, because it holds Checkout Session ids. It records nothing about you beyond the fact that a purchase was started and how it ended; your actual subscription state is in the billing export.',
 }
 
 /** User-scoped tables: RLS already narrows `select *` to the owner. */

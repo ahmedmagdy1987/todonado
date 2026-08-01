@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetRateLimitStores } from './_lib/rateLimit.js'
+import { applyTestModeEnv, clearTestModeEnv, makeFakeDb } from '../src/test/stripeDoubles.js'
 import { resolveEffectivePlan, isFoundingEmail } from '../src/features/billing/planCore.js'
 
 /**
@@ -33,23 +34,10 @@ const checkout = (await import('./create-checkout-session.js')).webHandler
 const UID = 'user-123'
 const MONTHLY = 'price_configuredMonthly1'
 
-const ENV_KEYS = [
-  'STRIPE_SECRET_KEY',
-  'STRIPE_WEBHOOK_SECRET',
-  'STRIPE_PRICE_MONTHLY',
-  'STRIPE_PRICE_YEARLY',
-  'APP_BASE_URL',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-] as const
-
 function configure() {
-  process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy'
-  process.env.STRIPE_PRICE_MONTHLY = MONTHLY
-  process.env.STRIPE_PRICE_YEARLY = 'price_configuredYearly12'
-  process.env.SUPABASE_URL = 'https://p.supabase.co'
-  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-dummy'
+  // Shared with every other billing suite so a shape change breaks all of
+  // them at once rather than leaving one asserting against a dead contract.
+  applyTestModeEnv()
 }
 
 const post = () =>
@@ -63,7 +51,7 @@ let warnSpy: ReturnType<typeof vi.spyOn>
 let errorSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
-  for (const k of ENV_KEYS) delete process.env[k]
+  clearTestModeEnv()
   resetRateLimitStores()
   getUserFromAuthHeader.mockReset()
   getSupabaseAdmin.mockReset()
@@ -73,14 +61,11 @@ beforeEach(() => {
   configure()
   getUserFromAuthHeader.mockResolvedValue({ id: UID, email: 'a@b.test', emailVerified: true })
   createCheckoutSession.mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/cs_1' })
-  getSupabaseAdmin.mockReturnValue({
-    from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
-    }),
-  })
+  // Shared double, so this suite exercises the checkout attempt RPCs too.
+  getSupabaseAdmin.mockReturnValue(makeFakeDb().client)
 })
 afterEach(() => {
-  for (const k of ENV_KEYS) delete process.env[k]
+  clearTestModeEnv()
   resetRateLimitStores()
   warnSpy.mockRestore()
   errorSpy.mockRestore()

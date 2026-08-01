@@ -16,6 +16,7 @@ const MONTHLY = 'price_configuredMonthly1'
 const YEARLY = 'price_configuredYearly12'
 
 const FULL: ServerEnv = {
+  stripeMode: 'test',
   stripeSecretKey: 'sk_test_x',
   stripeWebhookSecret: 'whsec_x',
   stripePriceMonthly: MONTHLY,
@@ -23,6 +24,9 @@ const FULL: ServerEnv = {
   appBaseUrl: '',
   supabaseUrl: 'https://p.supabase.co',
   supabaseServiceRoleKey: 'service-role',
+  clientPublishableKey: 'pk_test_x',
+  clientPriceMonthly: MONTHLY,
+  clientPriceYearly: YEARLY,
 }
 
 const ENV_KEYS = [
@@ -30,6 +34,7 @@ const ENV_KEYS = [
   'STRIPE_WEBHOOK_SECRET',
   'STRIPE_PRICE_MONTHLY',
   'STRIPE_PRICE_YEARLY',
+  'STRIPE_MODE',
   'APP_BASE_URL',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -53,6 +58,7 @@ describe('missingServerBillingVars', () => {
 
   it('reports every missing var when nothing is configured', () => {
     const missing = missingServerBillingVars({
+      stripeMode: '',
       stripeSecretKey: '',
       stripeWebhookSecret: '',
       stripePriceMonthly: '',
@@ -60,8 +66,12 @@ describe('missingServerBillingVars', () => {
       appBaseUrl: '',
       supabaseUrl: '',
       supabaseServiceRoleKey: '',
+      clientPublishableKey: '',
+      clientPriceMonthly: '',
+      clientPriceYearly: '',
     })
     expect(missing).toEqual([
+      'STRIPE_MODE',
       'STRIPE_SECRET_KEY',
       'STRIPE_PRICE_MONTHLY',
       'STRIPE_PRICE_YEARLY',
@@ -92,6 +102,7 @@ describe('serverEnv', () => {
 
   it('trims whitespace — a pasted key with a trailing newline still counts', () => {
     process.env.STRIPE_SECRET_KEY = '  sk_test_x\n'
+    process.env.STRIPE_MODE = 'test'
     process.env.STRIPE_PRICE_MONTHLY = MONTHLY
     process.env.STRIPE_PRICE_YEARLY = YEARLY
     process.env.SUPABASE_URL = 'https://p.supabase.co'

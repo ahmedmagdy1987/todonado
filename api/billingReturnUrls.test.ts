@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetRateLimitStores } from './_lib/rateLimit.js'
+import { applyTestModeEnv, clearTestModeEnv, makeFakeDb } from '../src/test/stripeDoubles.js'
 
 /**
  * Where Stripe sends people back to, and how many subscriptions one person can
@@ -35,23 +36,10 @@ const MONTHLY = 'price_configuredMonthly1'
 /** The domain an attacker would like the returning customer to land on. */
 const EVIL = 'https://evil.example.com'
 
-const ENV_KEYS = [
-  'STRIPE_SECRET_KEY',
-  'STRIPE_WEBHOOK_SECRET',
-  'STRIPE_PRICE_MONTHLY',
-  'STRIPE_PRICE_YEARLY',
-  'APP_BASE_URL',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-] as const
-
 function configure() {
-  process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy'
-  process.env.STRIPE_PRICE_MONTHLY = MONTHLY
-  process.env.STRIPE_PRICE_YEARLY = 'price_configuredYearly12'
-  process.env.SUPABASE_URL = 'https://p.supabase.co'
-  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-dummy'
+  // Shared with every other billing suite so a shape change breaks all of
+  // them at once rather than leaving one asserting against a dead contract.
+  applyTestModeEnv()
 }
 
 /** A checkout POST that CLAIMS to come from the attacker's page. */
@@ -72,15 +60,18 @@ const spoofedPortal = (origin = EVIL) =>
     headers: { 'content-type': 'application/json', authorization: 'Bearer good', origin },
   })
 
-/** Billing double. `row` is what the billing lookup returns. */
+/**
+ * Billing double. `row` is what the billing lookup returns.
+ *
+ * Routed through the shared makeFakeDb so this suite also gets the checkout
+ * attempt RPCs. Stubbing only `.from()` here is what broke when checkout gained
+ * a durable reservation, and that break was correct: a hand-rolled double that
+ * silently lacks the call the handler now makes tests nothing.
+ */
 function mockBilling(row: Record<string, unknown> | null) {
-  getSupabaseAdmin.mockReturnValue({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: row, error: null }) }),
-      }),
-    }),
-  })
+  getSupabaseAdmin.mockReturnValue(
+    makeFakeDb({ billing: row as never }).client,
+  )
 }
 
 const sessionArgs = () =>
@@ -92,7 +83,7 @@ let errorSpy: ReturnType<typeof vi.spyOn>
 let warnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
-  for (const k of ENV_KEYS) delete process.env[k]
+  clearTestModeEnv()
   // The limiter's counters are module-level, so they survive between tests
   // in this file. Without this, the 11th checkout here would 429 (FLAG-10).
   resetRateLimitStores()
@@ -109,7 +100,7 @@ beforeEach(() => {
   mockBilling(null)
 })
 afterEach(() => {
-  for (const k of ENV_KEYS) delete process.env[k]
+  clearTestModeEnv()
   errorSpy.mockRestore()
   warnSpy.mockRestore()
 })
@@ -219,8 +210,13 @@ describe('FLAG-14 — one person cannot quietly buy two subscriptions', () => {
 
     const key = sessionOpts()?.idempotencyKey
     expect(key, 'a retried POST must not create a second checkout').toBeTruthy()
-    expect(key).toContain(UID)
-    expect(key).toContain(MONTHLY)
+    /*
+     * The key is derived from the DURABLE ATTEMPT ID, not from the user and
+     * price as it once was. That change is the point: a user+price key still
+     * let a monthly and a yearly request create two subscriptions, and its
+     * wall-clock bucket collapsed nothing across a boundary.
+     */
+    expect(key).toMatch(/^todonado_checkout_attempt_[0-9a-f-]{36}$/)
   })
 
   it('the key is stable across immediate retries', async () => {

@@ -47,6 +47,14 @@ export type ApiErrorCode =
   // a second one Stripe would happily bill (audit FLAG-14). Send them to the
   // portal instead.
   | 'already_subscribed'
+  // A Checkout Session for this user is paid but its webhook has not been
+  // processed yet. Blocking here is what stops a second subscription.
+  | 'checkout_awaiting_confirmation'
+  // Could not reserve a durable checkout attempt (see checkout_attempts).
+  | 'checkout_reservation_failed'
+  // STRIPE_MODE disagrees with a key, a price pair, or a retrieved Stripe
+  // object. Refuses rather than guessing which half is right.
+  | 'billing_misconfigured'
   | 'missing_signature'
   | 'invalid_signature'
   | 'billing_lookup_failed'

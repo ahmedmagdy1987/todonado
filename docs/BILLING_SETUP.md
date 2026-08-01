@@ -94,9 +94,25 @@ Stripe dashboard with the **test-mode toggle OFF**.
 
 ## 3. The seven environment variables
 
-> **It used to be six.** Closing FLAG-2 and FLAG-4 added `STRIPE_PRICE_MONTHLY`,
-> `STRIPE_PRICE_YEARLY` and `APP_BASE_URL`, because the server may no longer trust a price id
-> from the client or a redirect target from a request header.
+> **It used to be six, then seven, and is now eight.** FLAG-2 and FLAG-4 added
+> `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` and `APP_BASE_URL`; the money-path review added
+> **`STRIPE_MODE`**.
+>
+> ### `STRIPE_MODE` is checked against everything else, and disagreement fails closed
+>
+> Mode used to be inferred wherever it happened to be needed, which means it could be inferred
+> differently in two places and a half-live deployment would look fine until money moved. It is
+> now declared once and cross-checked against: the secret key prefix, the publishable key prefix,
+> the client/server price-id pairs, and the `livemode` flag on every Stripe object and webhook
+> event the server touches.
+>
+> Consequences worth knowing before the switch:
+> - a **test** webhook event cannot modify **live** billing state, and vice versa — the event is
+>   acknowledged `200 {"skipped":"livemode_mismatch"}` and nothing is written;
+> - an inconsistent deployment refuses to sell (`503 billing_misconfigured`) rather than guessing
+>   which half is right, and in particular **never downgrades an existing payer** because a
+>   config error made their subscription look foreign;
+> - it is deliberately **not** inferred from `whsec_`, which does not encode mode.
 
 Vercel → project → **Settings → Environment Variables**, scope **Production**.
 
@@ -104,6 +120,7 @@ Vercel → project → **Settings → Environment Variables**, scope **Productio
 
 | Name | Where the value comes from | If absent |
 |---|---|---|
+| `STRIPE_MODE` | Literally `test` or `live`. The ONE declaration of intent. | `503 billing_not_configured` |
 | `STRIPE_SECRET_KEY` | Stripe → Developers → API keys → **Secret key** (live), `sk_live_…` | `503 billing_not_configured` |
 | `STRIPE_WEBHOOK_SECRET` | §5 below, `whsec_…` | webhook `503 not_configured` |
 | `STRIPE_PRICE_MONTHLY` | §2 — the **live** monthly price id | `503`; checkout sells nothing |
