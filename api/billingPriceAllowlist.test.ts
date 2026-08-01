@@ -152,6 +152,9 @@ beforeEach(() => {
   configure()
   getUserFromAuthHeader.mockResolvedValue({ id: UID, email: 'a@b.test' })
   createCheckoutSession.mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' })
+  // Checkout reads the billing row since FLAG-14 (to reuse the customer and
+  // refuse a duplicate subscription). Default: this user has no billing row.
+  getSupabaseAdmin.mockReturnValue(makeAdmin(null).admin)
 })
 afterEach(() => {
   for (const k of ENV_KEYS) delete process.env[k]

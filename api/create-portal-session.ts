@@ -1,5 +1,5 @@
 // Relative imports MUST carry .js — see the note in create-checkout-session.ts.
-import { serverEnv, missingServerBillingVars } from './_lib/config.js'
+import { serverEnv, missingServerBillingVars, resolveAppBaseUrl } from './_lib/config.js'
 import { getStripe } from './_lib/stripe.js'
 import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
@@ -57,12 +57,26 @@ async function portal(req: Request): Promise<Response> {
   const customerId = data?.stripe_customer_id
   if (!customerId) return apiError(400, 'no_subscription')
 
-  const origin = req.headers.get('origin') ?? 'https://www.todonado.com'
+  /*
+   * SERVER CONFIG, NOT THE ORIGIN HEADER (audit FLAG-4).
+   *
+   * `return_url` used to be built from `req.headers.get('origin')`. The portal
+   * is where someone manages or cancels a real subscription, so a return link
+   * an attacker chose is the last place a header should be trusted.
+   */
+  const { baseUrl, invalid: baseUrlInvalid } = resolveAppBaseUrl(env)
+  if (baseUrlInvalid) {
+    console.error(
+      '[api/create-portal-session] APP_BASE_URL is not a usable https origin — ' +
+        `falling back to ${baseUrl}. Fix the Vercel env var.`,
+    )
+  }
+
   try {
     const stripe = getStripe(env.stripeSecretKey)
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${origin}/settings/plan`,
+      return_url: `${baseUrl}/settings/plan`,
     })
     return json(200, { url: session.url })
   } catch (err) {

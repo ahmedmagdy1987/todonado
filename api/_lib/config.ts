@@ -15,6 +15,7 @@ export interface ServerEnv {
   stripeWebhookSecret: string
   stripePriceMonthly: string
   stripePriceYearly: string
+  appBaseUrl: string
   supabaseUrl: string
   supabaseServiceRoleKey: string
 }
@@ -25,9 +26,57 @@ export function serverEnv(): ServerEnv {
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? '',
     stripePriceMonthly: process.env.STRIPE_PRICE_MONTHLY?.trim() ?? '',
     stripePriceYearly: process.env.STRIPE_PRICE_YEARLY?.trim() ?? '',
+    appBaseUrl: process.env.APP_BASE_URL?.trim() ?? '',
     supabaseUrl: process.env.SUPABASE_URL?.trim() ?? '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '',
   }
+}
+
+/** Where Stripe sends people back to when nothing is configured. */
+export const DEFAULT_APP_BASE_URL = 'https://www.todonado.com'
+
+/**
+ * The base URL for Stripe success / cancel / portal-return links (audit FLAG-4).
+ *
+ * THIS EXISTS SO THE ORIGIN HEADER IS NEVER CONSULTED AGAIN. The endpoints used
+ * to interpolate `req.headers.get('origin')` straight into `success_url`,
+ * `cancel_url` and `return_url`. An attacker with their own free account could
+ * request a genuine `checkout.stripe.com` URL — real merchant account, real
+ * branding — that redirected to THEIR domain on completion. A request header is
+ * attacker-controlled input and can never be the source of a redirect target.
+ *
+ * APP_BASE_URL is validated rather than trusted, because a fat-fingered env var
+ * would otherwise reintroduce the same bug with extra steps:
+ *   - must parse as a URL;
+ *   - https only, except http://localhost and http://127.0.0.1 for local dev;
+ *   - no embedded credentials (`https://evil@real.com` reads as "real.com" to a
+ *     human and resolves to evil for the browser);
+ *   - origin only — any path, query or fragment is discarded.
+ * Anything failing that is IGNORED in favour of the default, and the caller is
+ * told so it can be logged once rather than silently redirecting people.
+ */
+export function resolveAppBaseUrl(env: ServerEnv = serverEnv()): {
+  baseUrl: string
+  invalid: boolean
+} {
+  const raw = env.appBaseUrl
+  if (!raw) return { baseUrl: DEFAULT_APP_BASE_URL, invalid: false }
+
+  let parsed: URL
+  try {
+    parsed = new URL(raw)
+  } catch {
+    return { baseUrl: DEFAULT_APP_BASE_URL, invalid: true }
+  }
+
+  const isLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
+  const schemeOk = parsed.protocol === 'https:' || (parsed.protocol === 'http:' && isLocal)
+  if (!schemeOk || parsed.username || parsed.password) {
+    return { baseUrl: DEFAULT_APP_BASE_URL, invalid: true }
+  }
+
+  // `origin` drops path/query/fragment and any trailing slash for us.
+  return { baseUrl: parsed.origin, invalid: false }
 }
 
 /** The env var NAMES required for checkout/portal that are absent. Names only. */

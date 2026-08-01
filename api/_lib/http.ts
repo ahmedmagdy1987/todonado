@@ -35,6 +35,10 @@ export type ApiErrorCode =
   | 'invalid_price'
   | 'missing_price_id'
   | 'no_subscription'
+  // The caller already has a live subscription; a second checkout would create
+  // a second one Stripe would happily bill (audit FLAG-14). Send them to the
+  // portal instead.
+  | 'already_subscribed'
   | 'missing_signature'
   | 'invalid_signature'
   | 'billing_lookup_failed'

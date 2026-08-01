@@ -18,6 +18,15 @@ const ERROR_COPY: Record<string, string> = {
   missing_price_id: 'That plan is unavailable right now. Please try again shortly.',
   invalid_price: 'That plan is unavailable right now. Please try again shortly.',
   no_subscription: 'You don’t have an active subscription to manage yet.',
+  /*
+   * Not a failure — the server refused a SECOND subscription (audit FLAG-14),
+   * which leaves the user exactly where they wanted to be. The copy points at
+   * the portal rather than inviting a retry that would be refused identically.
+   */
+  already_subscribed:
+    'You’re already subscribed. Use “Manage subscription” to change or cancel your plan.',
+  billing_schema_outdated: 'Payments are briefly unavailable. Please try again shortly.',
+  billing_read_failed: 'We couldn’t load your billing details. Please try again.',
   stripe_error: 'Stripe couldn’t start the checkout. Please try again.',
   billing_lookup_failed: 'We couldn’t load your billing details. Please try again.',
   internal_error: 'Something went wrong on our side. Please try again.',
