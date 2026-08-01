@@ -343,10 +343,22 @@ that would take the account past **200 MB** (about 400 notes, or a year of recor
 message that names the numbers and offers two ways out. Enforced at the upload rather than at the
 button, so it covers every path to a write.
 
-**Still open, and honestly so:** this is a CLIENT-side quota. A determined caller talking to the
-storage API directly is unaffected, because the bucket policy is about whose folder, not how big.
-A true quota is a storage policy or a counted column, i.e. a migration. The plan re-check at upload
-is also still outstanding.
+**The server half is now WRITTEN and waiting** (2026-08-01):
+`supabase/migrations/20260801130000_journal_audio_quota.sql`, committed and **NOT applied**. It is a
+`before insert` **and** `before update of metadata` trigger on `storage.objects`, scoped to the
+`journal-audio` bucket, summing the caller's own folder and refusing anything past 200 MB. A
+trigger rather than a policy because a `with check` cannot see the incoming size on the resumable
+(TUS) path, where the row is created before `metadata->>'size'` is known — a policy would read NULL,
+treat it as zero, and wave through exactly the upload path an abuser would reach for.
+`journalAudioQuotaMigration.test.ts` pins its number to the client constant.
+
+**Known risk before applying:** creating a trigger on `storage.objects` requires ownership of a
+table Supabase owns, and may fail with `must be owner of table objects`. That failure changes
+nothing (each migration is its own transaction); the fallbacks are an Edge Function in front of
+uploads or a scheduled sweep, both worse, which is why the trigger is tried first.
+
+**Still open regardless:** the plan re-check at upload (`isPro || billingLoading` fails open, which
+is right for a button and wrong for a write).
 
 ### FLAG-8 · Medium · INFERENCE — Founding access is granted by email string
 
@@ -379,13 +391,24 @@ member becomes a denial of service against every other member.
 
 **CLIENT HALF CLOSED.** `src/lib/limits.ts` holds the caps and every affected input now carries a
 `maxLength`: task title (which had none at all), task notes, project name, section name, subtask
-title. `limits.test.ts` READS `docs/CLEANUP_length_caps.sql` and asserts every constant matches
-it, so the two halves cannot drift apart between now and the day the SQL runs.
+title.
 
-**The database half is still yours.** The SQL is in `docs/CLEANUP_length_caps.sql`, committed and
-**NOT applied** — nothing in the cloud has changed, and `supabase db push` must not run until you
-decide. Until then CLAUDE.md's own rule still applies: this is client-side filtering, and the
-client is assumed hostile.
+**The database half is WRITTEN and waiting** (2026-08-01):
+`supabase/migrations/20260801120000_length_caps.sql`, committed and **NOT applied**. Nothing in the
+cloud has changed, and `supabase db push` must not run until you decide. Until then CLAUDE.md's own
+rule still applies: this is client-side filtering, and the client is assumed hostile.
+
+`limits.test.ts` reads that migration **constraint by constraint** and asserts every constant
+matches, so the two halves cannot drift apart between now and the day it runs. Its first version
+searched the whole file for a clause like `char_length(name) between 1 and`; that clause occurs
+three times, all three happen to be 200, and three of the ten constants had no assertion of their
+own at all — so raising `sectionName` to 300 would have left the suite green. Same class of bug as
+F-2 in section 2: **a guard test that checks a subset reports on the subset.**
+
+Two defects in the handoff SQL surfaced while moving it, both of which would have failed the push:
+its dry run checked only the UPPER bound while the constraints are `between 1 and N`, so a
+pre-existing EMPTY title would have passed the dry run and then aborted the migration; and its
+idempotency guards matched on `conname` alone, which is unique per table rather than per database.
 
 ### FLAG-10 · Medium · FACT — No rate limit on any endpoint
 

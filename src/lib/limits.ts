@@ -10,7 +10,7 @@
  *
  * CLAUDE.md's rule is "the client is assumed hostile; never rely on client-side
  * filtering", so these are explicitly the WEAKER half of the fix. The database
- * half is written and reviewed in `docs/CLEANUP_length_caps.sql`, committed and
+ * half is `supabase/migrations/20260801120000_length_caps.sql`, committed and
  * deliberately NOT applied — applying it is a decision with a table lock
  * attached, and it is the owner's to schedule.
  *
@@ -22,8 +22,9 @@
  *   • and when the SQL is applied, nothing a user can type is suddenly rejected
  *     by the database, because these numbers ARE those numbers.
  *
- * `limits.test.ts` reads the SQL file and asserts every value below matches it.
- * That is what stops the two halves drifting between now and the day it runs.
+ * `limits.test.ts` reads that migration constraint by constraint and asserts
+ * every value below matches it. That is what stops the two halves drifting
+ * between now and the day it runs.
  */
 
 export const LIMITS = {

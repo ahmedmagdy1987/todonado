@@ -10,7 +10,7 @@
 > | Question | Read this |
 > | --- | --- |
 > | What is built, and how does it work? | `CLAUDE.md` §3 (What's built) and the per-session lists |
-> | Which migrations are applied? | `CLAUDE.md` §7 — **nothing is pending; do NOT run `supabase db push`** |
+> | Which migrations are applied? | `CLAUDE.md` §7 — **two are pending BY DESIGN as of 2026-08-01; an agent must still NOT run `supabase db push`** |
 > | What is left before launch? | `docs/LAUNCH_CHECKLIST.md` |
 > | What did the security review find? | `docs/AUDIT_2026-07-31_final.md` |
 >
