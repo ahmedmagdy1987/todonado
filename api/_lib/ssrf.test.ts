@@ -286,3 +286,122 @@ describe('fetchIcsGuarded', () => {
     ).rejects.toBeInstanceOf(SsrfError)
   })
 })
+
+describe('fetchIcsGuarded — ONE budget for the whole request (audit FLAG-15)', () => {
+  const resolver = async () => [{ address: '93.184.216.34' }]
+
+  /** A 302 to `to`, with an optional body to prove it gets drained. */
+  function redirectTo(to: string, body?: ReadableStream) {
+    return new Response(body ?? null, { status: 302, headers: { location: to } })
+  }
+
+  it('the timeout is a whole-request deadline, not one per hop', async () => {
+    /*
+     * Each hop is FAST enough to pass a per-hop budget but slow enough that the
+     * chain blows a whole-request one. That is what separates the two designs:
+     *
+     *   per-hop      each of 4 hops gets its own 100ms, all succeed, the loop
+     *                runs to completion and ends in `too_many_redirects`
+     *   whole-request  the shared deadline expires mid-chain and it stops
+     *
+     * An earlier version made every hop STALL past the budget, which aborts on
+     * hop one under both designs — it passed either way and proved nothing.
+     */
+    let hops = 0
+    const fetchImpl = vi.fn(async () => {
+      hops += 1
+      await new Promise((r) => setTimeout(r, 40))
+      return new Response(null, {
+        status: 302,
+        headers: { location: `https://example.com/hop${hops}` },
+      })
+    }) as unknown as typeof fetch
+
+    const started = Date.now()
+    await expect(
+      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, timeoutMs: 100 }),
+    ).rejects.toMatchObject({ code: 'fetch_failed' }) // NOT too_many_redirects
+
+    expect(hops, 'the chain must stop when the shared budget runs out').toBeLessThan(
+      MAX_REDIRECTS + 1,
+    )
+    expect(Date.now() - started).toBeLessThan(160)
+  })
+
+  it('refuses to start another hop once the deadline has passed', async () => {
+    const fetchImpl = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 40))
+      return redirectTo('https://example.com/next')
+    }) as unknown as typeof fetch
+
+    await expect(
+      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, timeoutMs: 50 }),
+    ).rejects.toBeInstanceOf(SsrfError)
+
+    // It must give up mid-chain rather than running the full MAX_REDIRECTS.
+    expect((fetchImpl as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBeLessThan(
+      MAX_REDIRECTS + 1,
+    )
+  })
+
+  it('DRAINS a redirect body instead of abandoning the stream', async () => {
+    let cancelled = false
+    const body = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('x'.repeat(1000)))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    let hop = 0
+    const fetchImpl = vi.fn(async () => {
+      hop += 1
+      if (hop === 1) return redirectTo('https://example.com/final.ics', body)
+      return new Response('BEGIN:VCALENDAR\nEND:VCALENDAR')
+    }) as unknown as typeof fetch
+
+    const out = await fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver })
+
+    expect(out).toContain('BEGIN:VCALENDAR')
+    expect(cancelled, 'an unread redirect body holds its socket open').toBe(true)
+  })
+
+  it('measures the cap in BYTES, not UTF-16 code units', async () => {
+    /*
+     * A body of multi-byte characters is larger on the wire than
+     * `String.length` suggests. Measuring the string understated it against a
+     * cap expressed in bytes, so a feed could exceed the real limit.
+     */
+    const text = 'é'.repeat(100) // 100 UTF-16 code units, 200 UTF-8 bytes
+
+    /*
+     * This must be a response with NO body stream, because that is the branch
+     * that measured `text.length`. `new Response(text)` HAS a body and goes
+     * through the streaming path, which already counted bytes correctly — the
+     * first version of this test did exactly that and therefore proved nothing.
+     */
+    const bodyless = {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      body: null,
+      text: async () => text,
+    }
+    const fetchImpl = vi.fn(async () => bodyless) as unknown as typeof fetch
+
+    await expect(
+      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, maxBytes: 150 }),
+    ).rejects.toMatchObject({ code: 'response_too_large' })
+  })
+
+  it('still returns a body that fits the budget', async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response('BEGIN:VCALENDAR\nEND:VCALENDAR'),
+    ) as unknown as typeof fetch
+
+    await expect(
+      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, maxBytes: 1000 }),
+    ).resolves.toContain('VCALENDAR')
+  })
+})

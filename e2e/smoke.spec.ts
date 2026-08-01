@@ -379,7 +379,7 @@ test('security headers are served on every response (audit M1)', async ({ page }
     expect(h['permissions-policy'], `${path} mic must be self`).toContain('microphone=(self)')
     expect(h['strict-transport-security'], `${path} HSTS`).toContain('includeSubDomains')
 
-    const csp = h['content-security-policy-report-only']
+    const csp = h['content-security-policy']
     expect(csp, `${path} CSP-Report-Only`).toBeTruthy()
     expect(csp).toContain("default-src 'self'")
     expect(csp).toContain("frame-ancestors 'none'")
@@ -390,7 +390,10 @@ test('security headers are served on every response (audit M1)', async ({ page }
 
     // Still REPORT-ONLY. Enforcing is a deliberate follow-up once the report
     // queue is clean, not something that should land by accident.
-    expect(h['content-security-policy'], `${path} must not enforce CSP yet`).toBeUndefined()
+    expect(
+      h['content-security-policy-report-only'],
+      `${path} must enforce CSP, not merely report it (audit FLAG-11)`,
+    ).toBeUndefined()
   }
 })
 
