@@ -9,18 +9,53 @@ import {
   mapStripeEventToBilling,
   type MinimalStripeEvent,
 } from '../src/features/billing/webhookMapping.js'
+import {
+  decideWebhookWrite,
+  type BillingRowState,
+} from '../src/features/billing/webhookOrdering.js'
+
+/** The columns the ordering decision reads — this string IS `BillingRowState`. */
+const ORDERING_COLUMNS = 'plan, stripe_subscription_id, last_stripe_event_id, last_stripe_event_at'
+
+/**
+ * Does this failure mean `20260801140000_billing_event_ordering.sql` has not
+ * been applied? Postgres raises 42703 for an undefined column and PostgREST can
+ * surface a schema-cache miss instead, so both are matched — plus the column
+ * name itself, which keeps an unrelated 42703 from being misreported as a
+ * missing migration.
+ */
+function isMissingOrderingColumn(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === '42703' ||
+    error.code === 'PGRST204' ||
+    /last_stripe_event_(id|at)/.test(error.message ?? '')
+  )
+}
 
 /**
  * POST /api/stripe-webhook
  *
- * RAW-body Stripe signature verification, then upsert the caller's billing row
- * via the SERVICE-ROLE key (bypasses RLS). Handles:
+ * RAW-body Stripe signature verification, then a READ → DECIDE → CONDITIONAL
+ * WRITE against the caller's billing row via the SERVICE-ROLE key (bypasses
+ * RLS). Handles:
  *   - checkout.session.completed
  *   - customer.subscription.updated
  *   - customer.subscription.deleted
- * Idempotent (upsert by user_id PK) and safe on replays; unknown events → 200
- * no-op. The Web-signature handler gives us the exact raw body via req.text(),
- * which is what constructEvent needs to verify the signature.
+ * Unknown events → 200 no-op. The Web-signature handler gives us the exact raw
+ * body via req.text(), which is what constructEvent needs to verify.
+ *
+ * WHY IT IS NO LONGER A BLIND UPSERT (audit FLAG-3).
+ *
+ * It used to be `upsert(row, {onConflict:'user_id'})` and nothing else, which
+ * means whatever arrives LAST wins. Stripe retries deliveries and retries
+ * arrive out of order, so a redelivered `customer.subscription.deleted` landing
+ * after a newer `checkout.session.completed` silently downgraded a paying
+ * customer. That needs no attacker — it is Stripe's documented retry behaviour
+ * meeting a write with no memory of what it already applied.
+ *
+ * The row now carries a high-water mark (`last_stripe_event_id`,
+ * `last_stripe_event_at`). `webhookOrdering.ts` decides; this handler enforces
+ * with a compare-and-swap so two concurrent deliveries cannot both win.
  */
 async function webhook(req: Request): Promise<Response> {
   if (req.method !== 'POST') return apiError(405, 'method_not_allowed')
@@ -60,14 +95,101 @@ async function webhook(req: Request): Promise<Response> {
     return apiError(400, 'invalid_signature')
   }
 
-  const upsert = mapStripeEventToBilling(event)
-  if (!upsert) return json(200, { received: true }) // unknown / no-op event
+  /*
+   * Mapped once here only to learn WHOSE row to read; the authoritative mapping
+   * happens inside decideWebhookWrite, which owns the whole decision.
+   */
+  const preview = mapStripeEventToBilling(event)
+  if (!preview) return json(200, { received: true }) // unknown / no-op event
 
   const admin = getSupabaseAdmin(env.supabaseUrl, env.supabaseServiceRoleKey)
-  const { error } = await admin.from('billing').upsert(upsert, { onConflict: 'user_id' })
+
+  // READ — the state we are about to reason against.
+  const { data: current, error: readError } = await admin
+    .from('billing')
+    .select(ORDERING_COLUMNS)
+    .eq('user_id', preview.user_id)
+    .maybeSingle()
+
+  if (readError) {
+    /*
+     * FAIL CLOSED IF THE MIGRATION IS NOT IN. There is deliberately no
+     * fallback to the old blind upsert: this is the billing path, and silently
+     * degrading to the behaviour that caused FLAG-3 is worse than refusing.
+     * Stripe retries a 503, so once the migration lands the queued events
+     * deliver normally and nothing is lost.
+     */
+    if (isMissingOrderingColumn(readError)) {
+      console.error(
+        '[api/stripe-webhook] billing is missing the event-ordering columns — apply ' +
+          'supabase/migrations/20260801140000_billing_event_ordering.sql. ' +
+          'Refusing to write. Detail:',
+        redactSecrets(readError.message),
+      )
+      return apiError(503, 'billing_schema_outdated')
+    }
+    console.error('[api/stripe-webhook] billing read failed:', redactSecrets(readError.message))
+    return apiError(500, 'billing_read_failed')
+  }
+
+  // DECIDE — pure, and unit-tested in webhookOrdering.test.ts.
+  const decision = decideWebhookWrite(event, current as BillingRowState | null)
+  if (decision.action === 'skip') {
+    /*
+     * A skip is a SUCCESS. Answering anything but 2xx would make Stripe retry
+     * an event we have deliberately declined, forever.
+     */
+    console.warn(
+      `[api/stripe-webhook] ignoring event ${event.id ?? '<no id>'} (${event.type}): ${decision.reason}`,
+    )
+    return json(200, { received: true, skipped: decision.reason })
+  }
+
+  const row = {
+    ...decision.upsert,
+    last_stripe_event_id: decision.eventId,
+    last_stripe_event_at: decision.eventAt,
+  }
+
+  // WRITE — compare-and-swap, so a concurrent newer delivery cannot be undone.
+  if (current === null) {
+    const { error } = await admin.from('billing').insert(row)
+    if (error) {
+      /*
+       * 23505 means another delivery inserted this user's row between our read
+       * and our write. That delivery applied its own ordering decision, so the
+       * safe move is to let it stand — Stripe will redeliver ours if it still
+       * matters, and by then there is a row to compare against.
+       */
+      if (error.code === '23505') {
+        console.warn('[api/stripe-webhook] lost the insert race, deferring to the concurrent write')
+        return json(200, { received: true, skipped: 'insert_race' })
+      }
+      console.error('[api/stripe-webhook] billing insert failed:', redactSecrets(error.message))
+      return apiError(500, 'billing_upsert_failed')
+    }
+    return json(200, { received: true })
+  }
+
+  const { data: updated, error } = await admin
+    .from('billing')
+    .update(row)
+    .eq('user_id', row.user_id)
+    // The guard repeats the ordering check IN THE STATEMENT, so a newer event
+    // that landed since our read cannot be overwritten by this one.
+    .or(`last_stripe_event_at.is.null,last_stripe_event_at.lte.${decision.eventAt}`)
+    .select('user_id')
+
   if (error) {
-    console.error('[api/stripe-webhook] billing upsert failed:', redactSecrets(error.message))
+    console.error('[api/stripe-webhook] billing update failed:', redactSecrets(error.message))
     return apiError(500, 'billing_upsert_failed')
+  }
+  if (!updated || updated.length === 0) {
+    // Lost the race to a newer event. Correct, and not a failure.
+    console.warn(
+      `[api/stripe-webhook] event ${decision.eventId} superseded by a newer write, no-op`,
+    )
+    return json(200, { received: true, skipped: 'superseded' })
   }
 
   return json(200, { received: true })

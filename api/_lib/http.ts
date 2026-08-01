@@ -39,6 +39,12 @@ export type ApiErrorCode =
   | 'invalid_signature'
   | 'billing_lookup_failed'
   | 'billing_upsert_failed'
+  | 'billing_read_failed'
+  // The webhook reached the billing row but the event-ordering columns are
+  // absent, i.e. 20260801140000_billing_event_ordering.sql has not been applied.
+  // It refuses to write rather than falling back to the unordered upsert that
+  // caused audit FLAG-3. Stripe retries a 503, so queued events are not lost.
+  | 'billing_schema_outdated'
   | 'stripe_error'
   | 'internal_error'
   // Calendar proxy (api/calendar-fetch)

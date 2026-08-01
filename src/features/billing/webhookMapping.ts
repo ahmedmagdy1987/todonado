@@ -4,13 +4,25 @@
  * serverless webhook (api/stripe-webhook.ts) can import it by relative path and
  * bundle it cleanly. Unit-tested with mocked Stripe event shapes.
  *
- * Design for idempotency + out-of-order safety:
- *  - The webhook upserts by user_id (PK), so replaying an event is a no-op.
+ * What this module guarantees:
  *  - Each event returns ONLY the columns it is authoritative for (a PARTIAL
  *    upsert), so e.g. `checkout.session.completed` (which has no period end)
  *    never nulls a `current_period_end` that a `customer.subscription.updated`
  *    already wrote.
  *  - Unknown events map to `null` → the webhook returns 200 and writes nothing.
+ *
+ * WHAT IT DELIBERATELY DOES *NOT* GUARANTEE — and where that lives instead.
+ * This header used to claim "design for idempotency + out-of-order safety" on
+ * the grounds that upserting by user_id makes a replay a no-op. That reasoning
+ * was wrong and audit FLAG-3 demonstrated it: an upsert keyed on user_id makes
+ * whatever arrives LAST win, which is the opposite of order-safety. Replaying
+ * the same event is harmless only because it writes the same values; replaying
+ * an OLDER event overwrites a newer state and downgrades a paying customer.
+ *
+ * This module is a pure per-event mapping and has no way to know what is
+ * already stored, so ordering cannot be decided here. It is decided in
+ * `webhookOrdering.ts`, which compares the event against the current row, and
+ * enforced by the conditional write in `api/stripe-webhook.ts`.
  */
 
 export type Plan = 'free' | 'pro'
@@ -43,6 +55,15 @@ interface MinimalCheckoutSession {
 export interface MinimalStripeEvent {
   type: string
   data: { object: unknown }
+  /**
+   * Stripe's event id (`evt_…`). Optional in the TYPE, required in PRACTICE:
+   * every event Stripe signs carries one, and `webhookOrdering.ts` refuses to
+   * apply an event without it rather than guessing. Optional here so a fixture
+   * that only exercises the mapping does not have to invent one.
+   */
+  id?: string
+  /** Stripe's `created`, unix SECONDS. Same optional-in-type rule as `id`. */
+  created?: number
 }
 
 /** Statuses that still grant Pro access (past_due keeps access during dunning). */
