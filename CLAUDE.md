@@ -741,25 +741,35 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
-> ### ⚠️ TWO MIGRATIONS ARE PENDING — and that is deliberate
+> ### ⚠️ ONE MIGRATION IS PENDING — and that is deliberate
 >
-> **Applied through `20260731140000_journal_entries`.** Two files sit in
-> `supabase/migrations/` **UNAPPLIED**, by the owner's explicit decision (2026-08-01):
+> **Applied through `20260801130000_journal_audio_quota`.** ONE file sits in
+> `supabase/migrations/` **UNAPPLIED** (2026-08-01):
 >
 > | Pending file | What it does | Risk |
 > | --- | --- | --- |
-> | `20260801120000_length_caps.sql` | Size CHECKs on the pre-2026-07-28 tables (audit FLAG-9) | Adding a CHECK validates every existing row and FAILS if one violates it. Run the commented dry run in section 0 FIRST. |
-> | `20260801130000_journal_audio_quota.sql` | Per-user 200 MB cap on the `journal-audio` bucket, as a trigger (audit FLAG-7) | Creating a trigger on `storage.objects` needs ownership of a table Supabase owns. May fail with `must be owner of table objects`. |
+> | `20260801140000_billing_event_ordering.sql` | Adds `last_stripe_event_id` + `last_stripe_event_at` to `billing`, so the Stripe webhook can de-duplicate a redelivered event and refuse an out-of-order one (audit FLAG-3) | **Low.** Two nullable columns with no default — a catalog-only change, no table rewrite, no validation pass. Unlike a CHECK it cannot fail on existing rows. |
+>
+> **IT MUST BE APPLIED BEFORE LIVE STRIPE KEYS ARE SET.** The webhook does not fall back to the
+> old unordered write when the columns are absent — it fails closed with
+> `503 billing_schema_outdated` and grants nothing, deliberately, because silently degrading to
+> the behaviour that caused FLAG-3 is worse than refusing. Stripe retries a 503, so events queued
+> during a gap are not lost. Order of operations: `docs/BILLING_SETUP.md` §1.
 >
 > **This is the ONE state the repo's own history says is dangerous** — an unapplied file in the
 > migrations folder is an invitation to run `supabase db push`, and commit `b2ee68c` exists because
 > docs once made that mistake reachable. So: an agent must **NOT** run `supabase db push`. The owner
-> runs it, in a real terminal, when they choose. Neither file is required for anything currently
-> shipping; the client-side halves of both are live and tested.
+> runs it, in a real terminal, when they choose.
 >
-> Both are pinned to their client constants by tests (`src/lib/limits.test.ts`,
-> `src/features/journal/journalAudioQuotaMigration.test.ts`), so the numbers cannot drift while they
-> wait. When one is applied, move it into the applied list below and delete its row here.
+> ### ✅ CORRECTED 2026-08-01 — the two July 08-01 files ARE applied
+>
+> This box previously listed `20260801120000_length_caps` and
+> `20260801130000_journal_audio_quota` as pending. **Both were applied by the owner** and nothing
+> updated this section afterwards, so the claim went stale. It is corrected here rather than
+> quietly deleted, because a future session reading the old text would either re-apply an applied
+> migration or refuse to touch a folder it wrongly believed was dangerous. Their client-side halves
+> remain pinned by `src/lib/limits.test.ts` and
+> `src/features/journal/journalAudioQuotaMigration.test.ts`.
 >
 > The three files from the 2026-07-31 session were applied and verified live:
 >
@@ -846,9 +856,9 @@ service-role client but filters by the JWT-verified caller.
   - The earlier `20260615120000_upgrade_intents` (willingness-to-pay fake-door, insert-only) and
     `20260607090000_task_workspace_integrity` (task↔workspace co-location guard + the
     `project_workspace()` / `section_workspace()` SECURITY DEFINER helpers) remain in place.
-  Don't re-create the schema or re-run migrations. `supabase db push` used to be a no-op; since
-  2026-08-01 it would apply the two pending files named in the box at the top of this section, so
-  it is no longer a safe "just check" command.
+  Don't re-create the schema or re-run migrations. `supabase db push` used to be a no-op; it
+  would now apply the one pending file named in the box at the top of this section, so it is
+  still not a safe "just check" command.
 
 ### Restoring a clean machine / fresh clone
 
@@ -884,13 +894,12 @@ service-role client but filters by the JWT-verified caller.
    `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. **Do NOT re-run migrations, and do NOT apply the two pending ones** — the cloud DB is current
-   through `20260731140000_journal_entries`. Since 2026-08-01 there are two deliberately unapplied
-   files in `supabase/migrations/`; the box above says which and why. Applying them is the owner's
-   call, in a **real terminal** (TTY — see CLI note):
+4. **Do NOT re-run migrations, and an agent must NOT apply the pending one** — the cloud DB is
+   current through `20260801130000_journal_audio_quota`. ONE deliberately unapplied file remains,
+   `20260801140000_billing_event_ordering.sql`; the box above says what it does and why it must
+   land before live Stripe keys. Applying it is the owner's call, in a **real terminal** (TTY —
+   see CLI note):
    `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
-   That single command applies **both** pending files, in timestamp order, each in its own
-   transaction — there is no per-file flag, so read both headers before running it.
 5. `npx playwright install chromium` — **a wipe also clears `~/AppData/Local/ms-playwright`**, so
    `npm run e2e` dies with `Executable doesn't exist at …chrome-headless-shell.exe`. That is a
    missing *browser*, not a broken suite. CI installs its own browsers, so this step is local-only.

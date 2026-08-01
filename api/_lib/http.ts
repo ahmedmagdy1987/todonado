@@ -16,14 +16,22 @@ export function json(
  * echo back the input they were given, so this is defence-in-depth: we return
  * upstream messages to help debugging, but never a key.
  *
- * Covers Stripe secret/restricted/publishable keys, Stripe webhook signing
- * secrets, and JWTs (the Supabase anon + service-role keys are JWTs).
+ * Covers Stripe secret/restricted/publishable keys (test AND live), Stripe
+ * webhook signing secrets, Supabase's `sb_secret_` / `sb_publishable_` format,
+ * and JWTs (the Supabase anon + service-role keys are JWTs).
  */
 export function redactSecrets(input: string): string {
   return input
     .replace(/\b[rs]k_(?:live|test)_[A-Za-z0-9]+/g, '[redacted-stripe-key]')
     .replace(/\bpk_(?:live|test)_[A-Za-z0-9]+/g, '[redacted-stripe-key]')
     .replace(/\bwhsec_[A-Za-z0-9]+/g, '[redacted-webhook-secret]')
+    /*
+     * Supabase's newer key format. The audit noted this gap and reasoned it
+     * "stops mattering for the response path" once upstream messages were no
+     * longer echoed (FLAG-13) — true for RESPONSES, and irrelevant to LOGS,
+     * which every error path here still writes and which go to Vercel.
+     */
+    .replace(/\bsb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, '[redacted-supabase-key]')
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted-jwt]')
 }
 

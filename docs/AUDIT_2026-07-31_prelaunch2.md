@@ -16,6 +16,28 @@
 > This supersedes nothing. `docs/AUDIT_2026-07-31_final.md` covered the same ground earlier the
 > same day; this pass re-ran all of it and went further into the four `/api` endpoints, the two
 > recurring bug classes, and the surfaces added since.
+>
+> ---
+>
+> ### ADDENDUM 2026-08-01 — the billing-dependent flags were closed
+>
+> This document is a dated record and its FINDINGS are left exactly as written. Two factual
+> claims about migration state went stale and are corrected in place, each with a note saying so
+> (FLAG-7, FLAG-9): both files had been applied by the owner.
+>
+> Work done since, on branch `billing-golive-audit-flags`, ahead of switching Stripe to live keys:
+>
+> | Flag | Outcome |
+> | --- | --- |
+> | FLAG-2 | **CLOSED** — server-side price allow-list at checkout AND price verification before the webhook grants Pro |
+> | FLAG-3 | **CLOSED** — event de-duplication + ordering by Stripe's `event.created`, via a high-water mark on `billing`. Needs `20260801140000_billing_event_ordering.sql`, which must be applied before live keys |
+> | FLAG-4 | **CLOSED** — return URLs built from a validated `APP_BASE_URL`; the Origin header is never read |
+> | FLAG-8 | **HARDENED** — founding access requires a verified address and refuses aliases; the billing-row replacement is documented with its SQL |
+> | FLAG-10 | **PARTIAL** — a per-user in-process limiter on billing + calendar. Stops loops and self-inflicted Stripe throttling; does NOT stop a distributed attacker. Stated in full in `api/_lib/rateLimit.ts` |
+> | FLAG-11 | **CLOSED** — CSP now enforces in production (report-only in dev, where Vite's inline HMR preamble would otherwise break) |
+> | FLAG-14 | **CLOSED** — active-subscription refusal, Stripe customer reuse, and a checkout idempotency key |
+> | FLAG-15 | **CLOSED** — one timeout and one byte budget per REQUEST rather than per hop; redirect bodies drained |
+> | FLAG-5, FLAG-6 | **STILL OPEN.** Residual risk stated in full in the `api/_lib/ssrf.ts` header, including the measured reason the suggested FLAG-6 fix is larger than it looks: an undici Agent passed to Node's built-in `fetch` never invokes the custom lookup (0 calls), while the same Agent on undici's own `fetch` does (1 call) |
 
 ---
 
@@ -343,8 +365,10 @@ that would take the account past **200 MB** (about 400 notes, or a year of recor
 message that names the numbers and offers two ways out. Enforced at the upload rather than at the
 button, so it covers every path to a write.
 
-**The server half is now WRITTEN and waiting** (2026-08-01):
-`supabase/migrations/20260801130000_journal_audio_quota.sql`, committed and **NOT applied**. It is a
+**The server half is WRITTEN and — as of 2026-08-01 — APPLIED**:
+`supabase/migrations/20260801130000_journal_audio_quota.sql`. *(This paragraph said "committed and
+NOT applied" until the owner confirmed on 2026-08-01 that he had run `supabase db push` himself
+and it succeeded. Corrected in place; the finding itself is unchanged.)* It is a
 `before insert` **and** `before update of metadata` trigger on `storage.objects`, scoped to the
 `journal-audio` bucket, summing the caller's own folder and refusing anything past 200 MB. A
 trigger rather than a policy because a `with check` cannot see the incoming size on the resumable
@@ -393,10 +417,12 @@ member becomes a denial of service against every other member.
 `maxLength`: task title (which had none at all), task notes, project name, section name, subtask
 title.
 
-**The database half is WRITTEN and waiting** (2026-08-01):
-`supabase/migrations/20260801120000_length_caps.sql`, committed and **NOT applied**. Nothing in the
-cloud has changed, and `supabase db push` must not run until you decide. Until then CLAUDE.md's own
-rule still applies: this is client-side filtering, and the client is assumed hostile.
+**The database half is WRITTEN and — as of 2026-08-01 — APPLIED**:
+`supabase/migrations/20260801120000_length_caps.sql`. *(This paragraph said "committed and NOT
+applied … `supabase db push` must not run until you decide" until the owner confirmed on
+2026-08-01 that he had already run it successfully. Corrected in place; the finding is unchanged.)*
+With the CHECKs live, the caps are no longer client-side-only filtering — the database enforces
+them, which is what this flag asked for.
 
 `limits.test.ts` reads that migration **constraint by constraint** and asserts every constant
 matches, so the two halves cannot drift apart between now and the day it runs. Its first version
