@@ -51,6 +51,10 @@ export type ApiErrorCode =
   | 'billing_schema_outdated'
   | 'stripe_error'
   | 'internal_error'
+  // Too many requests in the window (audit FLAG-10). Best-effort and
+  // per-instance — see api/_lib/rateLimit.ts for exactly what that does and
+  // does not stop.
+  | 'rate_limited'
   // Calendar proxy (api/calendar-fetch)
   | 'not_configured'
   | 'pro_required'

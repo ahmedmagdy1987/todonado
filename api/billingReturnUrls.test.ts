@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetRateLimitStores } from './_lib/rateLimit.js'
 
 /**
  * Where Stripe sends people back to, and how many subscriptions one person can
@@ -92,6 +93,9 @@ let warnSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   for (const k of ENV_KEYS) delete process.env[k]
+  // The limiter's counters are module-level, so they survive between tests
+  // in this file. Without this, the 11th checkout here would 429 (FLAG-10).
+  resetRateLimitStores()
   getUserFromAuthHeader.mockReset()
   getSupabaseAdmin.mockReset()
   createCheckoutSession.mockReset()

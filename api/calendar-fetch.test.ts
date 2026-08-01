@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetRateLimitStores } from './_lib/rateLimit.js'
 
 /**
  * /api/calendar-fetch — auth, the SERVER-SIDE Pro gate, and the open-proxy guard.
@@ -76,6 +77,9 @@ const post = (headers: Record<string, string> = {}, body = '{}') =>
   })
 
 beforeEach(() => {
+  // Module-level limiter counters survive between tests in this file;
+  // without this the 7th calendar fetch here would 429 (FLAG-10).
+  resetRateLimitStores()
   for (const k of ENV_KEYS) delete process.env[k]
   getUserFromAuthHeader.mockReset()
   getSupabaseAdmin.mockReset()
@@ -135,7 +139,7 @@ describe('authentication', () => {
 describe('the Pro gate is enforced SERVER-SIDE', () => {
   beforeEach(() => {
     configure()
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'free@example.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'free@example.com', emailVerified: true })
   })
 
   it('answers 403 pro_required for a Free user', async () => {
@@ -162,7 +166,7 @@ describe('the Pro gate is enforced SERVER-SIDE', () => {
   })
 
   it('allows a founding account with no billing row', async () => {
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u2', email: 'journeypixofficial@gmail.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u2', email: 'journeypixofficial@gmail.com', emailVerified: true })
     getSupabaseAdmin.mockReturnValue(
       makeAdmin({ billingPlan: null, sources: [{ id: 's1', url: 'https://cal.example/a.ics' }] }),
     )
@@ -174,7 +178,7 @@ describe('the Pro gate is enforced SERVER-SIDE', () => {
 describe('open-proxy guard', () => {
   beforeEach(() => {
     configure()
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com', emailVerified: true })
   })
 
   it('IGNORES a URL in the request body and only reads the caller’s own rows', async () => {
@@ -206,7 +210,7 @@ describe('open-proxy guard', () => {
 describe('per-source error mapping is safe', () => {
   beforeEach(() => {
     configure()
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com', emailVerified: true })
   })
 
   it('collapses every "unacceptable URL" reason to invalid_source', async () => {

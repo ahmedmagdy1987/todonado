@@ -15,6 +15,12 @@ export async function resolveServerPlan(
   admin: SupabaseClient,
   userId: string,
   email: string | null,
+  /**
+   * From the verified JWT (see getUserFromAuthHeader). Defaults to FALSE here,
+   * the opposite of the client default, because on the server an unknown
+   * verification state must never buy founding access (audit FLAG-8).
+   */
+  emailVerified: boolean = false,
 ): Promise<Plan> {
   let billingPlan: Plan | null = null
   try {
@@ -29,5 +35,5 @@ export async function resolveServerPlan(
     // Billing unreadable (table missing / transient) → fall back to the founding
     // allowlist, exactly like the client does. Never fail open to Pro.
   }
-  return resolveEffectivePlan({ billingPlan, email })
+  return resolveEffectivePlan({ billingPlan, email, emailVerified })
 }

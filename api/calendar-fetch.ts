@@ -5,6 +5,7 @@ import { apiError, json, withErrorBoundary } from './_lib/http.js'
 import { toNodeHandler } from './_lib/nodeAdapter.js'
 import { resolveServerPlan } from './_lib/entitlement.js'
 import { fetchIcsGuarded, SsrfError } from './_lib/ssrf.js'
+import { enforceRateLimit } from './_lib/rateLimit.js'
 
 /**
  * POST /api/calendar-fetch
@@ -88,10 +89,21 @@ async function calendarFetch(req: Request): Promise<Response> {
   )
   if (!user) return apiError(401, 'unauthorized')
 
+  /*
+   * RATE LIMIT, keyed on the VERIFIED user (audit FLAG-10). Placed after auth
+   * so the counter names an account rather than a shared NAT address, and
+   * before anything that costs money or makes an outbound request.
+   * api/_lib/rateLimit.ts states plainly what this does and does not stop.
+   */
+  const limit = enforceRateLimit('calendar', user.id, req)
+  if (!limit.allowed) {
+    return apiError(429, 'rate_limited', { retry_after: limit.retryAfterSeconds })
+  }
+
   const admin = getSupabaseAdmin(env.supabaseUrl, env.supabaseServiceRoleKey)
 
   // Pro gate, server-side. Free keeps file upload; live URL sync is the paid line.
-  const plan = await resolveServerPlan(admin, user.id, user.email)
+  const plan = await resolveServerPlan(admin, user.id, user.email, user.emailVerified)
   if (plan !== 'pro') return apiError(403, 'pro_required')
 
   const { data, error } = await admin

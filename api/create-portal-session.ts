@@ -4,6 +4,7 @@ import { getStripe } from './_lib/stripe.js'
 import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
 import { toNodeHandler } from './_lib/nodeAdapter.js'
+import { enforceRateLimit } from './_lib/rateLimit.js'
 
 /**
  * POST /api/create-portal-session
@@ -39,6 +40,17 @@ async function portal(req: Request): Promise<Response> {
     env.supabaseServiceRoleKey,
   )
   if (!user) return apiError(401, 'unauthorized')
+
+  /*
+   * RATE LIMIT, keyed on the VERIFIED user (audit FLAG-10). Placed after auth
+   * so the counter names an account rather than a shared NAT address, and
+   * before anything that costs money or makes an outbound request.
+   * api/_lib/rateLimit.ts states plainly what this does and does not stop.
+   */
+  const limit = enforceRateLimit('billing', user.id, req)
+  if (!limit.allowed) {
+    return apiError(429, 'rate_limited', { retry_after: limit.retryAfterSeconds })
+  }
 
   const missing = missingServerBillingVars(env)
   if (missing.length > 0) return apiError(503, 'billing_not_configured', { missing })
