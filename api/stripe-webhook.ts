@@ -1,5 +1,5 @@
 // Relative imports MUST carry .js — see the note in create-checkout-session.ts.
-import { serverEnv, missingWebhookVars } from './_lib/config.js'
+import { serverEnv, missingWebhookVars, configuredPriceIds } from './_lib/config.js'
 import { getStripe } from './_lib/stripe.js'
 import { getSupabaseAdmin } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
@@ -7,6 +7,7 @@ import { toNodeHandler } from './_lib/nodeAdapter.js'
 // Leaf module from src/ (no `@/` imports) — safe for Vercel to bundle here.
 import {
   mapStripeEventToBilling,
+  priceIdsForEvent,
   type MinimalStripeEvent,
 } from '../src/features/billing/webhookMapping.js'
 import {
@@ -143,6 +144,39 @@ async function webhook(req: Request): Promise<Response> {
       `[api/stripe-webhook] ignoring event ${event.id ?? '<no id>'} (${event.type}): ${decision.reason}`,
     )
     return json(200, { received: true, skipped: decision.reason })
+  }
+
+  /*
+   * VERIFY WHAT WAS BOUGHT BEFORE GRANTING ANYTHING (audit FLAG-2).
+   *
+   * The webhook used to grant `plan: 'pro'` for any completed checkout without
+   * inspecting the purchase. Paired with a checkout endpoint that accepted any
+   * price id, that meant a subscription at ANY recurring price in the account
+   * bought the full paid tier.
+   *
+   * The check is asymmetric on purpose, and it is the same asymmetry as the
+   * ordering guard: GRANTING requires proof, REVOKING does not. A cancellation
+   * of a subscription on a price we no longer sell must still be honoured, or
+   * retiring a price would strand its subscribers on Pro forever.
+   */
+  if (decision.upsert.plan === 'pro') {
+    const allowed = configuredPriceIds(env)
+    const purchased = priceIdsForEvent(event)
+    const unrecognised = purchased.filter((id) => !allowed.includes(id))
+
+    if (purchased.length === 0 || unrecognised.length > 0) {
+      // LOUDLY: this is either a misconfiguration or someone buying something
+      // we do not sell, and both need a human to look.
+      console.error(
+        '[api/stripe-webhook] REFUSING to grant Pro — event ' +
+          `${event.id ?? '<no id>'} (${event.type}) for user ${decision.upsert.user_id} ` +
+          (purchased.length === 0
+            ? 'carried no readable price id'
+            : `named unconfigured price(s): ${unrecognised.join(', ')}`) +
+          '. Check STRIPE_PRICE_MONTHLY / STRIPE_PRICE_YEARLY against the Stripe dashboard.',
+      )
+      return json(200, { received: true, skipped: 'unrecognised_price' })
+    }
   }
 
   const row = {

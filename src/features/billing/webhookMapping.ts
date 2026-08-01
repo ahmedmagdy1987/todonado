@@ -44,13 +44,15 @@ interface MinimalSubscription {
   status?: string | null
   current_period_end?: number | null // unix seconds
   customer?: string | null
-  metadata?: { user_id?: string | null } | null
+  metadata?: { user_id?: string | null; price_id?: string | null } | null
+  /** What was actually bought. Present on every customer.subscription.* event. */
+  items?: { data?: Array<{ price?: { id?: string | null } | null } | null> | null } | null
 }
 interface MinimalCheckoutSession {
   customer?: string | null
   subscription?: string | null
   client_reference_id?: string | null
-  metadata?: { user_id?: string | null } | null
+  metadata?: { user_id?: string | null; price_id?: string | null } | null
 }
 export interface MinimalStripeEvent {
   type: string
@@ -72,6 +74,53 @@ const ACTIVE_STATUSES = new Set(['active', 'trialing', 'past_due'])
 /** Plan implied by a Stripe subscription status. */
 export function planForStatus(status: string | null | undefined): Plan {
   return status != null && ACTIVE_STATUSES.has(status) ? 'pro' : 'free'
+}
+
+/**
+ * Every price id this event says was purchased (audit FLAG-2).
+ *
+ * The webhook granted `plan: 'pro'` for any completed checkout without ever
+ * looking at WHAT was bought. This is the extraction half of the fix; the
+ * comparison against the configured allow-list lives in the handler, because
+ * only the server knows which prices it sells.
+ *
+ * TWO SOURCES, AND THE ORDER MATTERS:
+ *
+ *  - `subscription.items.data[].price.id` is Stripe's own record of what the
+ *    subscription contains, and is authoritative. It is present on every
+ *    `customer.subscription.*` event.
+ *  - `metadata.price_id` is OUR stamp, written by create-checkout-session
+ *    after it validated the price. It exists because a
+ *    `checkout.session.completed` payload carries no line items at all, so
+ *    that one event could otherwise never be verified.
+ *
+ * Returns an EMPTY array when neither is present, which callers must treat as
+ * "unverifiable", never as "fine".
+ */
+export function priceIdsForEvent(event: MinimalStripeEvent): string[] {
+  const ids: string[] = []
+  const push = (value: unknown) => {
+    if (typeof value === 'string' && value.length > 0 && !ids.includes(value)) ids.push(value)
+  }
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      push((event.data.object as MinimalCheckoutSession).metadata?.price_id)
+      break
+    }
+    case 'customer.subscription.updated':
+    case 'customer.subscription.deleted': {
+      const sub = event.data.object as MinimalSubscription
+      for (const item of sub.items?.data ?? []) push(item?.price?.id)
+      // Only as a fallback: a subscription with no readable items should not be
+      // silently unverifiable when we stamped the price ourselves.
+      if (ids.length === 0) push(sub.metadata?.price_id)
+      break
+    }
+    default:
+      break
+  }
+  return ids
 }
 
 /** Unix seconds → ISO string, or null. */

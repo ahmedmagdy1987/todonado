@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  configuredPriceIds,
+  isConfiguredPriceId,
   isServerBillingConfigured,
   isValidPriceId,
   missingServerBillingVars,
@@ -8,9 +10,14 @@ import {
   type ServerEnv,
 } from './config.js'
 
+const MONTHLY = 'price_configuredMonthly1'
+const YEARLY = 'price_configuredYearly12'
+
 const FULL: ServerEnv = {
   stripeSecretKey: 'sk_test_x',
   stripeWebhookSecret: 'whsec_x',
+  stripePriceMonthly: MONTHLY,
+  stripePriceYearly: YEARLY,
   supabaseUrl: 'https://p.supabase.co',
   supabaseServiceRoleKey: 'service-role',
 }
@@ -18,6 +25,8 @@ const FULL: ServerEnv = {
 const ENV_KEYS = [
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_PRICE_MONTHLY',
+  'STRIPE_PRICE_YEARLY',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
 ] as const
@@ -42,11 +51,15 @@ describe('missingServerBillingVars', () => {
     const missing = missingServerBillingVars({
       stripeSecretKey: '',
       stripeWebhookSecret: '',
+      stripePriceMonthly: '',
+      stripePriceYearly: '',
       supabaseUrl: '',
       supabaseServiceRoleKey: '',
     })
     expect(missing).toEqual([
       'STRIPE_SECRET_KEY',
+      'STRIPE_PRICE_MONTHLY',
+      'STRIPE_PRICE_YEARLY',
       'SUPABASE_URL',
       'SUPABASE_SERVICE_ROLE_KEY',
     ])
@@ -74,6 +87,8 @@ describe('serverEnv', () => {
 
   it('trims whitespace — a pasted key with a trailing newline still counts', () => {
     process.env.STRIPE_SECRET_KEY = '  sk_test_x\n'
+    process.env.STRIPE_PRICE_MONTHLY = MONTHLY
+    process.env.STRIPE_PRICE_YEARLY = YEARLY
     process.env.SUPABASE_URL = 'https://p.supabase.co'
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role'
     expect(missingServerBillingVars(serverEnv())).toEqual([])
@@ -106,5 +121,46 @@ describe('isValidPriceId', () => {
 
   it.each(invalid)('rejects %s', (_label, value) => {
     expect(isValidPriceId(value)).toBe(false)
+  })
+})
+
+describe('configuredPriceIds / isConfiguredPriceId — the actual FLAG-2 gate', () => {
+  it('lists exactly the two configured prices', () => {
+    expect(configuredPriceIds(FULL)).toEqual([MONTHLY, YEARLY])
+  })
+
+  it('accepts each configured price', () => {
+    expect(isConfiguredPriceId(MONTHLY, FULL)).toBe(true)
+    expect(isConfiguredPriceId(YEARLY, FULL)).toBe(true)
+  })
+
+  it('REJECTS a well-formed price id that is not ours — the whole point of the flag', () => {
+    // Passes isValidPriceId, exists in the Stripe account, and must still lose.
+    const grandfathered = 'price_grandfatheredCheap9'
+    expect(isValidPriceId(grandfathered)).toBe(true)
+    expect(isConfiguredPriceId(grandfathered, FULL)).toBe(false)
+  })
+
+  it('FAILS CLOSED — an unset env var rejects everything, never accepts everything', () => {
+    const none: ServerEnv = { ...FULL, stripePriceMonthly: '', stripePriceYearly: '' }
+    expect(configuredPriceIds(none)).toEqual([])
+    expect(isConfiguredPriceId(MONTHLY, none)).toBe(false)
+  })
+
+  it('never lets an empty env var widen the list to include the empty string', () => {
+    const partial: ServerEnv = { ...FULL, stripePriceYearly: '' }
+    expect(configuredPriceIds(partial)).toEqual([MONTHLY])
+    expect(isConfiguredPriceId('', partial)).toBe(false)
+  })
+
+  it('is an exact match, not a prefix or substring match', () => {
+    expect(isConfiguredPriceId(MONTHLY + 'x', FULL)).toBe(false)
+    expect(isConfiguredPriceId(MONTHLY.slice(0, -1), FULL)).toBe(false)
+  })
+
+  it('rejects non-string input without throwing', () => {
+    for (const value of [undefined, null, 42, {}, [MONTHLY]]) {
+      expect(isConfiguredPriceId(value, FULL)).toBe(false)
+    }
   })
 })

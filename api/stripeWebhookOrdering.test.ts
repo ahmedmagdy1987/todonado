@@ -38,13 +38,22 @@ const T = { early: 1_800_000_000, mid: 1_800_000_100, late: 1_800_000_200 } as c
 const ENV_KEYS = [
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_PRICE_MONTHLY',
+  'STRIPE_PRICE_YEARLY',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
 ] as const
 
+/** The price this file's subscription fixtures are bought on. */
+const MONTHLY = 'price_configuredMonthly1'
+
 function configure() {
   process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy'
+  // Required since FLAG-2: the webhook will not grant Pro without a configured
+  // price to compare the purchase against.
+  process.env.STRIPE_PRICE_MONTHLY = MONTHLY
+  process.env.STRIPE_PRICE_YEARLY = 'price_configuredYearly12'
   process.env.SUPABASE_URL = 'https://p.supabase.co'
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-dummy'
 }
@@ -138,6 +147,9 @@ const updatedEvent = (id: string, created: number, subscription: string): Minima
       current_period_end: created + 2_592_000,
       customer: 'cus_1',
       metadata: { user_id: UID },
+      // A configured price, so the FLAG-2 grant check passes and these tests
+      // stay about ORDERING rather than accidentally re-testing the allow-list.
+      items: { data: [{ price: { id: MONTHLY } }] },
     },
   },
 })

@@ -3,7 +3,12 @@
 // do extension guessing — an extensionless specifier throws ERR_MODULE_NOT_FOUND
 // at module load, which Vercel surfaces as FUNCTION_INVOCATION_FAILED (a bare
 // 500 on EVERY request, before any handler code runs).
-import { serverEnv, missingServerBillingVars, isValidPriceId } from './_lib/config.js'
+import {
+  serverEnv,
+  missingServerBillingVars,
+  isValidPriceId,
+  isConfiguredPriceId,
+} from './_lib/config.js'
 import { getStripe } from './_lib/stripe.js'
 import { getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
@@ -57,7 +62,27 @@ async function checkout(req: Request): Promise<Response> {
     /* empty/invalid body handled below */
   }
   if (body.priceId == null || body.priceId === '') return apiError(400, 'missing_price_id')
+  /*
+   * TWO CHECKS, AND ONLY THE SECOND ONE IS THE GATE (audit FLAG-2).
+   *
+   * The shape check is a cheap reject for obvious junk. It is NOT authorisation
+   * — every real price in the Stripe account looks like `price_…`, so on its
+   * own it let any authenticated user subscribe at ANY recurring price that
+   * exists: a grandfathered price, an internal discount price, a partner price.
+   *
+   * The allow-list is the gate. It is built from STRIPE_PRICE_MONTHLY and
+   * STRIPE_PRICE_YEARLY, which the request cannot influence, and it fails
+   * closed when unset. A price id from the client is never trusted — it is only
+   * ever compared.
+   */
   if (!isValidPriceId(body.priceId)) return apiError(400, 'invalid_price')
+  if (!isConfiguredPriceId(body.priceId, env)) {
+    console.warn(
+      '[api/create-checkout-session] rejected a price this deployment does not sell for user',
+      user.id,
+    )
+    return apiError(400, 'invalid_price')
+  }
   const priceId = body.priceId
 
   const origin = req.headers.get('origin') ?? 'https://www.todonado.com'
@@ -68,8 +93,21 @@ async function checkout(req: Request): Promise<Response> {
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
       client_reference_id: user.id,
-      metadata: { user_id: user.id },
-      subscription_data: { metadata: { user_id: user.id } },
+      /*
+       * `price_id` is stamped alongside `user_id` so the webhook can verify
+       * WHAT was bought without a second Stripe API call.
+       *
+       * It is needed because a `checkout.session.completed` webhook payload
+       * carries no line items — the session object has only the subscription
+       * id — so that event alone cannot prove which price was purchased. The
+       * subscription events that follow DO carry `items.data[].price.id` and
+       * are the authoritative check; this metadata closes the gap for the one
+       * event that arrives first. Both are compared against the same
+       * server-side allow-list, and this value was validated moments ago,
+       * above, before the session was created.
+       */
+      metadata: { user_id: user.id, price_id: priceId },
+      subscription_data: { metadata: { user_id: user.id, price_id: priceId } },
       customer_email: user.email ?? undefined,
       allow_promotion_codes: true,
       success_url: `${origin}/settings/plan?checkout=success`,
