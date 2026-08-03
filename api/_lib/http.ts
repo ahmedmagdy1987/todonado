@@ -65,6 +65,12 @@ export type ApiErrorCode =
   // It refuses to write rather than falling back to the unordered upsert that
   // caused audit FLAG-3. Stripe retries a 503, so queued events are not lost.
   | 'billing_schema_outdated'
+  // The server could not DETERMINE the caller's entitlement — a permission
+  // error, an unapplied schema, an unreachable database. Deliberately NOT 403:
+  // a 403 is a statement that the user is not entitled, and this endpoint does
+  // not have the facts to make one. Answering Free instead is how a paying
+  // subscriber used to be silently downgraded (see api/_lib/entitlement.ts).
+  | 'entitlement_unavailable'
   | 'stripe_error'
   | 'internal_error'
   // Too many requests in the window (audit FLAG-10). Best-effort and
