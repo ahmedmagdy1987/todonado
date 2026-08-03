@@ -236,7 +236,43 @@ describe('service_role, through PostgREST', () => {
     })
     expect(data).toBe('applied')
 
-    const { data: billing } = await service().from('billing').select('*').eq('user_id', userAId)
-    expect(billing?.[0]?.plan).toBe('pro')
+    /*
+     * Verify the binding two ways, because the first attempt at this assertion
+     * failed with a bare `expected undefined to be 'pro'`, which says nothing
+     * about whether the row is missing or merely unreadable.
+     *
+     * 1. FUNCTIONALLY, through a channel already proven to work: a lifecycle
+     *    event for that exact subscription must now resolve to a user. Before
+     *    the binding it would answer 'unknown_subscription'. This does not
+     *    depend on service_role being able to SELECT anything.
+     */
+    const lifecycle = await service().rpc('apply_stripe_subscription_event', {
+      p_subscription_id: `sub_${stamp}`,
+      p_event_id: `evt_after_${stamp}`,
+      p_event_at: new Date(Date.now() + 60_000).toISOString(),
+      p_plan: 'pro',
+      p_customer_id: 'cus_1',
+      p_status: 'active',
+      p_period_end: null,
+      p_set_period_end: false,
+    })
+    expect(
+      lifecycle.data,
+      'the subscription must now be bound to a user; unknown_subscription means it is not',
+    ).toBe('applied')
+
+    /*
+     * 2. By reading the row, IF service_role can read it. Whether it can is
+     *    itself worth knowing, so the error is surfaced rather than collapsing
+     *    into `undefined`.
+     */
+    const read = await service().from('billing').select('plan').eq('user_id', userAId)
+    if (read.error) {
+      throw new Error(
+        `service_role could not read billing through PostgREST: ` +
+          `${read.error.code ?? '?'} ${read.error.message}`,
+      )
+    }
+    expect(read.data?.[0]?.plan, `billing rows returned: ${JSON.stringify(read.data)}`).toBe('pro')
   })
 })
