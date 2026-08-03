@@ -30,6 +30,11 @@ jobs:
   verify:
     name: typecheck · lint · unit · build
     runs-on: ubuntu-latest
+    # A ci-probe branch exists to watch ONE database gate go red. Neither this
+    # job nor the browser smoke is ever the target, and the smoke signs a real
+    # account up on the live Supabase project — running it ten times to observe
+    # an unrelated failure would be waste with a side effect.
+    if: ${{ !startsWith(github.ref_name, 'ci-probe/') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,6 +50,8 @@ jobs:
   e2e:
     name: e2e smoke (chromium)
     runs-on: ubuntu-latest
+    # See the note on `verify`: probe branches skip this deliberately.
+    if: ${{ !startsWith(github.ref_name, 'ci-probe/') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -127,13 +134,32 @@ jobs:
       - name: Reset and apply the whole chain a second time
         run: node supabase/test/apply.mjs --reset
 
-      - name: A production-looking host must be refused
+      # IT MUST REFUSE, NOT MERELY FAIL.
+      #
+      # This step used to check the exit code alone, and that is not the same
+      # question: `db.abcdefgh.supabase.co` does not resolve, so apply.mjs exits
+      # non-zero whether the guard fired or it simply could not connect. Deleting
+      # the guard outright left this step GREEN — found by running exactly that
+      # mutation as a negative control. The refusal message is now required, so
+      # the check fails when the guard is gone.
+      - name: A production-looking host must be refused, for the right reason
         run: |
-          if DATABASE_URL='postgres://u:p@db.abcdefgh.supabase.co:5432/postgres' \
-             node supabase/test/apply.mjs --reset; then
-            echo "::error::apply.mjs accepted a supabase.co host"; exit 1
+          set +e
+          out=$(DATABASE_URL='postgres://u:p@db.abcdefgh.supabase.co:5432/postgres' \
+                node supabase/test/apply.mjs --reset 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          if [ $code -eq 0 ]; then
+            echo "::error::apply.mjs ACCEPTED a supabase.co host"; exit 1
           fi
-          echo "refused a supabase.co host, as required"
+          if ! echo "$out" | grep -q 'REFUSING to run against a supabase.co host'; then
+            echo "::error::apply.mjs exited $code but never refused the host. Failing to \
+          connect is not the same as declining to try, and only the guard stops a real \
+          project being migrated by accident."
+            exit 1
+          fi
+          echo "refused a supabase.co host, and said so"
 
       - name: Privilege and concurrency tests (real connections)
         run: npm run test:db -- --reporter=json --outputFile=/tmp/db-results.json
