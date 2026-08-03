@@ -1,0 +1,127 @@
+-- ============================================================================
+--  Todonado — the SQL privilege contract for public.billing
+--
+--  WHAT THIS CLOSES, AND HOW IT WAS FOUND
+--
+--  The `supabase postgrest permissions` CI job — a FULLY LOCAL Supabase stack,
+--  not a shim — failed with:
+--
+--      42501 permission denied for table billing
+--
+--  on a plain service-role SELECT through PostgREST. Three server-side code
+--  paths make exactly that read today, so this is not a test artefact:
+--
+--    api/create-checkout-session.ts   select stripe_customer_id,
+--                                            stripe_subscription_id,
+--                                            subscription_status
+--                                     -> the duplicate-subscription guard.
+--                                        Its error branch returns 500
+--                                        billing_lookup_failed, so NOBODY
+--                                        could have bought anything.
+--    api/create-portal-session.ts     select stripe_customer_id
+--                                     -> also 500 billing_lookup_failed, so a
+--                                        paying customer could not reach the
+--                                        portal to manage or CANCEL.
+--    api/_lib/entitlement.ts          select plan  (resolveServerPlan)
+--                                     -> swallows the error and falls back, so
+--                                        a paying Pro user would have been
+--                                        silently served as Free. No error, no
+--                                        alert, just a downgrade.
+--
+--  RLS BYPASS AND TABLE PRIVILEGES ARE DIFFERENT CONTROLS, AND THAT IS THE
+--  WHOLE LESSON. `service_role` is BYPASSRLS, so every comment in this repo
+--  that says "the webhook uses the service-role key, which bypasses RLS" is
+--  true — and irrelevant to this failure. BYPASSRLS decides which ROWS a role
+--  may see once it is allowed to touch the table at all. Whether it may touch
+--  the table at all is a GRANT, and no GRANT on public.billing existed anywhere
+--  in this repository. The access was arriving — where it arrived at all — from
+--  Supabase's ALTER DEFAULT PRIVILEGES on schema public, which is platform
+--  behaviour this repo does not own, does not version, and (as the local stack
+--  proved) cannot rely on.
+--
+--  WHY THE RAW-POSTGRES SUITE DID NOT CATCH IT
+--
+--  supabase/test/00_supabase_shim.sql handed `service_role` ALL on every future
+--  table in public via its own ALTER DEFAULT PRIVILEGES. That INVENTED a
+--  privilege the real stack does not give, so the shim reported a green money
+--  path that production would have refused. The shim is corrected in the same
+--  commit as this file, and db-tests/billingGrant.db.test.ts now proves the
+--  grant comes from THIS migration by applying the chain only as far as
+--  20260801150000 and checking that service_role still cannot read billing.
+--
+--  THE CONTRACT INSTALLED HERE — REVOKE FIRST, THEN GRANT EXACTLY ONE THING
+--
+--  Every role is revoked before anything is granted, so the end state is the
+--  same whether or not the platform handed out defaults first. That is what
+--  makes this file deterministic from an empty migration chain instead of a
+--  diff against an environment we cannot see.
+--
+--    service_role   SELECT only. No INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/
+--                   TRIGGER. Nothing in api/ writes this table directly — every
+--                   write goes through apply_stripe_billing_event,
+--                   bind_verified_checkout or apply_stripe_subscription_event,
+--                   which are SECURITY DEFINER and hold the ordering, the
+--                   downgrade rules and the `for update` lock. Granting a write
+--                   here would create a second, unreviewed write path around
+--                   all of it. Verified by inventory: zero .from('billing')
+--                   .insert/.update/.upsert/.delete in the entire repository.
+--    authenticated  SELECT only. src/features/billing/usePlan.ts really does
+--                   read the signed-in user's own row (`select *`), scoped by
+--                   the billing_select_own policy. That read is legitimate,
+--                   it ships today, and it must not break — so it is made
+--                   EXPLICIT here rather than left resting on the same platform
+--                   default that just failed for service_role.
+--    anon           NOTHING. No logged-out code path reads billing (usePlan is
+--                   `enabled: !!userId`), and the select-own policy can never
+--                   match a null auth.uid() anyway. This follows the convention
+--                   20260801150000 already set for checkout_attempts. See the
+--                   note on behaviour change below.
+--    PUBLIC         NOTHING, stated rather than assumed.
+--
+--  THIS FILE IS NOT PURELY ADDITIVE — READ BEFORE APPLYING.
+--
+--  Two privileges that exist in production today are removed:
+--    * anon loses SELECT. Effect on behaviour: none. An anonymous
+--      `select * from billing` returned `200 []` (RLS matching no row) and will
+--      now return a permission error instead. Nothing in the app makes that
+--      request; usePlan is disabled until there is a user, and it already maps
+--      any error to "no billing row". The live-verification probe documented in
+--      CLAUDE.md §7 changes answer accordingly.
+--    * anon and authenticated lose INSERT/UPDATE/DELETE. Effect on behaviour:
+--      none. billing has a SELECT-own policy and no write policy of any kind,
+--      so RLS already refused every one of these. This removes the surface
+--      underneath RLS rather than relying on RLS alone.
+--
+--  Idempotent: GRANT and REVOKE are declarative, so re-running lands on the
+--  same state. No DDL, no table rewrite, no lock beyond a brief
+--  ACCESS EXCLUSIVE on the catalog row.
+-- ============================================================================
+
+-- ── PUBLIC ──────────────────────────────────────────────────────────────────
+-- PostgreSQL grants no table privileges to PUBLIC by default, unlike functions.
+-- Said out loud anyway: this is the role an unintended grant hides in, and
+-- REVOKE ... FROM PUBLIC does not touch privileges held directly by the named
+-- roles below, so it is safe to run first.
+revoke all on table public.billing from public;
+
+-- ── service_role — the three server-side direct reads, and nothing else ─────
+revoke all on table public.billing from service_role;
+grant select on table public.billing to service_role;
+
+-- ── authenticated — the browser's own-row read, RLS-scoped ──────────────────
+revoke all on table public.billing from authenticated;
+grant select on table public.billing to authenticated;
+
+-- ── anon — no legitimate read exists ────────────────────────────────────────
+revoke all on table public.billing from anon;
+
+-- ============================================================================
+--  RLS STAYS ON AND UNCHANGED.
+--
+--  Table privileges decide who may address the table; the policy decides which
+--  rows come back. Removing either would be a hole, so this file asserts the
+--  first and leaves 20260706130000_billing.sql to own the second. Re-stated
+--  rather than assumed, because a table with grants and RLS switched off would
+--  hand every authenticated user every other user's Stripe ids.
+-- ============================================================================
+alter table public.billing enable row level security;

@@ -1,6 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type pg from 'pg'
-import { connect, makeUser, resetBillingState } from './helpers.js'
+import {
+  DATA_API_ROLES,
+  TABLE_PRIVILEGES,
+  connect,
+  hasTablePrivilege,
+  heldPrivileges,
+  makeUser,
+  resetBillingState,
+  tableGrants,
+  type TablePrivilege,
+} from './helpers.js'
 
 /**
  * WHO CAN ACTUALLY DO WHAT, read from the installed catalog.
@@ -84,31 +94,202 @@ describe('function privileges — every billing RPC', () => {
   })
 })
 
-describe('checkout_attempts table privileges', () => {
-  const PRIVS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES'] as const
+/* ===========================================================================
+ *  billing — the SQL privilege layer, stated as a complete matrix.
+ *
+ *  This table had NO grant of any kind in the repository until
+ *  20260801160000_billing_service_role_access.sql. What access existed came
+ *  from the platform's ALTER DEFAULT PRIVILEGES, which is not versioned here
+ *  and — since `auto_expose_new_tables` flipped on 2026-05-30 (see
+ *  supabase/config.toml) — is not given any more. The local Supabase stack
+ *  proved it by refusing the money path's own read with 42501.
+ *
+ *  Every role and every privilege is named, including the ones nobody would
+ *  think to grant, because an audit that lists only the interesting cells has
+ *  no way to notice a new one.
+ * ======================================================================== */
+describe('billing table privileges — the complete SQL matrix', () => {
+  /**
+   * THE INTENDED CONTRACT. Change this and you are changing what production is
+   * allowed to do, so it lives in one place and every assertion below reads
+   * from it.
+   *
+   *  service_role   SELECT  — three direct reads: create-checkout-session (the
+   *                           duplicate-subscription guard), create-portal-
+   *                           session, and resolveServerPlan. No write: every
+   *                           write goes through the SECURITY DEFINER billing
+   *                           functions, which own the ordering and downgrade
+   *                           rules.
+   *  authenticated  SELECT  — the signed-in user's OWN row, narrowed by the
+   *                           billing_select_own policy. usePlan() and the
+   *                           settings data export both depend on it.
+   *  anon           nothing — no logged-out code path reads billing.
+   *  PUBLIC         nothing — the role an unintended grant hides in.
+   */
+  const INTENDED: Record<string, TablePrivilege[]> = {
+    public: [],
+    anon: [],
+    authenticated: ['SELECT'],
+    service_role: ['SELECT'],
+  }
 
-  it.each(['public', 'anon', 'authenticated'])('%s holds NO privilege at all', async (role) => {
-    for (const p of PRIVS) {
-      const { rows } = await root.query('select has_table_privilege($1,$2,$3) as ok', [
-        role,
-        'public.checkout_attempts',
-        p,
-      ])
-      expect(rows[0].ok, `${role} must not have ${p}`).toBe(false)
+  it.each(DATA_API_ROLES)('%s holds exactly the intended privileges', async (role) => {
+    expect(await heldPrivileges(root, role, 'public.billing')).toEqual(INTENDED[role])
+  })
+
+  /*
+   * The same contract again, one cell at a time. The aggregate assertion above
+   * fails with a diff; these fail with the ROLE and the PRIVILEGE in the test
+   * name, which is what a reviewer reads first.
+   */
+  const CELLS: [string, TablePrivilege, boolean][] = DATA_API_ROLES.flatMap((role) =>
+    TABLE_PRIVILEGES.map(
+      (privilege) => [role, privilege, INTENDED[role].includes(privilege)] as [
+        string,
+        TablePrivilege,
+        boolean,
+      ],
+    ),
+  )
+
+  it.each(CELLS)('%s / %s === %s', async (role, privilege, expected) => {
+    expect(await hasTablePrivilege(root, role, 'public.billing', privilege)).toBe(expected)
+  })
+
+  it('the installed ACL contains those grants and NOTHING else', async () => {
+    // Asks the catalog rather than a list of roles someone remembered, so a
+    // grant to a role not named above still surfaces.
+    expect(await tableGrants(root, 'public.billing')).toEqual([
+      { grantee: 'authenticated', privilege: 'SELECT' },
+      { grantee: 'service_role', privilege: 'SELECT' },
+    ])
+  })
+})
+
+/* ===========================================================================
+ *  billing — RLS, tested SEPARATELY, because it is a different control.
+ *
+ *  This distinction is the whole lesson of the 42501. Every comment in the
+ *  repo said "the webhook uses the service-role key, which bypasses RLS" —
+ *  true, and irrelevant. BYPASSRLS decides which ROWS a role sees once it is
+ *  allowed to touch the table; the GRANT decides whether it may touch the
+ *  table at all. Losing either one breaks something, and they fail in
+ *  completely different ways, so they are never asserted through each other.
+ * ======================================================================== */
+describe('billing RLS — rows, not table access', () => {
+  let ownerId = ''
+  let otherId = ''
+
+  beforeAll(async () => {
+    ownerId = await makeUser(root, 'rls-owner@dbtest.local')
+    otherId = await makeUser(root, 'rls-other@dbtest.local')
+    for (const id of [ownerId, otherId]) {
+      await root.query(
+        `insert into public.billing (user_id, plan, stripe_customer_id) values ($1, 'pro', $2)
+         on conflict (user_id) do update set plan = 'pro'`,
+        [id, `cus_${id.slice(0, 8)}`],
+      )
     }
   })
 
-  it('service_role has no DIRECT table access either — only the functions', async () => {
-    // Every access goes through SECURITY DEFINER functions that run as the
-    // owner, so direct grants are unnecessary surface.
-    for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] as const) {
-      const { rows } = await root.query('select has_table_privilege($1,$2,$3) as ok', [
-        'service_role',
-        'public.checkout_attempts',
-        p,
-      ])
-      expect(rows[0].ok, `service_role must not have direct ${p}`).toBe(false)
+  afterAll(async () => {
+    await root.query('delete from public.billing where user_id = any($1)', [[ownerId, otherId]])
+    await root.query(`delete from auth.users where email like 'rls-%@dbtest.local'`)
+  })
+
+  it('row level security is ENABLED on the table', async () => {
+    const { rows } = await root.query(
+      `select relrowsecurity from pg_class where oid = 'public.billing'::regclass`,
+    )
+    expect(rows[0].relrowsecurity).toBe(true)
+  })
+
+  it('the ONLY policy is billing_select_own, and it is SELECT-only', async () => {
+    const { rows } = await root.query(
+      `select policyname, cmd, qual, with_check from pg_policies
+        where schemaname = 'public' and tablename = 'billing' order by policyname`,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].policyname).toBe('billing_select_own')
+    expect(rows[0].cmd).toBe('SELECT')
+    expect(rows[0].qual).toMatch(/auth\.uid\(\)/)
+    // No write policy of ANY kind: a client can never write its own plan.
+    expect(rows[0].with_check).toBeNull()
+  })
+
+  it('an authenticated user sees ITS OWN row and only that row', async () => {
+    const c = await connect('authenticated')
+    try {
+      await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ownerId])
+      const { rows } = await c.query('select user_id from public.billing')
+      expect(rows).toHaveLength(1)
+      expect(rows[0].user_id).toBe(ownerId)
+    } finally {
+      await c.end()
     }
+  })
+
+  it("an authenticated user cannot see another user's row even when it names it", async () => {
+    const c = await connect('authenticated')
+    try {
+      await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ownerId])
+      const { rows } = await c.query('select user_id from public.billing where user_id = $1', [
+        otherId,
+      ])
+      expect(rows).toEqual([])
+    } finally {
+      await c.end()
+    }
+  })
+
+  it('an authenticated user cannot INSERT or UPDATE — there is no write policy AND no grant', async () => {
+    const c = await connect('authenticated')
+    try {
+      await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ownerId])
+      await expect(
+        c.query(`update public.billing set plan = 'pro' where user_id = $1`, [ownerId]),
+      ).rejects.toThrow(/permission denied/i)
+      await expect(
+        c.query(`insert into public.billing (user_id, plan) values ($1,'pro')`, [ownerId]),
+      ).rejects.toThrow(/permission denied/i)
+    } finally {
+      await c.end()
+    }
+  })
+
+  it('service_role BYPASSES RLS and sees every row — which is why the GRANT was the gate', async () => {
+    /*
+     * The point of this test is the contrast with the one above it. RLS never
+     * stopped service_role; the missing table privilege did. If someone
+     * "fixes" a future permission error by loosening a policy, this stays green
+     * and the matrix suite goes red, which is the correct division of labour.
+     */
+    const c = await connect('service_role')
+    try {
+      const { rows } = await c.query('select user_id from public.billing')
+      expect(rows.length).toBeGreaterThanOrEqual(2)
+      expect(rows.map((r) => r.user_id as string)).toEqual(
+        expect.arrayContaining([ownerId, otherId]),
+      )
+    } finally {
+      await c.end()
+    }
+  })
+})
+
+describe('checkout_attempts table privileges', () => {
+  // TRIGGER was missing from this list, so a grant of it would have gone
+  // unnoticed. TABLE_PRIVILEGES is the complete set PostgreSQL can hand out.
+  it.each(DATA_API_ROLES)('%s holds NO privilege at all', async (role) => {
+    // service_role included: every access goes through SECURITY DEFINER
+    // functions that run as the table owner, so a direct grant to ANY Data API
+    // role is unnecessary surface. That is what makes the function boundary
+    // real rather than decorative.
+    expect(await heldPrivileges(root, role, 'public.checkout_attempts')).toEqual([])
+  })
+
+  it('nothing at all is granted on it', async () => {
+    expect(await tableGrants(root, 'public.checkout_attempts')).toEqual([])
   })
 
   it('RLS is enabled and there is no policy of any kind', async () => {
@@ -201,12 +382,26 @@ describe('what each role can actually DO, executed', () => {
     await c.end()
   })
 
-  it('anon cannot read the billing table', async () => {
+  it('anon cannot read the billing table — refused at the GRANT, not by RLS', async () => {
+    /*
+     * This assertion used to be `expect(rows).toEqual([])`, on the reasoning
+     * that billing has a select-own policy and anon has no uid, so RLS returns
+     * nothing. That was true AND it was hiding something: the empty array only
+     * ever proved RLS worked, and it went on proving it while anon held a
+     * table-wide SELECT grant handed out by the old shim.
+     *
+     * 20260801160000 revokes it. anon has no legitimate read — usePlan is
+     * disabled until there is a user — so the request is now refused before RLS
+     * is consulted at all. Two controls, and this is the outer one.
+     */
     const c = await connect('anon')
-    const { rows } = await c.query('select * from public.billing')
-    // billing has a select-own policy; anon has no uid, so RLS returns nothing.
-    expect(rows).toEqual([])
-    await c.end()
+    try {
+      await expect(c.query('select * from public.billing')).rejects.toThrow(
+        /permission denied for table billing/i,
+      )
+    } finally {
+      await c.end()
+    }
   })
 
   it('the service role CAN do everything the money path needs', async () => {

@@ -6,9 +6,20 @@ name: CI
 # app (RLS-protected), and the E2E account deletes itself.
 on:
   push:
-    branches: [main]
+    # `ci-probe/**` exists so a NEGATIVE CONTROL can be run.
+    #
+    # Every gate in this file is a claim that something would fail if the code
+    # were wrong, and the only honest way to support that claim is to break the
+    # code on purpose and watch the job go red. The database and Supabase jobs
+    # cannot run on a developer machine without Docker, so "on purpose" has to
+    # mean a real run here. A throwaway `ci-probe/...` branch carries the
+    # deliberate mutation, the run is recorded, and the branch is deleted. None
+    # of it is ever merged, and nothing outside this prefix is affected.
+    branches: [main, 'ci-probe/**']
   pull_request:
     branches: [main]
+  # Manual re-runs, once this file is on the default branch.
+  workflow_dispatch:
 
 # A newer push to the same ref cancels the older in-flight run.
 concurrency:
@@ -87,7 +98,13 @@ jobs:
       # Every executed database test must run. A suite that errors in a hook
       # reports "N passed | M skipped" and exits 0, which already hid a real
       # failure once.
-      EXPECTED_DB_TESTS: '69'
+      #
+      # 69 -> 128. The billing privilege matrix is now stated in full (4 roles x
+      # 7 privileges, plus the installed ACL read back from the catalog), RLS is
+      # asserted separately from the table grant because confusing the two is
+      # what produced the 42501, and db-tests/billingGrant.db.test.ts adds the
+      # staged proof that 20260801160000 is what grants the SELECT.
+      EXPECTED_DB_TESTS: '128'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0
@@ -150,6 +167,13 @@ jobs:
     # Supabase stack and exercises exactly those interfaces.
     #
     # No production URL, key, user or datum is used anywhere in it.
+    env:
+      # Same reasoning as EXPECTED_DB_TESTS in the job above: this suite exists
+      # to prove permissions, and a permission test that did not run has proved
+      # nothing. Until now it had no gate at all, so a throwing `beforeAll`
+      # would have reported "0 passed" and exited 0 — the exact failure mode the
+      # database job already learned about the hard way.
+      EXPECTED_POSTGREST_TESTS: '43'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0
@@ -197,6 +221,34 @@ jobs:
       - name: Show what it applied
         run: supabase migration list --local
 
+      # EVIDENCE, NOT ASSUMPTION.
+      #
+      # The 42501 on public.billing was diagnosed as "service_role never had a
+      # GRANT; the platform stopped handing them out" — supabase/config.toml
+      # says `auto_expose_new_tables` implicitly flipped to false on 2026-05-30.
+      # That is a claim about someone else's product, so the stack is asked
+      # directly and the answer is printed into the run. It is also how the next
+      # session finds out if the platform changes again.
+      - name: What the local stack ACTUALLY granted
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          DATABASE_URL="$DB_URL" node -e "
+          const pg = require('pg');
+          const c = new pg.Client(process.env.DATABASE_URL);
+          const show = async (label, sql) => {
+            const r = await c.query(sql);
+            console.log('== ' + label);
+            console.table(r.rows);
+          };
+          c.connect()
+            .then(() => show('default privileges on this stack (pg_default_acl)',
+              \"select defaclrole::regrole::text as for_role, defaclnamespace::regnamespace::text as in_schema, defaclobjtype as obj, defaclacl::text as acl from pg_default_acl\"))
+            .then(() => show('grants on the tables this suite reasons about',
+              \"select c.relname, coalesce(nullif(a.grantee::regrole::text,'-'),'PUBLIC') as grantee, a.privilege_type from pg_class c join pg_namespace n on n.oid=c.relnamespace left join lateral aclexplode(c.relacl) a on true where n.nspname='public' and c.relkind='r' and c.relname in ('billing','checkout_attempts','tasks','projects','profiles') order by 1,2,3\"))
+            .then(() => c.end())
+            .catch((e) => { console.error('diagnostic failed:', e.message); return c.end().then(() => process.exit(1)) });
+          "
+
       - name: PostgREST permission smoke
         run: |
           eval "$(supabase status -o env | sed 's/^/export /')"
@@ -204,7 +256,25 @@ jobs:
           export SUPABASE_ANON_KEY="$ANON_KEY"
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
           echo "local API: $SUPABASE_URL"
-          npm run test:postgrest
+          npm run test:postgrest -- --reporter=json --outputFile=/tmp/postgrest-results.json
+
+      - name: Confirm every expected PostgREST test actually executed
+        run: |
+          node -e "
+          const r = require('/tmp/postgrest-results.json');
+          const expected = Number(process.env.EXPECTED_POSTGREST_TESTS);
+          const { numTotalTests: total, numPassedTests: passed,
+                  numFailedTests: failed, numPendingTests: skipped } = r;
+          console.log({ total, passed, failed, skipped, expected });
+          if (failed > 0) { console.error('::error::' + failed + ' PostgREST tests failed'); process.exit(1) }
+          if (skipped > 0) { console.error('::error::' + skipped + ' PostgREST tests were SKIPPED'); process.exit(1) }
+          if (passed !== expected) {
+            console.error('::error::expected ' + expected + ' executed PostgREST tests, got ' + passed +
+              '. If this is an intentional change, update EXPECTED_POSTGREST_TESTS.');
+            process.exit(1)
+          }
+          console.log('all ' + passed + ' PostgREST tests executed and passed');
+          "
 
       - name: Stop the stack
         if: always()
