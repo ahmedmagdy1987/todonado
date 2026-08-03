@@ -19,11 +19,54 @@ import { lookup as dnsLookup } from 'node:dns/promises'
  *   5. REDIRECTS ARE FOLLOWED MANUALLY and each hop is re-validated. Without
  *      this, an allowed public host could simply 302 to the metadata endpoint,
  *      which defeats every check above.
- *   6. Timeout + streaming byte cap, so a tar-pit or unbounded response cannot
- *      hang or OOM the function.
+ *   6. ONE timeout and ONE byte budget for the WHOLE request — set before the
+ *      first hop and spent by every hop after it — so a redirect chain cannot
+ *      multiply either (audit FLAG-15). Redirect bodies are drained rather
+ *      than abandoned.
  *
  * The pure parts are exported for unit testing; the network parts take injected
  * dependencies so the tests need no sockets.
+ *
+ * ── STILL OPEN, STATED RATHER THAN IMPLIED ──────────────────────────────────
+ *
+ * FLAG-6 — DNS REBINDING (TOCTOU). Step 4 resolves the hostname and validates
+ * every address, then hands the HOSTNAME to `fetch`, which resolves it AGAIN,
+ * independently. A caller who controls their own DNS can answer the first
+ * lookup with a public address and the second with a private one, and the body
+ * comes back to them.
+ *
+ * The audit's suggested fix is an undici `Agent` with a custom `lookup` pinned
+ * to the checked IP. That was TRIED and measured (2026-08-01): passing such a
+ * dispatcher to Node's BUILT-IN fetch does not work — the custom lookup is
+ * never invoked (0 calls) and the request fails with UND_ERR_INVALID_ARG,
+ * because the built-in fetch uses Node's internal undici, not the npm package.
+ * The same Agent passed to undici's OWN `fetch` DOES invoke it (1 call). So the
+ * real fix is not an extra option: it means adding undici as a production
+ * dependency AND swapping the fetch implementation this module is built on,
+ * which changes the `fetchImpl?: typeof fetch` contract that all 66 tests here
+ * inject through. That was judged too large to land safely in the same pass as
+ * the billing work; it is a contained, well-understood follow-up.
+ *
+ * RESIDUAL RISK, precisely: a Pro or founding user — an authenticated,
+ * paying account, not an anonymous attacker — can cause one GET from Vercel's
+ * egress to an address of their choosing and read up to the byte cap back.
+ * On Vercel's managed runtime there is no corporate internal network behind
+ * that boundary, which is why the audit rates it Medium rather than High. The
+ * cloud metadata endpoint (169.254.169.254) is the asset that would matter, and
+ * hitting it requires winning a DNS race against a request the attacker cannot
+ * observe. Bounding it: the endpoint is Pro-gated, rate limited to 6 requests
+ * per minute per user (FLAG-10), and now capped by ONE timeout and ONE byte
+ * budget per request (FLAG-15) rather than per hop.
+ *
+ * FLAG-5 — AUTHENTICATED OPEN PROXY. The design note above is right that the
+ * request BODY is ignored and wrong that this makes the URL ours: it comes from
+ * the caller's own `calendar_sources` rows, which the caller writes. Validating
+ * at write time would narrow it, but the DNS half of the check cannot live in a
+ * CHECK constraint, so a write-time guard would be advisory and the fetch-time
+ * guard would still be the real one. What has changed is the blast radius, not
+ * the shape: Pro-gated, 6/min, one budget per request. The durable fix is a
+ * per-user cap on `calendar_sources` rows plus write-time URL validation, and
+ * it is a migration the owner should schedule deliberately.
  */
 
 /** Hard ceiling on a fetched .ics body (subscribed feeds are legitimately large). */
@@ -209,14 +252,33 @@ export async function fetchIcsGuarded(
     timeoutMs = FETCH_TIMEOUT_MS,
   } = deps
 
+  /*
+   * ONE BUDGET FOR THE WHOLE REQUEST, NOT ONE PER HOP (audit FLAG-15).
+   *
+   * The timeout used to be a fresh AbortController inside the loop, so a chain
+   * of MAX_REDIRECTS hops could legitimately take (MAX_REDIRECTS + 1) x
+   * timeoutMs — 40s per source with the defaults, multiplied again by the
+   * number of sources the caller has, all of it billable function time a user
+   * chooses by editing their own calendar rows. The byte cap had the same
+   * shape: `bytes` was declared per hop, so nothing accumulated across a chain.
+   *
+   * Both are now deadlines set ONCE, before the first hop, and consumed by
+   * every hop after it.
+   */
+  const deadline = Date.now() + timeoutMs
+  let bytesRemaining = maxBytes
+
   let current = rawUrl
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const parsed = parseCalendarUrl(current)
     if ('reject' in parsed) throw new SsrfError(parsed.reject)
     await assertPublicHost(parsed.url.hostname, resolver)
 
+    const msLeft = deadline - Date.now()
+    if (msLeft <= 0) throw new SsrfError('fetch_failed', 'request deadline exceeded')
+
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const timer = setTimeout(() => controller.abort(), msLeft)
     let res: Response
     try {
       res = await fetchImpl(parsed.url, {
@@ -237,18 +299,32 @@ export async function fetchIcsGuarded(
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get('location')
         if (!location) throw new SsrfError('fetch_failed')
+        /*
+         * DRAIN THE REDIRECT BODY (audit FLAG-15). A 3xx may still carry one,
+         * and an unread stream holds its socket until GC gets round to it.
+         * Cancelling releases it immediately and, more importantly, means a
+         * redirect body cannot be used to push bytes at us for free — the
+         * chain is bounded by MAX_REDIRECTS, but each hop was previously
+         * unbounded in size and simply never counted.
+         */
+        await res.body?.cancel().catch(() => {})
         current = new URL(location, parsed.url).toString()
         continue // re-validated at the top of the loop
       }
       if (!res.ok) throw new SsrfError('fetch_failed', `HTTP ${res.status}`)
 
       const declared = Number(res.headers.get('content-length'))
-      if (Number.isFinite(declared) && declared > maxBytes) {
+      if (Number.isFinite(declared) && declared > bytesRemaining) {
         throw new SsrfError('response_too_large')
       }
       if (!res.body) {
         const text = await res.text()
-        if (text.length > maxBytes) throw new SsrfError('response_too_large')
+        // Byte length, not string length: `text.length` counts UTF-16 code
+        // units, so a multi-byte feed measured that way understates its real
+        // size against a cap expressed in bytes.
+        if (Buffer.byteLength(text, 'utf8') > bytesRemaining) {
+          throw new SsrfError('response_too_large')
+        }
         return text
       }
 
@@ -256,12 +332,11 @@ export async function fetchIcsGuarded(
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let text = ''
-      let bytes = 0
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
-        bytes += value.byteLength
-        if (bytes > maxBytes) {
+        bytesRemaining -= value.byteLength
+        if (bytesRemaining < 0) {
           await reader.cancel()
           throw new SsrfError('response_too_large')
         }

@@ -3,8 +3,14 @@ import { serverEnv } from './_lib/config.js'
 import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, withErrorBoundary } from './_lib/http.js'
 import { toNodeHandler } from './_lib/nodeAdapter.js'
-import { resolveServerPlan } from './_lib/entitlement.js'
+import {
+  ENTITLEMENT_RETRY_AFTER_SECONDS,
+  ENTITLEMENT_UNAVAILABLE_CODE,
+  ENTITLEMENT_UNAVAILABLE_STATUS,
+  resolveServerEntitlement,
+} from './_lib/entitlement.js'
 import { fetchIcsGuarded, SsrfError } from './_lib/ssrf.js'
+import { enforceRateLimit } from './_lib/rateLimit.js'
 
 /**
  * POST /api/calendar-fetch
@@ -15,8 +21,9 @@ import { fetchIcsGuarded, SsrfError } from './_lib/ssrf.js'
  *
  * SECURITY SHAPE
  *  - Auth required: the caller's Supabase JWT is verified.
- *  - Pro gate is SERVER-SIDE (resolveServerPlan reads the billing row), so a
- *    client that flips its own localStorage still gets 403.
+ *  - Pro gate is SERVER-SIDE (resolveServerEntitlement reads the billing row),
+ *    so a client that flips its own localStorage still gets 403 — and a billing
+ *    read that FAILS gets 503, never a 403 that would lie to a subscriber.
  *  - THE REQUEST BODY IS IGNORED. URLs are loaded from the caller's OWN
  *    calendar_sources rows via the service-role client and filtered by
  *    `user_id = <the verified caller>`. A URL in the body would turn this into an
@@ -88,11 +95,41 @@ async function calendarFetch(req: Request): Promise<Response> {
   )
   if (!user) return apiError(401, 'unauthorized')
 
+  /*
+   * RATE LIMIT, keyed on the VERIFIED user (audit FLAG-10). Placed after auth
+   * so the counter names an account rather than a shared NAT address, and
+   * before anything that costs money or makes an outbound request.
+   * api/_lib/rateLimit.ts states plainly what this does and does not stop.
+   */
+  const limit = enforceRateLimit('calendar', user.id, req)
+  if (!limit.allowed) {
+    return apiError(429, 'rate_limited', { retry_after: limit.retryAfterSeconds })
+  }
+
   const admin = getSupabaseAdmin(env.supabaseUrl, env.supabaseServiceRoleKey)
 
-  // Pro gate, server-side. Free keeps file upload; live URL sync is the paid line.
-  const plan = await resolveServerPlan(admin, user.id, user.email)
-  if (plan !== 'pro') return apiError(403, 'pro_required')
+  /*
+   * Pro gate, server-side. Free keeps file upload; live URL sync is the paid line.
+   *
+   * THREE OUTCOMES, NOT TWO. `unavailable` is answered 503, never 403: a 403
+   * tells a paying customer they are not entitled, and this endpoint used to
+   * send exactly that whenever the billing read failed, because the failure was
+   * swallowed and reported as Free. Retry-After is set because the condition is
+   * transient by definition, and the client already treats 5xx as retriable.
+   */
+  const entitlement = await resolveServerEntitlement(
+    admin,
+    user.id,
+    user.email,
+    user.emailVerified,
+  )
+  if (entitlement.status === 'unavailable') {
+    return apiError(ENTITLEMENT_UNAVAILABLE_STATUS, ENTITLEMENT_UNAVAILABLE_CODE, {
+      reason: entitlement.reason,
+      retry_after: ENTITLEMENT_RETRY_AFTER_SECONDS,
+    })
+  }
+  if (entitlement.plan !== 'pro') return apiError(403, 'pro_required')
 
   const { data, error } = await admin
     .from('calendar_sources')

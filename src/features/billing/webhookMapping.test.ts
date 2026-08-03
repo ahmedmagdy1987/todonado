@@ -1,115 +1,90 @@
 import { describe, expect, it } from 'vitest'
 import {
-  mapStripeEventToBilling,
   planForStatus,
-  type MinimalStripeEvent,
+  priceIdsForSubscription,
+  type MinimalSubscription,
 } from './webhookMapping'
 
-const UID = 'user-123'
+/**
+ * What this module still does — and what it deliberately no longer does.
+ *
+ * `mapStripeEventToBilling` is GONE, along with its tests. It resolved the user
+ * from `metadata.user_id` and reported the purchase from a `metadata.price_id`
+ * we stamped ourselves. Neither is evidence: anyone who can create an object in
+ * this Stripe account (including by hand in the Dashboard) can set metadata,
+ * and the account belongs to HBV Studio, which runs other products in it.
+ *
+ * Identity now comes from a server-created `checkout_attempts` row and from the
+ * subscription id a verified checkout bound. What was purchased comes from the
+ * Subscription retrieved from Stripe — which is what `priceIdsForSubscription`
+ * reads.
+ */
 
 describe('planForStatus', () => {
   it('grants Pro for active/trialing/past_due, Free otherwise', () => {
     expect(planForStatus('active')).toBe('pro')
     expect(planForStatus('trialing')).toBe('pro')
+    // Dunning keeps access — the customer has not cancelled, their card failed.
     expect(planForStatus('past_due')).toBe('pro')
     expect(planForStatus('canceled')).toBe('free')
     expect(planForStatus('unpaid')).toBe('free')
+    expect(planForStatus('incomplete')).toBe('free')
+    expect(planForStatus('paused')).toBe('free')
     expect(planForStatus(null)).toBe('free')
     expect(planForStatus(undefined)).toBe('free')
   })
 })
 
-describe('mapStripeEventToBilling', () => {
-  it('checkout.session.completed → pro, ids set, no period end (partial upsert)', () => {
-    const event: MinimalStripeEvent = {
-      type: 'checkout.session.completed',
-      data: {
-        object: {
-          customer: 'cus_1',
-          subscription: 'sub_1',
-          metadata: { user_id: UID },
-        },
-      },
-    }
-    expect(mapStripeEventToBilling(event)).toEqual({
-      user_id: UID,
-      plan: 'pro',
-      stripe_customer_id: 'cus_1',
-      stripe_subscription_id: 'sub_1',
-      subscription_status: 'active',
-    })
+describe('priceIdsForSubscription — the authoritative purchase', () => {
+  const sub = (items: unknown): MinimalSubscription => ({ items }) as unknown as MinimalSubscription
+
+  it('reads the price id from a single-item subscription', () => {
+    expect(priceIdsForSubscription(sub({ data: [{ price: { id: 'price_a' } }] }))).toEqual([
+      'price_a',
+    ])
   })
 
-  it('falls back to client_reference_id when metadata.user_id is absent', () => {
-    const event: MinimalStripeEvent = {
-      type: 'checkout.session.completed',
-      data: { object: { customer: 'cus_1', subscription: 'sub_1', client_reference_id: UID } },
-    }
-    expect(mapStripeEventToBilling(event)?.user_id).toBe(UID)
+  it('reports EVERY price on a multi-item subscription', () => {
+    // The caller requires exactly one, so a bundle must stay visible as a
+    // bundle rather than being silently reduced to its first item.
+    expect(
+      priceIdsForSubscription(
+        sub({ data: [{ price: { id: 'price_todonado' } }, { price: { id: 'price_other_hbv' } }] }),
+      ),
+    ).toEqual(['price_todonado', 'price_other_hbv'])
   })
 
-  it('customer.subscription.updated → pro + status + ISO period end', () => {
-    const periodEnd = 1_800_000_000 // unix seconds
-    const event: MinimalStripeEvent = {
-      type: 'customer.subscription.updated',
-      data: {
-        object: {
-          id: 'sub_1',
-          status: 'active',
-          current_period_end: periodEnd,
-          customer: 'cus_1',
-          metadata: { user_id: UID },
-        },
-      },
-    }
-    expect(mapStripeEventToBilling(event)).toEqual({
-      user_id: UID,
-      plan: 'pro',
-      stripe_customer_id: 'cus_1',
-      stripe_subscription_id: 'sub_1',
-      subscription_status: 'active',
-      current_period_end: new Date(periodEnd * 1000).toISOString(),
-    })
+  it('de-duplicates a repeated price', () => {
+    expect(
+      priceIdsForSubscription(
+        sub({ data: [{ price: { id: 'price_a' } }, { price: { id: 'price_a' } }] }),
+      ),
+    ).toEqual(['price_a'])
   })
 
-  it('a non-active updated status downgrades the plan to free', () => {
-    const event: MinimalStripeEvent = {
-      type: 'customer.subscription.updated',
-      data: { object: { id: 'sub_1', status: 'unpaid', customer: 'cus_1', metadata: { user_id: UID } } },
-    }
-    const row = mapStripeEventToBilling(event)
-    expect(row?.plan).toBe('free')
-    expect(row?.subscription_status).toBe('unpaid')
+  it('returns EMPTY for an unreadable subscription — never a false positive', () => {
+    // Callers must read empty as "unverifiable", not as "fine".
+    expect(priceIdsForSubscription(sub({ data: [] }))).toEqual([])
+    expect(priceIdsForSubscription(sub(null))).toEqual([])
+    expect(priceIdsForSubscription(sub({ data: [null] }))).toEqual([])
+    expect(priceIdsForSubscription(sub({ data: [{ price: null }] }))).toEqual([])
+    expect(priceIdsForSubscription(null)).toEqual([])
+    expect(priceIdsForSubscription(undefined)).toEqual([])
   })
 
-  it('customer.subscription.deleted → free + canceled', () => {
-    const event: MinimalStripeEvent = {
-      type: 'customer.subscription.deleted',
-      data: { object: { id: 'sub_1', status: 'active', customer: 'cus_1', metadata: { user_id: UID } } },
-    }
-    const row = mapStripeEventToBilling(event)
-    expect(row?.plan).toBe('free')
-    expect(row?.subscription_status).toBe('canceled')
+  it('ignores a non-string or empty price id rather than passing it on', () => {
+    expect(
+      priceIdsForSubscription(
+        sub({ data: [{ price: { id: '' } }, { price: { id: 42 } }, { price: { id: 'price_ok' } }] }),
+      ),
+    ).toEqual(['price_ok'])
   })
 
-  it('returns null for an event missing our user_id (no blind write)', () => {
-    const event: MinimalStripeEvent = {
-      type: 'customer.subscription.updated',
-      data: { object: { id: 'sub_1', status: 'active', customer: 'cus_1' } },
-    }
-    expect(mapStripeEventToBilling(event)).toBeNull()
-  })
-
-  it('unknown events → null (webhook no-ops with 200)', () => {
-    expect(mapStripeEventToBilling({ type: 'invoice.paid', data: { object: {} } })).toBeNull()
-    expect(mapStripeEventToBilling({ type: 'payment_intent.succeeded', data: { object: {} } })).toBeNull()
-  })
-
-  it('is idempotent — the same event maps to the same row every time', () => {
-    const event: MinimalStripeEvent = {
-      type: 'customer.subscription.updated',
-      data: { object: { id: 'sub_1', status: 'active', current_period_end: 1_800_000_000, customer: 'cus_1', metadata: { user_id: UID } } },
-    }
-    expect(mapStripeEventToBilling(event)).toEqual(mapStripeEventToBilling(event))
+  it('does NOT read metadata — metadata is intent, not proof', () => {
+    const withMetadataOnly = {
+      metadata: { price_id: 'price_claimed' },
+      items: { data: [] },
+    } as unknown as MinimalSubscription
+    expect(priceIdsForSubscription(withMetadataOnly)).toEqual([])
   })
 })

@@ -79,3 +79,24 @@ describe('withErrorBoundary', () => {
     spy.mockRestore()
   })
 })
+
+describe('redactSecrets — live-mode formats (go-live readiness)', () => {
+  it('redacts a LIVE Stripe secret key, not just a test one', () => {
+    expect(redactSecrets('boom sk_live_51AbCdEfGhIjKlMn')).toBe('boom [redacted-stripe-key]')
+  })
+
+  it('redacts a live restricted key', () => {
+    expect(redactSecrets('rk_live_51AbCdEfGhIjKlMn')).toBe('[redacted-stripe-key]')
+  })
+
+  it("redacts Supabase's sb_secret_ format", () => {
+    // The audit reasoned this gap stopped mattering once responses no longer
+    // echoed upstream messages. That is true of responses and says nothing
+    // about LOGS, which every error path here still writes.
+    expect(redactSecrets('key=sb_secret_AbCdEf-123')).toBe('key=[redacted-supabase-key]')
+  })
+
+  it('redacts a live webhook signing secret', () => {
+    expect(redactSecrets('whsec_AbCdEf123')).toBe('[redacted-webhook-secret]')
+  })
+})

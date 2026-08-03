@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Todonado E2E smoke — a real browser driving the local dev server against the
- * REAL cloud Supabase. Mirrors docs/LAUNCH_CHECKLIST.md's fresh-user script.
+ * Todonado E2E smoke — a real browser driving the local dev server against a
+ * DISPOSABLE LOCAL Supabase stack. Mirrors docs/LAUNCH_CHECKLIST.md's fresh-user
+ * script. It ran against the real cloud project until this iteration; see
+ * e2e/supabaseTarget.ts for why an automated suite must never do that.
  *
  * COVERED
  *   1. Landing (/welcome) renders, primary CTA visible.
@@ -31,11 +33,11 @@ import { test, expect } from '@playwright/test'
  *     parser itself is thoroughly unit-tested (src/features/calendar/ics.test.ts).
  */
 
-// Public config — the anon key already ships in the client bundle (RLS-protected),
-// so it is safe here and needs NO CI secret. Used only by the afterAll safety net.
-const SUPABASE_URL = 'https://lplsbfduankkpglyusjp.supabase.co'
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbHNiZmR1YW5ra3BnbHl1c2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDkzMzksImV4cCI6MjA5NTkyNTMzOX0.lVX3cKJWiQYlUWGUE35sui45NKgVLWhBBX4ju-o5_OY'
+// The DISPOSABLE local stack this run started. These were two literals holding
+// the production project and its committed anon key, which is how the suite came
+// to sign real users up on the live auth server on every push.
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseRestCall } from './supabaseTarget'
+import { cspSupabaseOrigins } from '../scripts/vercelHeaders.js'
 
 /** A unique throwaway identity per run (timestamp + random suffix). */
 function uniqueIdentity() {
@@ -171,6 +173,20 @@ test('reset-password never renders text supplied in the URL', async ({ page }) =
   ]) {
     await page.goto(url)
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+
+    /*
+     * WAIT FOR THE VERDICT BEFORE READING THE PAGE.
+     *
+     * The page validates the link first and shows "Checking your reset link…"
+     * while it does. Reading textContent during that window caught the interim
+     * state and failed on the LAST assertion only — the two security assertions
+     * above it passed, because the attacker text is never rendered at any point.
+     * That made it a flaky test that was never a flaky guarantee, which is the
+     * worst combination: a red run nobody trusts, on the one file that proves a
+     * real vulnerability stays closed. Retrying hid it; waiting fixes it.
+     */
+    await expect(page.getByText(/Checking your reset link/i)).toHaveCount(0)
+
     const body = (await page.locator('body').textContent()) ?? ''
     expect(body, `attacker text from ${url.split('?')[0]} reached the page`).not.toContain('555-0100')
     expect(body).not.toContain('unknown device')
@@ -321,7 +337,9 @@ test('landing: the three demo widgets are interactive and touch a database NEVER
   const dbCalls: string[] = []
   page.on('request', (req) => {
     const url = req.url()
-    if (url.includes('.supabase.co/rest/v1/')) dbCalls.push(`${req.method()} ${url}`)
+    // Matched against the CONFIGURED origin. The old literal hostname match
+    // is never true against a local stack, so it used to pass vacuously.
+    if (isSupabaseRestCall(url)) dbCalls.push(`${req.method()} ${url}`)
   })
 
   await page.goto('/welcome')
@@ -379,18 +397,55 @@ test('security headers are served on every response (audit M1)', async ({ page }
     expect(h['permissions-policy'], `${path} mic must be self`).toContain('microphone=(self)')
     expect(h['strict-transport-security'], `${path} HSTS`).toContain('includeSubDomains')
 
-    const csp = h['content-security-policy-report-only']
-    expect(csp, `${path} CSP-Report-Only`).toBeTruthy()
+    /*
+     * THIS SUITE DRIVES THE VITE DEV SERVER, WHICH SERVES THE POLICY
+     * REPORT-ONLY ON PURPOSE (audit FLAG-11).
+     *
+     * Production enforces it. Dev cannot: Vite injects an inline HMR preamble
+     * and connects over ws://localhost, both of which `script-src 'self'` and
+     * the connect-src list forbid, so an enforcing header here would break the
+     * dev server this very suite runs against. vercelSecurityHeaders() in
+     * vite.config.ts downgrades the KEY only, so the VALUE asserted below is
+     * byte-for-byte the production policy.
+     *
+     * That production ships it ENFORCING is pinned separately, against
+     * vercel.json itself, in src/test/securityHeaders.test.ts — which is the
+     * right place for it, because that file is what Vercel actually applies and
+     * no amount of dev-server behaviour can prove anything about it.
+     */
+    const csp = h['content-security-policy'] ?? h['content-security-policy-report-only']
+    expect(csp, `${path} CSP header (enforcing in prod, report-only in dev)`).toBeTruthy()
     expect(csp).toContain("default-src 'self'")
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
-    // Realtime is enabled — the websocket origin must be allowed or sync breaks
-    // the moment this policy is switched to enforcing.
-    expect(csp).toContain('wss://lplsbfduankkpglyusjp.supabase.co')
+    expect(csp).toContain("script-src 'self'")
+    /*
+     * Realtime is enabled, so the websocket origin must be allowed or sync
+     * breaks now that this policy actually enforces.
+     *
+     * Read out of vercel.json rather than written here. The literal production
+     * host used to be typed into this assertion, which made the check rot the
+     * moment the policy changed and — once the suite moved onto a local stack —
+     * put a hosted Supabase hostname inside a test file, which is exactly what
+     * scripts/assert-local-supabase.mjs exists to refuse.
+     */
+    const deployedSupabaseOrigins = cspSupabaseOrigins()
+    expect(
+      deployedSupabaseOrigins.length,
+      'the deployed policy must name a Supabase origin, or realtime cannot connect',
+    ).toBeGreaterThan(0)
+    for (const origin of deployedSupabaseOrigins) expect(csp).toContain(origin)
+    expect(
+      deployedSupabaseOrigins.some((o) => o.startsWith('wss://')),
+      'realtime needs a wss:// origin in connect-src',
+    ).toBe(true)
 
-    // Still REPORT-ONLY. Enforcing is a deliberate follow-up once the report
-    // queue is clean, not something that should land by accident.
-    expect(h['content-security-policy'], `${path} must not enforce CSP yet`).toBeUndefined()
+    // Whichever key is served, exactly ONE of them must be.
+    expect(
+      Boolean(h['content-security-policy']) !==
+        Boolean(h['content-security-policy-report-only']),
+      `${path} must send exactly one CSP header, never both`,
+    ).toBe(true)
   }
 })
 

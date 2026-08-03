@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { applyTestModeEnv, clearTestModeEnv } from '../src/test/stripeDoubles.js'
 
 /**
  * Status/body mapping for the billing endpoints. Every failure must be a
@@ -22,18 +23,11 @@ const checkout = checkoutMod.webHandler
 const portal = portalMod.webHandler
 const webhook = webhookMod.webHandler
 
-const ENV_KEYS = [
-  'STRIPE_SECRET_KEY',
-  'STRIPE_WEBHOOK_SECRET',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-] as const
-
 function configure() {
-  process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_dummy'
-  process.env.SUPABASE_URL = 'https://p.supabase.co'
-  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-dummy'
+  // A CONSISTENT deployment: STRIPE_MODE=test with test keys and matching
+  // client/server price ids. Shared with the other billing suites so a change
+  // to what "configured" means breaks all of them together.
+  applyTestModeEnv()
 }
 
 const post = (body?: unknown, headers: Record<string, string> = {}) =>
@@ -44,12 +38,12 @@ const post = (body?: unknown, headers: Record<string, string> = {}) =>
   })
 
 beforeEach(() => {
-  for (const k of ENV_KEYS) delete process.env[k]
+  clearTestModeEnv()
   getUserFromAuthHeader.mockReset()
   getSupabaseAdmin.mockReset()
 })
 afterEach(() => {
-  for (const k of ENV_KEYS) delete process.env[k]
+  clearTestModeEnv()
 })
 
 describe.each([

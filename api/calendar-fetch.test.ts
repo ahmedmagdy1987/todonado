@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetRateLimitStores } from './_lib/rateLimit.js'
 
 /**
  * /api/calendar-fetch — auth, the SERVER-SIDE Pro gate, and the open-proxy guard.
@@ -42,16 +43,20 @@ interface Captured {
  */
 function makeAdmin(opts: {
   billingPlan?: 'free' | 'pro' | null
+  /** A PostgREST error for the BILLING lookup — the entitlement-unavailable path. */
+  billingError?: { code?: string; message?: string }
   sources?: { id: string; url: string | null }[]
   sourcesError?: boolean
   captured?: Captured
 }) {
-  const { billingPlan = null, sources = [], sourcesError = false, captured } = opts
+  const { billingPlan = null, billingError, sources = [], sourcesError = false, captured } = opts
   return {
     from(table: string) {
       const result =
         table === 'billing'
-          ? { data: billingPlan ? { plan: billingPlan } : null, error: null }
+          ? billingError
+            ? { data: null, error: billingError }
+            : { data: billingPlan ? { plan: billingPlan } : null, error: null }
           : { data: sourcesError ? null : sources, error: sourcesError ? { message: 'x' } : null }
       const q = {
         select: () => q,
@@ -76,6 +81,9 @@ const post = (headers: Record<string, string> = {}, body = '{}') =>
   })
 
 beforeEach(() => {
+  // Module-level limiter counters survive between tests in this file;
+  // without this the 7th calendar fetch here would 429 (FLAG-10).
+  resetRateLimitStores()
   for (const k of ENV_KEYS) delete process.env[k]
   getUserFromAuthHeader.mockReset()
   getSupabaseAdmin.mockReset()
@@ -135,7 +143,7 @@ describe('authentication', () => {
 describe('the Pro gate is enforced SERVER-SIDE', () => {
   beforeEach(() => {
     configure()
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'free@example.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'free@example.com', emailVerified: true })
   })
 
   it('answers 403 pro_required for a Free user', async () => {
@@ -162,9 +170,82 @@ describe('the Pro gate is enforced SERVER-SIDE', () => {
   })
 
   it('allows a founding account with no billing row', async () => {
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u2', email: 'journeypixofficial@gmail.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u2', email: 'journeypixofficial@gmail.com', emailVerified: true })
     getSupabaseAdmin.mockReturnValue(
       makeAdmin({ billingPlan: null, sources: [{ id: 's1', url: 'https://cal.example/a.ics' }] }),
+    )
+    fetchIcsGuarded.mockResolvedValue('BEGIN:VEVENT')
+    expect((await handler(post({ authorization: 'Bearer good' }))).status).toBe(200)
+  })
+})
+
+describe('an UNRESOLVABLE entitlement is 503, never 403', () => {
+  /*
+   * THIS IS THE CASE THAT USED TO BE INVISIBLE. resolveServerPlan swallowed the
+   * lookup error and returned Free, so a `42501 permission denied for table
+   * billing` — the exact error 20260801160000 was written to fix — reached the
+   * customer as "you are not a Pro subscriber". A 403 is a statement about the
+   * user; the server did not have the facts to make one.
+   */
+  beforeEach(() => {
+    configure()
+    getUserFromAuthHeader.mockResolvedValue({
+      id: 'u1',
+      email: 'subscriber@example.com',
+      emailVerified: true,
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  const FAILURES: [string, { code?: string; message?: string }, string][] = [
+    ['permission denied', { code: '42501', message: 'permission denied for table billing' }, 'permission_denied'],
+    ['billing not applied', { code: '42P01', message: 'relation "billing" does not exist' }, 'schema_outdated'],
+    ['schema cache miss', { code: 'PGRST205', message: 'not found in schema cache' }, 'schema_outdated'],
+  ]
+
+  it.each(FAILURES)('%s answers 503 entitlement_unavailable', async (_label, error, reason) => {
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingError: error }))
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    expect(res.status, 'a lookup failure is not a statement about the user').toBe(503)
+    expect(await res.json()).toEqual({
+      error: 'entitlement_unavailable',
+      reason,
+      retry_after: 30,
+    })
+    expect(fetchIcsGuarded, 'nothing is fetched when entitlement is unknown').not.toHaveBeenCalled()
+  })
+
+  it.each(FAILURES)('%s is NOT reported as 403 pro_required', async (_label, error) => {
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingError: error }))
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    expect(res.status).not.toBe(403)
+    expect(await res.text()).not.toContain('pro_required')
+  })
+
+  it('does NOT fail open: an unresolvable entitlement never returns calendar data', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingError: { code: '42501', message: 'permission denied for table billing' },
+        sources: [{ id: 's1', url: 'https://cal.example/a.ics' }],
+      }),
+    )
+    fetchIcsGuarded.mockResolvedValue('BEGIN:VEVENT')
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    expect(res.status).toBe(503)
+    expect(await res.text()).not.toContain('BEGIN:VEVENT')
+  })
+
+  it('a VERIFIED founder still works while billing is refusing', async () => {
+    getUserFromAuthHeader.mockResolvedValue({
+      id: 'u2',
+      email: 'journeypixofficial@gmail.com',
+      emailVerified: true,
+    })
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingError: { code: '42501', message: 'permission denied for table billing' },
+        sources: [{ id: 's1', url: 'https://cal.example/a.ics' }],
+      }),
     )
     fetchIcsGuarded.mockResolvedValue('BEGIN:VEVENT')
     expect((await handler(post({ authorization: 'Bearer good' }))).status).toBe(200)
@@ -174,7 +255,7 @@ describe('the Pro gate is enforced SERVER-SIDE', () => {
 describe('open-proxy guard', () => {
   beforeEach(() => {
     configure()
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com', emailVerified: true })
   })
 
   it('IGNORES a URL in the request body and only reads the caller’s own rows', async () => {
@@ -206,7 +287,7 @@ describe('open-proxy guard', () => {
 describe('per-source error mapping is safe', () => {
   beforeEach(() => {
     configure()
-    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com' })
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com', emailVerified: true })
   })
 
   it('collapses every "unacceptable URL" reason to invalid_source', async () => {

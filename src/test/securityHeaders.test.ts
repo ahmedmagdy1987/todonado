@@ -50,13 +50,25 @@ describe('production security headers (vercel.json)', () => {
 })
 
 describe('content security policy', () => {
-  const csp = byKey.get('Content-Security-Policy-Report-Only')
+  const csp = byKey.get('Content-Security-Policy')
 
-  it('ships in REPORT-ONLY mode', () => {
-    expect(csp, 'CSP-Report-Only header is missing').toBeTruthy()
-    // Enforcing CSP is a deliberate follow-up, not an accident. If this fails,
-    // someone flipped it — confirm the report queue is clean first.
-    expect(byKey.has('Content-Security-Policy')).toBe(false)
+  it('is ENFORCING, not report-only (audit FLAG-11)', () => {
+    /*
+     * It shipped report-only with no report-uri and no report-to, so it neither
+     * blocked anything nor collected anything — it was documentation wearing a
+     * header's clothes. The app has zero inline scripts and zero XSS sinks
+     * (audit 1.8), so enforcing costs nothing and is the whole point.
+     *
+     * Dev and preview still serve it REPORT-ONLY: Vite's inline HMR preamble
+     * and its ws://localhost connection would otherwise be blocked. That
+     * downgrade lives in vercelSecurityHeaders() in vite.config.ts and changes
+     * only the header KEY, never the policy value.
+     */
+    expect(csp, 'Content-Security-Policy header is missing').toBeTruthy()
+    expect(
+      byKey.has('Content-Security-Policy-Report-Only'),
+      'shipping both is ambiguous — production enforces, and only that',
+    ).toBe(false)
   })
 
   it.each([

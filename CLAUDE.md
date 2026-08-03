@@ -720,7 +720,15 @@ policy.
 (title 1–80, description ≤280, ≤100 tasks, `pg_column_size(tasks) ≤ 64KB`) as a backstop for the
 client caps. `personalCaps.test.ts` pins the client constants to those CHECKs.
 
-**Billing:** `billing` — SELECT-own only; the Stripe webhook writes via service-role.
+**Billing:** `billing` — SELECT-own RLS, and a SQL privilege contract that is a **separate control
+from RLS**: `service_role` and `authenticated` hold `SELECT` and nothing else, `anon` and PUBLIC
+hold nothing (`20260801160000_billing_service_role_access.sql`, pending). The Stripe webhook does
+**not** write the table directly — every write goes through the SECURITY DEFINER functions
+`apply_stripe_billing_event` / `bind_verified_checkout` / `apply_stripe_subscription_event`, which
+own the event ordering, the downgrade rules and the row lock. `service_role` reads it directly in
+three handlers (checkout, portal, `resolveServerPlan`), which is why the SELECT grant is explicit.
+**`BYPASSRLS` is not a table privilege** — assuming it was is what left the money path one 42501
+away from being unable to sell anything. See §7.
 **Calendar:** `calendar_sources` — owner-only; the server-side proxy reads through the
 service-role client but filters by the JWT-verified caller.
 
@@ -741,25 +749,110 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
-> ### ⚠️ TWO MIGRATIONS ARE PENDING — and that is deliberate
+> ### ⚠️ FOUR MIGRATIONS ARE PENDING — and that is deliberate
 >
-> **Applied through `20260731140000_journal_entries`.** Two files sit in
-> `supabase/migrations/` **UNAPPLIED**, by the owner's explicit decision (2026-08-01):
+> **Applied through `20260801130000_journal_audio_quota`.** FOUR files sit in
+> `supabase/migrations/` **UNAPPLIED**, and they must be applied **in this order** (2026-08-04):
 >
-> | Pending file | What it does | Risk |
-> | --- | --- | --- |
-> | `20260801120000_length_caps.sql` | Size CHECKs on the pre-2026-07-28 tables (audit FLAG-9) | Adding a CHECK validates every existing row and FAILS if one violates it. Run the commented dry run in section 0 FIRST. |
-> | `20260801130000_journal_audio_quota.sql` | Per-user 200 MB cap on the `journal-audio` bucket, as a trigger (audit FLAG-7) | Creating a trigger on `storage.objects` needs ownership of a table Supabase owns. May fail with `must be owner of table objects`. |
+> | # | Pending file | What it does | Risk |
+> | --- | --- | --- | --- |
+> | 1 | `20260801140000_billing_event_ordering.sql` | Adds `last_stripe_event_id` + `last_stripe_event_at` to `billing`, so the Stripe webhook can de-duplicate a redelivered event and refuse an out-of-order one (audit FLAG-3) | **Low.** Two nullable columns with no default — a catalog-only change, no table rewrite, no validation pass. Unlike a CHECK it cannot fail on existing rows. |
+> | 2 | `20260801150000_checkout_attempts.sql` | Adds `checkout_attempts` (server-only, RLS on, no policy, no grant) and the reserve/mark/bind SECURITY DEFINER functions, so one open purchase per user is a database guarantee | **Low.** A new table and new functions. Nothing existing is altered. |
+> | 3 | `20260801160000_billing_service_role_access.sql` | The SQL privilege contract for `billing`: `service_role` and `authenticated` get `SELECT`, everyone else nothing, and no direct write for anybody | **Low, but NOT purely additive** — see below. |
+> | 4 | `20260801170000_application_data_api_grants.sql` | The same contract for the other 22 application tables: per-table revoke-then-grant of exactly the operations a production call site performs | **Low, but NOT purely additive.** It is what makes a project built from this chain a WORKING application — see the box below. |
+>
+> **The third file is the one to read before running.** `service_role` needs an explicit `SELECT`
+> on `billing` because three handlers read the table **directly**, not through an RPC:
+> `api/create-checkout-session.ts` (the duplicate-subscription guard → `500 billing_lookup_failed`,
+> so nothing can be sold), `api/create-portal-session.ts` (→ the same 500, so a paying customer
+> cannot cancel), and `api/_lib/entitlement.ts` (`resolveServerPlan` swallows the error, so a
+> paying Pro user is **silently served as Free**). There was no `GRANT` on `billing` anywhere in
+> this repo; what access existed came from Supabase's `ALTER DEFAULT PRIVILEGES`, and
+> `supabase/config.toml` records that the implicit default for `auto_expose_new_tables` **flipped
+> to `false` on 2026-05-30**. A fully local Supabase stack in CI proved it, answering that exact
+> read with `42501 permission denied for table billing`.
+>
+> **RLS bypass and table privileges are DIFFERENT CONTROLS**, and confusing them is what let this
+> survive three billing migrations. `service_role` is `BYPASSRLS`, which decides which *rows* it
+> sees once it may touch the table; whether it may touch the table at all is a `GRANT`. Writes stay
+> RPC-controlled: `service_role` gets `SELECT` and nothing else, because every write goes through
+> `apply_stripe_billing_event` / `bind_verified_checkout` / `apply_stripe_subscription_event`,
+> which own the ordering, the downgrade rules and the row lock.
+>
+> **What changes on the live database:** `anon` loses `SELECT` (it answered `200 []` via RLS and
+> nothing requests it), and `anon`/`authenticated` lose `INSERT`/`UPDATE`/`DELETE` (RLS already
+> refused those — there is no write policy). The **authenticated self-read is preserved
+> deliberately**: `usePlan()` and the settings data export both read the signed-in user's own row,
+> so the migration grants `authenticated` an explicit `SELECT` instead of leaving it resting on the
+> platform default that just failed. Full rationale and the verification SQL:
+> `docs/BILLING_SETUP.md` §1.3.
+>
+> ⚠️ The live-probe recipe below ("anon `select` on `billing` → `200 []`") changes answer once file
+> 3 is applied: anon then gets a permission error. That is the migration working.
+>
+> ### ✅ FIXED BY FILE 4 — a fresh Supabase project WOULD have been dead on arrival
+>
+> The `supabase` CI job prints the local stack's real catalog, and the default privileges on
+> schema `public` are now:
+>
+> ```
+> for postgres, in public, tables:
+>   {postgres=arwdDxtm/postgres, anon=Dxtm/postgres,
+>    authenticated=Dxtm/postgres, service_role=Dxtm/postgres}
+> ```
+>
+> `D`=TRUNCATE, `x`=REFERENCES, `t`=TRIGGER, `m`=MAINTAIN. **`a`=INSERT, `r`=SELECT, `w`=UPDATE and
+> `d`=DELETE are absent for all three Data API roles.** The same run shows it per table: on
+> `profiles`, `projects` and `tasks`, `authenticated` holds only `MAINTAIN/REFERENCES/TRIGGER/
+> TRUNCATE` and **no SELECT**.
+>
+> No migration in this repo grants a table privilege to `anon` or `authenticated` — every table has
+> relied on the platform's old blanket default. **The live project is fine**: it was provisioned
+> before the change and its tables still carry the broad grants. But a project created from
+> `supabase/migrations/` **today** — a staging environment, a disaster-recovery restore, a second
+> region — would come up with RLS policies that never get consulted, because every read would be
+> refused by the grant layer first. The app would sign in and then show nothing, everywhere.
+>
+> **`20260801170000_application_data_api_grants.sql` closes it for all 22 remaining tables**, by the
+> same pattern: revoke from all four roles, then grant exactly the operations a production call site
+> performs. Four privileges are refused on purpose even though a policy would allow them, because
+> nothing uses them (`workspaces` UPDATE/DELETE, `workspace_members` UPDATE/DELETE, `projects`
+> DELETE — the product archives — and `calendar_sources` UPDATE).
+>
+> **It touches no function privilege and nothing outside schema `public`, and both are load-bearing.**
+> A blanket `revoke execute on all functions in schema public from public` would take the whole
+> product down in one statement: PostgreSQL evaluates an RLS policy as the QUERYING role, and
+> `is_workspace_member` / `can_access_project` and friends have no explicit EXECUTE grant anywhere —
+> PUBLIC's implicit default is what makes every policy evaluable. And `storage.objects` is owned by
+> `supabase_storage_admin`, so a grant there aborts the migration.
+>
+> **Do NOT "fix" a future 42501 by re-widening the default privileges.** That is the setting the
+> platform is deliberately removing, it grants on every FUTURE table too, and it is how `billing`
+> ended up one 42501 away from unsellable. Add a narrow grant in a new migration instead.
+>
+> `db-tests/freshProject.smoke.test.ts` is the proof: real users signed up through real GoTrue,
+> every flow driven through PostgREST, on a stack built from nothing but the migrations.
+>
+> **IT MUST BE APPLIED BEFORE LIVE STRIPE KEYS ARE SET.** The webhook does not fall back to the
+> old unordered write when the columns are absent — it fails closed with
+> `503 billing_schema_outdated` and grants nothing, deliberately, because silently degrading to
+> the behaviour that caused FLAG-3 is worse than refusing. Stripe retries a 503, so events queued
+> during a gap are not lost. Order of operations: `docs/BILLING_SETUP.md` §1.
 >
 > **This is the ONE state the repo's own history says is dangerous** — an unapplied file in the
 > migrations folder is an invitation to run `supabase db push`, and commit `b2ee68c` exists because
 > docs once made that mistake reachable. So: an agent must **NOT** run `supabase db push`. The owner
-> runs it, in a real terminal, when they choose. Neither file is required for anything currently
-> shipping; the client-side halves of both are live and tested.
+> runs it, in a real terminal, when they choose.
 >
-> Both are pinned to their client constants by tests (`src/lib/limits.test.ts`,
-> `src/features/journal/journalAudioQuotaMigration.test.ts`), so the numbers cannot drift while they
-> wait. When one is applied, move it into the applied list below and delete its row here.
+> ### ✅ CORRECTED 2026-08-01 — the two July 08-01 files ARE applied
+>
+> This box previously listed `20260801120000_length_caps` and
+> `20260801130000_journal_audio_quota` as pending. **Both were applied by the owner** and nothing
+> updated this section afterwards, so the claim went stale. It is corrected here rather than
+> quietly deleted, because a future session reading the old text would either re-apply an applied
+> migration or refuse to touch a folder it wrongly believed was dangerous. Their client-side halves
+> remain pinned by `src/lib/limits.test.ts` and
+> `src/features/journal/journalAudioQuotaMigration.test.ts`.
 >
 > The three files from the 2026-07-31 session were applied and verified live:
 >
@@ -846,9 +939,9 @@ service-role client but filters by the JWT-verified caller.
   - The earlier `20260615120000_upgrade_intents` (willingness-to-pay fake-door, insert-only) and
     `20260607090000_task_workspace_integrity` (task↔workspace co-location guard + the
     `project_workspace()` / `section_workspace()` SECURITY DEFINER helpers) remain in place.
-  Don't re-create the schema or re-run migrations. `supabase db push` used to be a no-op; since
-  2026-08-01 it would apply the two pending files named in the box at the top of this section, so
-  it is no longer a safe "just check" command.
+  Don't re-create the schema or re-run migrations. `supabase db push` used to be a no-op; it
+  would now apply the one pending file named in the box at the top of this section, so it is
+  still not a safe "just check" command.
 
 ### Restoring a clean machine / fresh clone
 
@@ -884,13 +977,14 @@ service-role client but filters by the JWT-verified caller.
    `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. **Do NOT re-run migrations, and do NOT apply the two pending ones** — the cloud DB is current
-   through `20260731140000_journal_entries`. Since 2026-08-01 there are two deliberately unapplied
-   files in `supabase/migrations/`; the box above says which and why. Applying them is the owner's
-   call, in a **real terminal** (TTY — see CLI note):
+4. **Do NOT re-run migrations, and an agent must NOT apply the pending ones** — the cloud DB is
+   current through `20260801130000_journal_audio_quota`. FOUR deliberately unapplied files remain
+   (`20260801140000_billing_event_ordering.sql`, `20260801150000_checkout_attempts.sql`,
+   `20260801160000_billing_service_role_access.sql`,
+   `20260801170000_application_data_api_grants.sql`, in that order); the box above says what each
+   does and why they must land before live Stripe keys. Applying them is the owner's call, in a
+   **real terminal** (TTY — see CLI note):
    `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
-   That single command applies **both** pending files, in timestamp order, each in its own
-   transaction — there is no per-file flag, so read both headers before running it.
 5. `npx playwright install chromium` — **a wipe also clears `~/AppData/Local/ms-playwright`**, so
    `npm run e2e` dies with `Executable doesn't exist at …chrome-headless-shell.exe`. That is a
    missing *browser*, not a broken suite. CI installs its own browsers, so this step is local-only.
@@ -925,14 +1019,50 @@ Every push / PR to `main` runs **GitHub Actions** (`.github/workflows/ci.yml`), 
 validated in the cloud even when this machine's local gates are skipped or it gets wiped:
 - **`verify` job:** `npm ci` → typecheck → lint → unit tests → build.
 - **`e2e` job:** a **Playwright** (chromium) browser smoke (`npm run e2e`, config
-  `playwright.config.ts`, specs in `e2e/`) driving the Vite dev server against the **real cloud
-  Supabase** (the fresh-user journey: landing → signup → onboarding → template → auto-plan → deep
-  routes; plus reset-password/forgot non-enumeration). It signs up a unique throwaway account and
-  **self-deletes** it via the `delete_own_account` RPC (with a best-effort `afterAll` safety net),
-  so runs never pollute the DB.
+  `playwright.config.ts`, specs in `e2e/`) driving the Vite dev server against a **DISPOSABLE LOCAL
+  Supabase stack** (the fresh-user journey: landing → signup → onboarding → template → auto-plan →
+  deep routes; plus reset-password/forgot non-enumeration). Gated at **82 tests, zero skipped**.
+  **It used to run against the real cloud project** — signing throwaway accounts up on production
+  GoTrue every push and relying on a self-delete to tidy up. No secret was involved (the anon key is
+  public), but it was an automated job mutating a live customer database. It now starts its own
+  stack, and the production hostname is **null-routed in `/etc/hosts`** for the whole job so it
+  cannot reach the real one even if something tried. `scripts/supabaseTarget.js` is the single rule
+  that decides the target and it REFUSES an unset or `supabase.co` URL before any socket opens —
+  enforced at four entry points (playwright config, vitest globalSetup,
+  `scripts/assert-local-supabase.mjs` as a named CI step, and a unit test).
+- **`csp` job:** the **enforcing** Content-Security-Policy from `vercel.json`, applied verbatim to
+  the **production build** by `scripts/serve-production-like.mjs`, with every
+  `securitypolicyviolation` collected and asserted empty. The main E2E suite serves the same policy
+  **Report-Only** (Vite needs an inline HMR preamble and a `ws://localhost` connection that
+  production forbids), so it could never answer "does the real policy break the real app". A Vercel
+  Preview would be better and is not usable: Deployment Protection answers `302` to anything without
+  a Vercel session.
+- **`database` job:** a **disposable PostgreSQL 17** service container. Applies the WHOLE migration
+  chain from empty, twice, then runs `npm run test:db` — real connections, real locks, real
+  catalog privileges. Gated by `EXPECTED_DB_TESTS` (**128**) with **zero skips allowed**, because a
+  suite that errors in a hook reports "N passed | M skipped" and exits 0, which hid a real failure
+  once. It also asserts that `supabase/test/apply.mjs` REFUSES a `supabase.co` host.
+- **`supabase` job:** a **fully local Supabase stack** (Postgres + GoTrue + PostgREST + storage,
+  started by the CLI). Runs `npm run test:postgrest` against real anon / authenticated /
+  service_role keys — the only job that exercises the interface the app actually uses — and
+  `npm run test:smoke`, the **fresh-project functional suite** that signs real users up and drives
+  every real flow through PostgREST on a database built from nothing but the migrations. Gated by
+  `EXPECTED_POSTGREST_TESTS` (**43**) and `EXPECTED_SMOKE_TESTS` (**56**), zero skips on both.
+  The second suite is the one that answers "is this a working application" rather than "did the SQL
+  apply" — every other suite stayed green while a fresh project could not read a single row. **This job is what found the billing 42501**: the
+  raw-Postgres job called the same read green for three migrations because
+  `supabase/test/00_supabase_shim.sql` was inventing a `service_role` grant the platform no longer
+  gives. The shim no longer invents privileges on application tables — they must come from
+  migrations — and the job now prints the stack's real ACLs so the next platform change is visible
+  rather than inferred.
+- **`ci-probe/**` branches** also trigger the workflow. That prefix exists so a **negative control**
+  can be run: deliberately break something, watch the job go red, delete the branch. Nothing under
+  it is ever merged.
 - **No CI secrets are required** — the Supabase URL + public anon key are baked into the app
   (RLS-protected). The E2E depends on **mailer autoconfirm being ON** (signup returns a session,
   no email step) and on `20260706120000_delete_own_account` being applied (it is, live-verified).
+  Neither database job touches the production project: one uses a throwaway container, the other a
+  local stack, and both refuse a `supabase.co` host outright.
   Out of scope by design: email receipt, Stripe, ICS URL/file fetch.
 
 ### Repo

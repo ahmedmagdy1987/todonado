@@ -4,17 +4,27 @@
  * throwaway account. A programmatic RPC safety-net removes the account even if
  * the run fails mid-way (never pollute the DB). Output -> .mobile-audit/ (gitignored).
  *
- * Prereq: dev server on http://localhost:5173. Then:  node scripts/audit-mobile.mjs
+ * IT SIGNS A REAL ACCOUNT UP, so it now resolves its Supabase the same way the
+ * test suites do and REFUSES a hosted project. It used to hold the production
+ * URL and anon key as literals and create throwaway users on the live auth
+ * server — the same thing the E2E suite was doing until 20260801170000's
+ * iteration, and the reason a manual diagnostic is not an exception to the rule.
+ *
+ * Prereq: a local Supabase stack and a dev server on http://localhost:5173:
+ *   supabase start
+ *   eval "$(supabase status -o env | sed 's/^/export /')"
+ *   export VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_ANON_KEY="$ANON_KEY"
+ *   npm run dev
+ *   node scripts/audit-mobile.mjs
  */
 import { chromium } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { mkdirSync } from 'node:fs'
+import { resolveSupabaseTarget } from './supabaseTarget.js'
 
 const BASE = 'http://localhost:5173'
-const SUPABASE_URL = 'https://lplsbfduankkpglyusjp.supabase.co'
-const ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbHNiZmR1YW5ra3BnbHl1c2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDkzMzksImV4cCI6MjA5NTkyNTMzOX0.lVX3cKJWiQYlUWGUE35sui45NKgVLWhBBX4ju-o5_OY'
+const { url: SUPABASE_URL, anonKey: ANON } = resolveSupabaseTarget()
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = join(root, '.mobile-audit')

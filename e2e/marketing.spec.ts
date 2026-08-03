@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { isSupabaseRestCall } from './supabaseTarget'
 
 /**
  * The content truth-pass.
@@ -334,7 +335,9 @@ test('landing: OG tags and the zero-database guarantee still hold', async ({ pag
   const dbCalls: string[] = []
   page.on('request', (req) => {
     const url = req.url()
-    if (url.includes('.supabase.co/rest/v1/')) dbCalls.push(`${req.method()} ${url}`)
+    // Matched against the CONFIGURED origin. The old literal hostname match
+    // is never true against a local stack, so it used to pass vacuously.
+    if (isSupabaseRestCall(url)) dbCalls.push(`${req.method()} ${url}`)
   })
 
   await page.goto('/welcome')

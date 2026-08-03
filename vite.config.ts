@@ -12,11 +12,13 @@ import { readFileSync } from 'node:fs'
  * drift. That also makes the E2E header assertions meaningful: they check the
  * real deployed values, not a copy.
  *
- * NOTE: the CSP ships as Content-Security-Policy-REPORT-ONLY, so it never blocks
- * anything. In dev you WILL see report-only violations that production won't
- * have — Vite injects an inline HMR preamble and connects over ws://localhost,
- * neither of which exists in a production build. Judge the policy from
- * production reports, not from the dev console.
+ * THE CSP IS ENFORCING IN PRODUCTION AND REPORT-ONLY HERE, and that difference
+ * is deliberate rather than sloppy (audit FLAG-11). Vite injects an inline HMR
+ * preamble and connects over ws://localhost; `script-src 'self'` and the
+ * connect-src list forbid both, so serving the production header verbatim in
+ * dev would break the dev server outright. Downgrading the KEY — and nothing
+ * else — keeps one source of truth for the policy VALUE while letting dev run.
+ * You will still see report-only violations locally that production never has.
  */
 function vercelSecurityHeaders(): Plugin {
   const config = JSON.parse(
@@ -24,7 +26,14 @@ function vercelSecurityHeaders(): Plugin {
   ) as { headers?: { source: string; headers: { key: string; value: string }[] }[] }
 
   // The catch-all rule is the one that applies to every route.
-  const headers = config.headers?.find((h) => h.source === '/(.*)')?.headers ?? []
+  const productionHeaders = config.headers?.find((h) => h.source === '/(.*)')?.headers ?? []
+
+  /** Same policy, downgraded to report-only, for dev and preview only. */
+  const headers = productionHeaders.map(({ key, value }) =>
+    key === 'Content-Security-Policy'
+      ? { key: 'Content-Security-Policy-Report-Only', value }
+      : { key, value },
+  )
 
   return {
     name: 'todonado:vercel-security-headers',

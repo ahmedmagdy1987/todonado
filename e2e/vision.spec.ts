@@ -21,10 +21,20 @@ import {
  * route-render test asserts whichever state is live so it is honest either way.
  */
 
-/** Does a COLUMN exist? A missing one makes PostgREST reject the select. */
-async function columnExists(table: string, column: string): Promise<boolean> {
+/**
+ * Does a COLUMN exist? A missing one makes PostgREST reject the select.
+ *
+ * PROBED WITH A USER'S OWN TOKEN, not the bare anon key. It used to send only
+ * `apikey`, which worked because anon held a table-wide SELECT handed out by
+ * Supabase's old default privileges. `20260801170000` revokes that — anon has
+ * no legitimate read of user_templates — so an anon probe now answers 401/403
+ * and `res.ok` would report a column that plainly exists as missing, flipping
+ * the assertion below to the "not switched on yet" branch against an app where
+ * it IS switched on. A green-to-red flip caused by the probe, not the product.
+ */
+async function columnExists(table: string, column: string, token: string): Promise<boolean> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=${column}&limit=1`, {
-    headers: { apikey: SUPABASE_ANON_KEY },
+    headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
   })
   return res.ok
 }
@@ -92,8 +102,8 @@ test('checklists: a personal checklist saves, and never lies about the style sti
   const ready = await tableExists('user_templates')
   test.skip(!ready, 'user_templates does not exist yet')
 
-  const hasStyle = await columnExists('user_templates', 'style')
   const account = await createTestAccount('personal checklist')
+  const hasStyle = await columnExists('user_templates', 'style', account.token)
   await signIn(page, account)
 
   await page.goto('/templates')

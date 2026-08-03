@@ -19,11 +19,21 @@ export async function getUserFromAuthHeader(
   authHeader: string | null,
   url: string,
   serviceRoleKey: string,
-): Promise<{ id: string; email: string | null } | null> {
+): Promise<{ id: string; email: string | null; emailVerified: boolean } | null> {
   const token = authHeader?.replace(/^Bearer\s+/i, '').trim()
   if (!token) return null
   const client = getSupabaseAdmin(url, serviceRoleKey)
   const { data, error } = await client.auth.getUser(token)
   if (error || !data.user) return null
-  return { id: data.user.id, email: data.user.email ?? null }
+  /*
+   * `emailVerified` is surfaced for audit FLAG-8: founding access is granted by
+   * matching an email STRING, and email is a self-service attribute, so an
+   * unconfirmed address must not be able to claim it. Supabase exposes the
+   * confirmation as a timestamp; its presence is the whole signal.
+   */
+  return {
+    id: data.user.id,
+    email: data.user.email ?? null,
+    emailVerified: Boolean(data.user.email_confirmed_at ?? data.user.confirmed_at),
+  }
 }
