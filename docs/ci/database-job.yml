@@ -1,25 +1,160 @@
-# MOVED — this file is no longer the source of truth.
+# ============================================================================
+#  CANONICAL SOURCE FOR TWO CI JOBS THAT COULD NOT BE PUSHED
 #
-# The database job now lives in the real workflow, at:
+#  These belong in .github/workflows/ci.yml under `jobs:`. They are here, and
+#  ONLY here, because neither credential available to this branch may write a
+#  workflow file:
 #
-#     .github/workflows/ci.yml   ->  job `database`
-#         name: database (postgres 17, disposable)
+#    - git push with the fine-grained PAT:
+#        "refusing to allow a Personal Access Token to create or update
+#         workflow .github/workflows/ci.yml without `workflow` scope"
+#      A fine-grained PAT needs the repository permission **Workflows:
+#      Read and write**, which is separate from Contents.
 #
-# and the PostgREST permission smoke lives beside it as:
+#    - the GitHub App used by the integration:
+#        "refusing to allow a GitHub App to create or update workflow
+#         .github/workflows/ci.yml without `workflows` permission"
 #
-#     .github/workflows/ci.yml   ->  job `supabase`
-#         name: supabase postgrest permissions (local stack)
+#  TO INSTALL: paste the block below into .github/workflows/ci.yml under
+#  `jobs:`, or grant Workflows: Read and write on the PAT and say so; the push
+#  is then one command.
 #
-# It was here for one iteration only, because the Personal Access Token in use
-# lacked the `workflow` scope and GitHub refuses a push that edits
-# .github/workflows without it. Keeping a second copy would have meant two
-# independently maintained definitions of the same job, which is how they drift.
+#  UNTIL THEN THESE JOBS DO NOT RUN ON ANY PUSH. Everything they execute is
+#  committed and runs locally:
 #
-# Run the same checks locally:
+#      npm install --no-save embedded-postgres        # real PG binaries, ~100 MB
+#      npm run db:start
+#      DATABASE_URL=postgres://postgres@localhost:55432/postgres npm run db:apply
+#      DATABASE_URL=postgres://postgres@localhost:55432/postgres npm run test:db
 #
-#     npm install --no-save embedded-postgres   # real PG binaries, ~100 MB
-#     npm run db:start
-#     DATABASE_URL=postgres://postgres@localhost:55432/postgres npm run db:apply
-#     DATABASE_URL=postgres://postgres@localhost:55432/postgres npm run test:db
-#
-#     supabase start && npm run test:postgrest   # needs Docker
+#      supabase start                                  # needs Docker
+#      eval "$(supabase status -o env | sed 's/^/export /')"
+#      SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" \
+#        SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" npm run test:postgrest
+# ============================================================================
+
+jobs:
+  database:
+    name: database (postgres 17, disposable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A REAL PostgreSQL. The clause-pinning suites in api/ read the migration
+    # TEXT; only this job proves the SQL parses, installs, locks, and enforces
+    # privileges. It uses no secrets and never touches the production project.
+    #
+    # Pinned to 17 because supabase/config.toml declares major_version = 17.
+    # That is the repo's own declaration of the production major, not a reading
+    # of the live instance, which this job is forbidden to contact.
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      # Every executed database test must run. A suite that errors in a hook
+      # reports "N passed | M skipped" and exits 0, which already hid a real
+      # failure once.
+      EXPECTED_DB_TESTS: '69'
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Print the PostgreSQL version actually used
+        run: |
+          node -e "const pg=require('pg');const c=new pg.Client(process.env.DATABASE_URL);
+          c.connect().then(()=>c.query('show server_version')).then(r=>{console.log('PostgreSQL',r.rows[0].server_version);return c.end()})"
+
+      # From EMPTY, chronological, every migration — not only the pending two.
+      # A migration that works only when its predecessors were applied by hand
+      # is not a migration that works.
+      - name: Apply the full migration chain
+        run: node supabase/test/apply.mjs --reset
+
+      - name: Reset and apply the whole chain a second time
+        run: node supabase/test/apply.mjs --reset
+
+      - name: A production-looking host must be refused
+        run: |
+          if DATABASE_URL='postgres://u:p@db.abcdefgh.supabase.co:5432/postgres' \
+             node supabase/test/apply.mjs --reset; then
+            echo "::error::apply.mjs accepted a supabase.co host"; exit 1
+          fi
+          echo "refused a supabase.co host, as required"
+
+      - name: Privilege and concurrency tests (real connections)
+        run: npm run test:db -- --reporter=json --outputFile=/tmp/db-results.json
+
+      # "passed with skipped tests" is not a database proof.
+      - name: Confirm every expected database test actually executed
+        run: |
+          node -e "
+          const r = require('/tmp/db-results.json');
+          const expected = Number(process.env.EXPECTED_DB_TESTS);
+          const { numTotalTests: total, numPassedTests: passed,
+                  numFailedTests: failed, numPendingTests: skipped } = r;
+          console.log({ total, passed, failed, skipped, expected });
+          if (failed > 0) { console.error('::error::' + failed + ' database tests failed'); process.exit(1) }
+          if (skipped > 0) { console.error('::error::' + skipped + ' database tests were SKIPPED'); process.exit(1) }
+          if (passed !== expected) {
+            console.error('::error::expected ' + expected + ' executed database tests, got ' + passed +
+              '. If this is an intentional change, update EXPECTED_DB_TESTS.');
+            process.exit(1)
+          }
+          console.log('all ' + passed + ' database tests executed and passed');
+          "
+
+  supabase:
+    name: supabase postgrest permissions (local stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Raw PostgreSQL proves locks, constraints and catalog privileges. It does
+    # NOT prove the path the application actually uses: PostgREST, with the
+    # anon / authenticated / service_role keys. This job runs a FULLY LOCAL
+    # Supabase stack and exercises exactly those interfaces.
+    #
+    # No production URL, key, user or datum is used anywhere in it.
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1.4.0
+        with:
+          version: 2.22.6
+
+      # `supabase start` boots Postgres, GoTrue, PostgREST and Storage locally
+      # and applies supabase/migrations — the same files, no handwritten schema.
+      - name: Start the local Supabase stack
+        run: supabase start
+
+      - name: Show what it applied
+        run: supabase migration list --local
+
+      - name: PostgREST permission smoke
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_ANON_KEY="$ANON_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          echo "local API: $SUPABASE_URL"
+          npm run test:postgrest
+
+      - name: Stop the stack
+        if: always()
+        run: supabase stop --no-backup
