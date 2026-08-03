@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test'
 
 /**
- * Todonado E2E smoke — a real browser driving the local dev server against the
- * REAL cloud Supabase. Mirrors docs/LAUNCH_CHECKLIST.md's fresh-user script.
+ * Todonado E2E smoke — a real browser driving the local dev server against a
+ * DISPOSABLE LOCAL Supabase stack. Mirrors docs/LAUNCH_CHECKLIST.md's fresh-user
+ * script. It ran against the real cloud project until this iteration; see
+ * e2e/supabaseTarget.ts for why an automated suite must never do that.
  *
  * COVERED
  *   1. Landing (/welcome) renders, primary CTA visible.
@@ -31,11 +33,11 @@ import { test, expect } from '@playwright/test'
  *     parser itself is thoroughly unit-tested (src/features/calendar/ics.test.ts).
  */
 
-// Public config — the anon key already ships in the client bundle (RLS-protected),
-// so it is safe here and needs NO CI secret. Used only by the afterAll safety net.
-const SUPABASE_URL = 'https://lplsbfduankkpglyusjp.supabase.co'
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbHNiZmR1YW5ra3BnbHl1c2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDkzMzksImV4cCI6MjA5NTkyNTMzOX0.lVX3cKJWiQYlUWGUE35sui45NKgVLWhBBX4ju-o5_OY'
+// The DISPOSABLE local stack this run started. These were two literals holding
+// the production project and its committed anon key, which is how the suite came
+// to sign real users up on the live auth server on every push.
+import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseRestCall } from './supabaseTarget'
+import { cspSupabaseOrigins } from '../scripts/vercelHeaders.js'
 
 /** A unique throwaway identity per run (timestamp + random suffix). */
 function uniqueIdentity() {
@@ -321,7 +323,9 @@ test('landing: the three demo widgets are interactive and touch a database NEVER
   const dbCalls: string[] = []
   page.on('request', (req) => {
     const url = req.url()
-    if (url.includes('.supabase.co/rest/v1/')) dbCalls.push(`${req.method()} ${url}`)
+    // Matched against the CONFIGURED origin. The old literal hostname match
+    // is never true against a local stack, so it used to pass vacuously.
+    if (isSupabaseRestCall(url)) dbCalls.push(`${req.method()} ${url}`)
   })
 
   await page.goto('/welcome')
@@ -401,9 +405,26 @@ test('security headers are served on every response (audit M1)', async ({ page }
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
     expect(csp).toContain("script-src 'self'")
-    // Realtime is enabled — the websocket origin must be allowed or sync breaks
-    // now that this policy actually enforces.
-    expect(csp).toContain('wss://lplsbfduankkpglyusjp.supabase.co')
+    /*
+     * Realtime is enabled, so the websocket origin must be allowed or sync
+     * breaks now that this policy actually enforces.
+     *
+     * Read out of vercel.json rather than written here. The literal production
+     * host used to be typed into this assertion, which made the check rot the
+     * moment the policy changed and — once the suite moved onto a local stack —
+     * put a hosted Supabase hostname inside a test file, which is exactly what
+     * scripts/assert-local-supabase.mjs exists to refuse.
+     */
+    const deployedSupabaseOrigins = cspSupabaseOrigins()
+    expect(
+      deployedSupabaseOrigins.length,
+      'the deployed policy must name a Supabase origin, or realtime cannot connect',
+    ).toBeGreaterThan(0)
+    for (const origin of deployedSupabaseOrigins) expect(csp).toContain(origin)
+    expect(
+      deployedSupabaseOrigins.some((o) => o.startsWith('wss://')),
+      'realtime needs a wss:// origin in connect-src',
+    ).toBe(true)
 
     // Whichever key is served, exactly ONE of them must be.
     expect(

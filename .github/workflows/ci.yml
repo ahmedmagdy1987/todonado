@@ -2,8 +2,12 @@ name: CI
 
 # Cloud-verify every push/PR to main so a change is validated even when the
 # local gates are skipped (this project's dev machine gets wiped often).
-# No secrets are required: the Supabase URL + public anon key are baked into the
-# app (RLS-protected), and the E2E account deletes itself.
+#
+# NO JOB HERE CONTACTS THE PRODUCTION SUPABASE PROJECT, and that is enforced
+# rather than intended: the two database jobs refuse a `supabase.co` host
+# outright, the e2e and csp jobs null-route the production hostname in
+# /etc/hosts before they start, and scripts/assert-local-supabase.mjs fails the
+# job before any socket opens. No secrets are required by any of it.
 on:
   push:
     # `ci-probe/**` exists so a NEGATIVE CONTROL can be run.
@@ -48,10 +52,24 @@ jobs:
       - run: npm run build
 
   e2e:
-    name: e2e smoke (chromium)
+    name: e2e smoke (chromium, local supabase)
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     # See the note on `verify`: probe branches skip this deliberately.
     if: ${{ !startsWith(github.ref_name, 'ci-probe/') }}
+    # THIS JOB NO LONGER TOUCHES THE PRODUCTION PROJECT.
+    #
+    # It used to sign a throwaway account up on the live Supabase auth server,
+    # write rows into live tables and delete itself afterwards, on every push.
+    # No secret was involved — the anon key is public and committed — but it was
+    # an automated job mutating a customer database, one failed cleanup away
+    # from leaving a real user behind. It now starts its own stack, and the
+    # production hostname is null-routed below so it CANNOT reach the real one
+    # even if something tried.
+    env:
+      # Same rule as the database and PostgREST gates: a journey that skipped is
+      # a journey nobody ran, and Playwright exits 0 for a skip.
+      EXPECTED_E2E_TESTS: '82'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,6 +77,56 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      - uses: supabase/setup-cli@v1.4.0
+        with:
+          version: 2.111.0
+
+      - name: Free any stale Supabase ports
+        run: |
+          supabase stop --no-backup || true
+          for p in 54320 54321 54322 54323 54324 54327 54329; do
+            sudo fuser -k -n tcp "$p" 2>/dev/null || true
+          done
+
+      # storage and realtime ARE included here (unlike the permissions job):
+      # journal-audio.spec.ts uploads and signs objects, and useRealtimeSync
+      # opens a websocket the moment the app shell mounts.
+      - name: Start the local Supabase stack
+        run: |
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit
+          supabase status
+
+      # PROOF, NOT A PROMISE. The default project host from src/lib/env.ts is
+      # null-routed for the rest of the job, so if any code path still reached
+      # for production it fails to connect instead of quietly succeeding. The
+      # host is read out of the source rather than typed here, so it cannot go
+      # stale and this file does not become the last place production is
+      # hardcoded.
+      - name: Make the production Supabase project UNREACHABLE
+        run: |
+          HOST=$(node -e "
+            const s = require('fs').readFileSync('src/lib/env.ts','utf8');
+            const m = s.match(/https:\/\/([a-z0-9-]+\.supabase\.co)/);
+            if (!m) { console.error('no default Supabase host found in src/lib/env.ts'); process.exit(1) }
+            console.log(m[1])")
+          echo "null-routing $HOST for this job"
+          echo "127.0.0.1 $HOST" | sudo tee -a /etc/hosts
+          getent hosts "$HOST"
+
+      - name: Export the LOCAL stack, and refuse anything hosted
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          {
+            echo "VITE_SUPABASE_URL=$API_URL"
+            echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY"
+          } >> "$GITHUB_ENV"
+          echo "local API: $API_URL"
+
+      # A named, visible refusal rather than a stack trace inside a runner.
+      - name: Guard — no test path may reach a hosted Supabase project
+        run: node scripts/assert-local-supabase.mjs
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -66,8 +134,45 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install Playwright chromium + system deps
         run: npx playwright install --with-deps chromium
+
       - name: Run E2E smoke
-        run: npm run e2e
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: /tmp/e2e-results.json
+        run: npm run e2e -- --reporter=list,json
+
+      # Several specs gate themselves on `tableExists`, which was the right call
+      # while migrations were pending against a shared cloud project. Against a
+      # stack built from the whole chain nothing may skip — a skipped journey is
+      # a journey nobody ran, and it exits 0.
+      - name: Confirm every E2E test actually executed
+        run: |
+          node -e "
+          const r = require('/tmp/e2e-results.json');
+          let passed = 0, failed = 0, skipped = 0;
+          const walk = (suite) => {
+            for (const spec of suite.specs ?? []) {
+              for (const t of spec.tests ?? []) {
+                const s = t.status ?? t.results?.[0]?.status;
+                if (s === 'skipped') skipped++;
+                else if (spec.ok) passed++;
+                else failed++;
+              }
+            }
+            for (const child of suite.suites ?? []) walk(child);
+          };
+          for (const s of r.suites ?? []) walk(s);
+          const expected = Number(process.env.EXPECTED_E2E_TESTS);
+          console.log({ passed, failed, skipped, expected });
+          if (failed > 0) { console.error('::error::' + failed + ' E2E tests failed'); process.exit(1) }
+          if (skipped > 0) { console.error('::error::' + skipped + ' E2E tests were SKIPPED'); process.exit(1) }
+          if (passed !== expected) {
+            console.error('::error::expected ' + expected + ' executed E2E tests, got ' + passed +
+              '. If this is an intentional change, update EXPECTED_E2E_TESTS.');
+            process.exit(1)
+          }
+          console.log('all ' + passed + ' E2E tests executed and passed');
+          "
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -76,6 +181,10 @@ jobs:
           path: playwright-report
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Stop the stack
+        if: always()
+        run: supabase stop --no-backup
   database:
     name: database (postgres 17, disposable)
     runs-on: ubuntu-latest
@@ -111,7 +220,7 @@ jobs:
       # asserted separately from the table grant because confusing the two is
       # what produced the 42501, and db-tests/billingGrant.db.test.ts adds the
       # staged proof that 20260801160000 is what grants the SELECT.
-      EXPECTED_DB_TESTS: '128'
+      EXPECTED_DB_TESTS: '131'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0
@@ -205,6 +314,10 @@ jobs:
       # would have reported "0 passed" and exited 0 — the exact failure mode the
       # database job already learned about the hard way.
       EXPECTED_POSTGREST_TESTS: '43'
+      # Same rule for the fresh-project suite. It is the one that answers "is
+      # this a working application", so a silently skipped test here is a
+      # migration chain nobody has actually run an app against.
+      EXPECTED_SMOKE_TESTS: '56'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0
@@ -240,17 +353,54 @@ jobs:
           done
           sudo ss -ltnp | grep -E ':5432[0-9]' || echo "ports clear"
 
-      # Only the three services this proves anything about: Postgres, GoTrue and
-      # PostgREST. Studio, storage, realtime, imgproxy, edge-runtime, analytics
-      # and the pooler are not exercised by these tests, and every one of them is
-      # another image to pull and another port to collide on.
+      # Postgres, GoTrue, PostgREST — and STORAGE, which joined the list when the
+      # fresh-project suite started proving that journal recordings really are
+      # private to their owner (the bucket policies key on the first path
+      # segment, and only a real storage service exercises that). Studio,
+      # realtime, imgproxy, edge-runtime, analytics and the pooler are not
+      # exercised here, and each is another image to pull and another port to
+      # collide on.
       - name: Start the local Supabase stack
         run: |
-          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit,realtime,storage
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit,realtime
           supabase status
 
       - name: Show what it applied
         run: supabase migration list --local
+
+      # IS IT A WORKING APPLICATION, not merely a database that applied?
+      #
+      # This is the suite the previous iteration could not have written: it
+      # signs real users up through GoTrue and drives the real flows through
+      # PostgREST on a stack built from nothing but the migrations. Before
+      # 20260801170000 a fresh project answered 42501 to every read, and every
+      # existing suite stayed green because none of them ever tried.
+      - name: Fresh-project functional smoke (real users, real flows)
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          export SUPABASE_URL="$API_URL"
+          export SUPABASE_ANON_KEY="$ANON_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          npm run test:smoke -- --reporter=default --reporter=json \
+            --outputFile.json=/tmp/smoke-results.json
+
+      - name: Confirm every expected fresh-project test actually executed
+        run: |
+          node -e "
+          const r = require('/tmp/smoke-results.json');
+          const expected = Number(process.env.EXPECTED_SMOKE_TESTS);
+          const { numTotalTests: total, numPassedTests: passed,
+                  numFailedTests: failed, numPendingTests: skipped } = r;
+          console.log({ total, passed, failed, skipped, expected });
+          if (failed > 0) { console.error('::error::' + failed + ' fresh-project tests failed'); process.exit(1) }
+          if (skipped > 0) { console.error('::error::' + skipped + ' fresh-project tests were SKIPPED'); process.exit(1) }
+          if (passed !== expected) {
+            console.error('::error::expected ' + expected + ' executed fresh-project tests, got ' + passed +
+              '. If this is an intentional change, update EXPECTED_SMOKE_TESTS.');
+            process.exit(1)
+          }
+          console.log('all ' + passed + ' fresh-project tests executed and passed');
+          "
 
       # EVIDENCE, NOT ASSUMPTION.
       #
@@ -308,6 +458,89 @@ jobs:
           }
           console.log('all ' + passed + ' PostgREST tests executed and passed');
           "
+
+      - name: Stop the stack
+        if: always()
+        run: supabase stop --no-backup
+
+  csp:
+    name: enforcing CSP (production build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ !startsWith(github.ref_name, 'ci-probe/') }}
+    # THE POLICY THAT SHIPS, ENFORCING, AGAINST THE BUILT APP.
+    #
+    # Every other CSP check in this repo asserts the policy's TEXT. None has run
+    # the app under it: the E2E suite drives the Vite dev server, which serves
+    # the same policy Report-Only on purpose (Vite needs an inline HMR preamble
+    # and a ws://localhost connection that production forbids), so a directive
+    # that broke the product would surface as a console warning nobody fails on.
+    #
+    # A Vercel Preview would be better still and is NOT usable: the project has
+    # Deployment Protection on, so a preview answers 302 to vercel.com/sso-api
+    # for anything without a Vercel session, and both ways to change that are
+    # changes to the Vercel project this iteration may not make. See
+    # scripts/serve-production-like.mjs for what this proves instead.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: supabase/setup-cli@v1.4.0
+        with:
+          version: 2.111.0
+
+      - name: Free any stale Supabase ports
+        run: |
+          supabase stop --no-backup || true
+          for p in 54320 54321 54322 54323 54324 54327 54329; do
+            sudo fuser -k -n tcp "$p" 2>/dev/null || true
+          done
+
+      - name: Start the local Supabase stack
+        run: |
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit,realtime,storage
+          supabase status
+
+      - name: Make the production Supabase project UNREACHABLE
+        run: |
+          HOST=$(node -e "
+            const s = require('fs').readFileSync('src/lib/env.ts','utf8');
+            const m = s.match(/https:\/\/([a-z0-9-]+\.supabase\.co)/);
+            if (!m) { console.error('no default Supabase host found in src/lib/env.ts'); process.exit(1) }
+            console.log(m[1])")
+          echo "127.0.0.1 $HOST" | sudo tee -a /etc/hosts
+
+      - name: Export the LOCAL stack, and refuse anything hosted
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          {
+            echo "VITE_SUPABASE_URL=$API_URL"
+            echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Guard — no test path may reach a hosted Supabase project
+        run: node scripts/assert-local-supabase.mjs
+
+      # Built with the LOCAL stack baked in: the bundle inlines the VITE_ vars
+      # at build time, and the enforcing connect-src must name the origin the
+      # bundle actually calls.
+      - name: Build the production bundle
+        run: npm run build
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright chromium + system deps
+        run: npx playwright install --with-deps chromium
+
+      - name: Enforcing-CSP smoke
+        run: npm run test:csp
 
       - name: Stop the stack
         if: always()

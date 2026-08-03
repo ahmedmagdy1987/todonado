@@ -293,6 +293,117 @@ describe('billing RLS — rows, not table access', () => {
   })
 })
 
+/* ===========================================================================
+ *  THE WHOLE APPLICATION'S DATA API CONTRACT, read back from the catalog.
+ *
+ *  db-tests/freshProject.smoke.test.ts proves the app WORKS on this contract by
+ *  driving the real flows. This proves the contract is what 20260801170000 says
+ *  it is — which is the half a functional suite cannot cover, because an
+ *  OVER-grant breaks nothing and would pass every functional test ever written.
+ *
+ *  It is also the guard for the next table somebody adds: a new table with no
+ *  entry here fails the last assertion rather than silently inheriting whatever
+ *  the platform happens to hand out that month.
+ * ======================================================================== */
+describe('application table privileges — the installed contract', () => {
+  /** Mirrors 20260801170000 exactly. Change both together, deliberately. */
+  const CONTRACT: Record<string, Partial<Record<string, string[]>>> = {
+    profiles: { authenticated: ['INSERT', 'SELECT', 'UPDATE'] },
+    workspaces: { authenticated: ['INSERT', 'SELECT'] },
+    workspace_members: { authenticated: ['INSERT', 'SELECT'] },
+    projects: { authenticated: ['INSERT', 'SELECT', 'UPDATE'] },
+    sections: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    tasks: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    subtasks: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    focus_sessions: { authenticated: ['INSERT', 'SELECT', 'UPDATE'] },
+    events: { authenticated: ['INSERT'] },
+    calendar_sources: {
+      authenticated: ['DELETE', 'INSERT', 'SELECT'],
+      service_role: ['SELECT'],
+    },
+    upgrade_intents: { anon: ['INSERT'], authenticated: ['INSERT'] },
+    feature_intents: { anon: ['INSERT'], authenticated: ['INSERT'] },
+    wellness_items: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    wellness_logs: { authenticated: ['DELETE', 'INSERT', 'SELECT'] },
+    quit_habits: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    quit_checkins: { authenticated: ['DELETE', 'INSERT', 'SELECT'] },
+    user_templates: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    vision_cards: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    mind_maps: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    user_challenges: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    journal_entries: { authenticated: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'] },
+    billing: { authenticated: ['SELECT'], service_role: ['SELECT'] },
+    checkout_attempts: {},
+  }
+
+  /** Every Data API grant installed anywhere in schema public. */
+  async function installed(): Promise<Record<string, Record<string, string[]>>> {
+    const { rows } = await root.query(
+      `select c.relname as table_name,
+              coalesce(nullif(a.grantee::regrole::text, '-'), 'PUBLIC') as grantee,
+              a.privilege_type as privilege
+         from pg_class c
+         join pg_namespace n on n.oid = c.relnamespace
+         cross join lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+        where n.nspname = 'public' and c.relkind = 'r' and a.grantee <> c.relowner
+        order by 1, 2, 3`,
+    )
+    const out: Record<string, Record<string, string[]>> = {}
+    for (const r of rows) {
+      const table = r.table_name as string
+      const grantee = r.grantee as string
+      out[table] ??= {}
+      out[table][grantee] ??= []
+      out[table][grantee].push(r.privilege as string)
+    }
+    return out
+  }
+
+  it('every table holds EXACTLY the privileges the contract names', async () => {
+    const actual = await installed()
+    const diffs: string[] = []
+    for (const [table, expected] of Object.entries(CONTRACT)) {
+      for (const role of ['PUBLIC', 'anon', 'authenticated', 'service_role']) {
+        const want = [...(expected[role] ?? [])].sort()
+        const got = [...(actual[table]?.[role] ?? [])].sort()
+        if (JSON.stringify(want) !== JSON.stringify(got)) {
+          diffs.push(`${table} / ${role}: expected [${want}] got [${got}]`)
+        }
+      }
+    }
+    expect(diffs, `the installed grants do not match 20260801170000:\n${diffs.join('\n')}`).toEqual(
+      [],
+    )
+  })
+
+  it('PUBLIC holds nothing on any table in the schema', async () => {
+    // PostgreSQL grants no table privileges to PUBLIC by default, so this
+    // should be free — which is exactly why nobody would notice one appearing.
+    const actual = await installed()
+    const offenders = Object.entries(actual)
+      .filter(([, byRole]) => (byRole.PUBLIC ?? []).length > 0)
+      .map(([table, byRole]) => `${table}: ${byRole.PUBLIC.join(', ')}`)
+    expect(offenders, `PUBLIC holds privileges:\n${offenders.join('\n')}`).toEqual([])
+  })
+
+  it('no table in public is missing from the contract', async () => {
+    // The guard for the NEXT table. A new one added without a grant decision
+    // either silently works (a platform default came back) or silently returns
+    // nothing (42501 read as empty by every hook). Both are found here first.
+    const { rows } = await root.query(
+      `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relkind = 'r' order by 1`,
+    )
+    const unknown = rows
+      .map((r) => r.relname as string)
+      .filter((t) => !(t in CONTRACT))
+    expect(
+      unknown,
+      `these tables have no entry in the privilege contract:\n${unknown.join('\n')}`,
+    ).toEqual([])
+  })
+})
+
 describe('checkout_attempts table privileges', () => {
   // TRIGGER was missing from this list, so a grant of it would have gone
   // unnoticed. TABLE_PRIVILEGES is the complete set PostgreSQL can hand out.

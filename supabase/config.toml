@@ -204,7 +204,15 @@ anonymous_users = 30
 # Number of sessions that can be refreshed in a 5 minute interval per IP address.
 token_refresh = 150
 # Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
-sign_in_sign_ups = 30
+#
+# RAISED FOR THE DISPOSABLE TEST STACK, and it is not a security decision.
+# This file configures the LOCAL stack only — the hosted project's auth limits
+# live in its dashboard and are untouched by it. The E2E suite now runs here
+# instead of against production, and it creates roughly twenty throwaway
+# accounts and signs each of them in, all from one runner IP inside a few
+# minutes. At 30 the suite throttles itself and fails as "signup returned no
+# session", which reads like an autoconfirm problem and is not one.
+sign_in_sign_ups = 1000
 # Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
 token_verifications = 30
 # Number of Web3 logins that can be made in a 5 minute interval per IP address.

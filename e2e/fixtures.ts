@@ -13,13 +13,15 @@ import { expect, type Page } from '@playwright/test'
  *  - self-deletion via the `delete_own_account` RPC, plus a per-file safety net
  *    so a failed test never leaves an account behind.
  *
- * NO SECRETS. The Supabase URL and the anon key already ship inside the client
- * bundle (RLS-protected), which is why this suite needs no CI secret at all.
+ * NO SECRETS, AND NO PRODUCTION. The URL and anon key come from the DISPOSABLE
+ * local stack the run started (see e2e/supabaseTarget.ts). They used to be two
+ * literals here holding the production project and its committed anon key,
+ * which is how an automated suite ended up signing real users up on the live
+ * auth server every push.
  */
 
-export const SUPABASE_URL = 'https://lplsbfduankkpglyusjp.supabase.co'
-export const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbHNiZmR1YW5ra3BnbHl1c2pwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNDkzMzksImV4cCI6MjA5NTkyNTMzOX0.lVX3cKJWiQYlUWGUE35sui45NKgVLWhBBX4ju-o5_OY'
+export { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseTarget'
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseTarget'
 
 /**
  * `fetch`, but a transient CONNECT failure is retried instead of failing a test.
@@ -85,13 +87,18 @@ export async function rest(
 /**
  * Does a table exist for an ANONYMOUS caller?
  *
- * A missing table is a 404 from PostgREST. A table that EXISTS but denies anon
- * (which every owner-only table does) answers 200 with `[]` — RLS filtering, not
- * a schema error. So `status !== 404` is exactly "the migration has been
- * applied", and it needs no session.
+ * A missing table is a 404 from PostgREST. A table that EXISTS answers with
+ * SOMETHING ELSE — and what that something is changed with 20260801170000.
  *
- * Specs use this to skip until `supabase db push` has run, then exercise the
- * real flow with no further changes. The skip is a deploy gate, not an excuse.
+ * It used to be `200 []`: anon held a table-wide SELECT from Supabase's old
+ * default privileges and RLS filtered every row away. anon now holds no
+ * privilege on an owner-only table, so the same request answers 401/403. Either
+ * way it is not 404, so `status !== 404` still means exactly "the migration has
+ * been applied" and this helper is unchanged — but do NOT re-grant anon SELECT
+ * to restore the old status code. A probe is not a reason to widen access.
+ *
+ * Specs use this to skip until the migrations have run, then exercise the real
+ * flow with no further changes. The skip is a deploy gate, not an excuse.
  */
 export async function tableExists(table: string): Promise<boolean> {
   const res = await fetchWithRetry(`${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`, {

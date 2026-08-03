@@ -17,7 +17,10 @@
     "db:start": "node scripts/start-test-db.mjs --fresh",
     "db:apply": "node supabase/test/apply.mjs --reset",
     "test:db": "vitest run --config vitest.db.config.ts",
-    "test:postgrest": "vitest run --config vitest.postgrest.config.ts"
+    "test:postgrest": "vitest run --config vitest.postgrest.config.ts",
+    "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "csp:serve": "node scripts/serve-production-like.mjs",
+    "test:csp": "playwright test --config playwright.csp.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
