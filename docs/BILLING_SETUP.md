@@ -9,6 +9,106 @@
 
 ---
 
+## 00. PRE-MERGE GATE — none of this starts until every box is ticked
+
+Nothing below runs against the live project while PR #1 is open. This section is
+what "approved" means.
+
+### 00.1 Required CI checks, with the counts they must report
+
+All five jobs must be green **on the same head commit**. A green job with a wrong
+count is a failure: every gate below exists because a suite that silently skipped
+once reported success.
+
+| Job | Must report |
+| --- | --- |
+| `typecheck · lint · unit · build` | typecheck, lint, **1515 unit tests**, production build |
+| `e2e smoke (chromium, local supabase)` | **82 E2E tests**, 0 skipped, against a LOCAL stack |
+| `database (postgres 17, disposable)` | **36 migrations** applied from empty **twice**; **128 tests**, 0 failed, 0 skipped; the `supabase.co` host refused *for the right reason* |
+| `supabase postgrest permissions (local stack)` | **43 PostgREST tests** and **56 fresh-project tests**, 0 skipped |
+| `enforcing CSP (production build)` | **9 CSP tests** against the built bundle behind the real enforcing policy |
+
+### 00.2 The other pre-merge checks
+
+- [ ] **PR #1 is still a DRAFT** and stays one until the architect converts it.
+- [ ] **Secret scan** — `git log -p origin/main..HEAD | grep -nEi 'sk_live|sk_test|whsec_|service_role|SUPABASE_SERVICE_ROLE_KEY|-----BEGIN'`
+      returns only documentation and variable NAMES, never a value.
+- [ ] **Final diff review** — `git diff origin/main...HEAD --stat` reviewed file by
+      file; no unrelated feature work, no generated output (`dist/`,
+      `playwright-report/`, `.mobile-audit/`), no `ci-probe/**` branch left on the
+      remote.
+- [ ] **No CI job contacts the production database.** Both database jobs refuse a
+      `supabase.co` host outright, the E2E and CSP jobs null-route the production
+      hostname in `/etc/hosts` before they start, and
+      `scripts/assert-local-supabase.mjs` fails the job before any socket opens.
+- [ ] **The three pending billing migrations are still unapplied in production**
+      (§01 tells you how to check without changing anything).
+
+---
+
+## 01. PRE-MIGRATION INSPECTION — read-only, run before you change anything
+
+Run these in the Supabase SQL editor **before** §1. Every one is a SELECT; none
+writes. Record the output somewhere outside this repository — it is the "before"
+you will compare against and, if you have to roll back, the only description of
+what the database looked like.
+
+```sql
+-- 1. Which PostgreSQL are we actually on? supabase/config.toml claims 17.
+show server_version;
+
+-- 2. The CURRENT billing ACL. This is what 20260801160000 will replace.
+--    Expect the historical broad grants; after the migration, exactly two rows.
+select coalesce(nullif(a.grantee::regrole::text, '-'), 'PUBLIC') as grantee,
+       a.privilege_type
+  from pg_class c
+  left join lateral aclexplode(c.relacl) a on true
+ where c.oid = 'public.billing'::regclass and a.grantee <> c.relowner
+ order by 1, 2;
+
+-- 3. How much billing state exists at all?
+select count(*) as rows,
+       count(*) filter (where plan = 'pro')  as pro,
+       count(*) filter (where plan = 'free') as free,
+       count(*) filter (where stripe_subscription_id is not null) as bound
+  from public.billing;
+
+-- 4. TEST-MODE leftovers. Stripe test ids are indistinguishable from live ones
+--    by shape, so the only reliable marker is that they were written while
+--    STRIPE_MODE was test. List them and decide DELIBERATELY what happens to
+--    each; §3 explains why a test-mode row must not survive into live.
+select user_id, plan, subscription_status, stripe_customer_id,
+       stripe_subscription_id, current_period_end, updated_at
+  from public.billing
+ where stripe_customer_id is not null
+ order by updated_at desc;
+
+-- 5. Inconsistent state worth knowing about BEFORE new rules start applying.
+select user_id, plan, subscription_status, current_period_end,
+       last_stripe_event_id, last_stripe_event_at
+  from public.billing
+ where (plan = 'pro' and subscription_status is distinct from 'active')
+    or (plan = 'free' and stripe_subscription_id is not null)
+    or (current_period_end is not null and current_period_end < now());
+
+-- 6. Migration history — what the project believes it has applied.
+select version, name from supabase_migrations.schema_migrations order by version;
+--    The last row should be 20260801130000. If 20260801140000 or later is
+--    already there, STOP: someone has applied part of this work and §1 is not
+--    the right starting point.
+
+-- 7. Does the event-ordering column pair exist yet? (Belt to 6's braces.)
+select column_name from information_schema.columns
+ where table_schema = 'public' and table_name = 'billing'
+   and column_name like 'last_stripe_event%';
+```
+
+> **Do not run these from CI, a script, or an agent shell.** They are read-only,
+> but the credential that can run them is not, and this repository's rule is that
+> no automation holds a production database connection.
+
+---
+
 ## 0. THE ORDER IS THE RUNBOOK
 
 Every step works if you do it in this order, and fails in a specific, recoverable way if you do
@@ -38,15 +138,22 @@ not. Two orderings actually matter:
 
 ## 1. Apply the migrations — FIRST, before any live key
 
-**THREE files are pending, and the order is chronological.** `supabase db push` applies them in
+**FOUR files are pending, and the order is chronological.** `supabase db push` applies them in
 this order by itself; the list is here so you can check what landed, and run them by hand if you
 prefer.
 
-| # | File | What it does |
-|---|---|---|
-| 1 | `20260801140000_billing_event_ordering.sql` | two nullable columns on `billing` + `apply_stripe_billing_event` |
-| 2 | `20260801150000_checkout_attempts.sql` | the `checkout_attempts` table and the reserve/mark/bind functions |
-| 3 | `20260801160000_billing_service_role_access.sql` | the SQL privilege contract for `billing` |
+| # | File | What it does | Class |
+|---|---|---|---|
+| 1 | `20260801140000_billing_event_ordering.sql` | two nullable columns on `billing` + `apply_stripe_billing_event` | **additive**, plus **behaviour-changing** (the webhook starts refusing out-of-order events instead of applying them) |
+| 2 | `20260801150000_checkout_attempts.sql` | the `checkout_attempts` table and the reserve/mark/bind functions | **additive**, plus **behaviour-changing** (checkout starts reserving a durable attempt) |
+| 3 | `20260801160000_billing_service_role_access.sql` | the SQL privilege contract for `billing` | **privilege-changing** — NOT purely additive, see §1.3 |
+| 4 | `20260801170000_application_data_api_grants.sql` | the SQL privilege contract for every other application table | **privilege-changing** — NOT purely additive, see §1.4 |
+
+> **Nothing here is behaviour-changing for a user who is not buying anything.**
+> Files 1 and 2 only alter the money path, which is inert until live keys are
+> set. Files 3 and 4 narrow privileges to exactly what the application uses, so a
+> correctly-working app sees no difference — that claim is what the fresh-project
+> smoke suite exists to make checkable rather than reassuring.
 
 ```bash
 supabase login                                   # real terminal; a non-TTY shell cannot
@@ -175,6 +282,81 @@ select coalesce(nullif(a.grantee::regrole::text,'-'),'PUBLIC') as grantee, a.pri
 > installed ACL back from the catalog; `db-tests/billingGrant.db.test.ts` applies the chain only as
 > far as `20260801150000`, checks the SELECT is genuinely absent, applies `20260801160000` alone and
 > checks it appears — so "the migration grants it" is proved rather than assumed.
+
+### 1.4 — `20260801170000_application_data_api_grants.sql`
+
+**The same defect as §1.3, for the other twenty-two tables. Read before running.**
+
+`20260801160000` fixed `billing` because that is where the failure was caught. It
+is not where the failure ends. **No migration in this repository has ever granted
+a table privilege to `anon` or `authenticated`.** The live project works only
+because it was provisioned while Supabase still handed out a blanket default; the
+CI diagnostic prints what the platform gives now:
+
+```
+for postgres, in public, tables:
+  {postgres=arwdDxtm/postgres, anon=Dxtm/postgres,
+   authenticated=Dxtm/postgres, service_role=Dxtm/postgres}
+```
+
+`D`=TRUNCATE, `x`=REFERENCES, `t`=TRIGGER, `m`=MAINTAIN. `SELECT`, `INSERT`,
+`UPDATE` and `DELETE` are absent for all three Data API roles. A project created
+from this chain today — a staging environment, a disaster-recovery restore, a
+second region — comes up unable to read anything, and **it fails silently**:
+every feature hook treats a `42501` as an empty result, so the symptom is an
+empty Vision page, an empty journal, a Free badge for a paying subscriber and a
+capacity meter quietly reset to six hours.
+
+**What it installs.** Per-table `REVOKE` from all four roles, then a `GRANT` of
+exactly the operations a production call site performs. Four privileges are
+refused on purpose even though an RLS policy would allow them, because nothing in
+the product uses them: `workspaces` UPDATE/DELETE, `workspace_members`
+UPDATE/DELETE, `projects` DELETE (the product archives), and `calendar_sources`
+UPDATE. `anon` receives INSERT on `upgrade_intents` and `feature_intents` and
+nothing else, because those two fake doors are the only surfaces a logged-out
+visitor legitimately writes.
+
+**What it deliberately does NOT do**, each for a reason worth keeping:
+
+- **No function privileges.** Pairing this with a blanket
+  `revoke execute on all functions in schema public from public` would take the
+  whole product down in one statement: PostgreSQL evaluates an RLS policy as the
+  QUERYING role, and `is_workspace_member` / `can_access_project` and friends have
+  no explicit EXECUTE grant anywhere — PUBLIC's implicit default is what makes
+  every policy in the app evaluable.
+- **Nothing outside schema `public`.** No grant on `storage.objects`: it is owned
+  by `supabase_storage_admin` and the migration would abort with
+  `must be owner of table objects`. Storage authorisation is the four bucket
+  policies from `20260731140000`.
+
+**What changes on the live database.** `anon` loses SELECT everywhere (anonymous
+reads answered `200 []` through RLS and now answer `42501`; nothing in the app
+makes one), and `anon`/`authenticated` lose the write privileges RLS already
+refused. Nothing the application does is removed — and that is not an assurance,
+it is `db-tests/freshProject.smoke.test.ts`, which signs real users up through
+GoTrue and drives every flow through PostgREST on a stack built from nothing but
+these migrations.
+
+Confirm it landed:
+
+```sql
+-- Expect exactly the contract: no PUBLIC row, no anon row except the two
+-- intake tables, and no service_role row except billing and calendar_sources.
+select c.relname,
+       coalesce(nullif(a.grantee::regrole::text, '-'), 'PUBLIC') as grantee,
+       string_agg(a.privilege_type, ', ' order by a.privilege_type) as privileges
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  left join lateral aclexplode(c.relacl) a on true
+ where n.nspname = 'public' and c.relkind = 'r' and a.grantee <> c.relowner
+ group by 1, 2
+ order by 1, 2;
+
+-- And the app still works for a real user: sign in and confirm the capacity
+-- meter shows YOUR number rather than the 360-minute default, Today lists your
+-- tasks, and /journal opens an existing entry. Those three are the surfaces
+-- whose failure mode is silence.
+```
 
 ---
 
@@ -376,8 +558,76 @@ rather than drop, and the migration is additive.
 | **Stop selling RIGHT NOW** | — | **Delete `STRIPE_SECRET_KEY` and redeploy.** Checkout `503`s, the UI falls back to the fake-door modal, existing subscribers keep working. This is the kill switch. |
 
 **Full retreat to test mode:** swap all seven vars back to test values, redeploy without cache,
-disable or re-point the live webhook endpoint. The migration stays — additive and harmless in
-either mode. Refund anything real taken meanwhile.
+disable or re-point the live webhook endpoint. The migrations stay (see 8.5 — the privilege ones
+are safe to keep and the billing ones must not be reversed). Refund anything real taken meanwhile.
+
+### 8.1 — Application deployment
+
+Vercel → Deployments → the last known-good build → **Promote to Production**.
+Instant, reversible, and independent of everything below: the database, the
+Stripe keys and the webhook endpoint are all unchanged by it. Do this FIRST if
+you do not yet know which layer is broken — it is the only rollback with no
+consequences.
+
+### 8.2 — Stripe keys
+
+Swap `STRIPE_MODE`, `STRIPE_SECRET_KEY` and `VITE_STRIPE_PUBLISHABLE_KEY` back to
+their test values **together**, and redeploy without build cache. Never half:
+`stripeModeProblems()` refuses to sell on any inconsistency, which is the
+intended outcome but reads as an outage. Existing live subscriptions are NOT
+cancelled by this — they simply stop being reachable from this deployment.
+
+### 8.3 — Webhook endpoint
+
+Stripe → Developers → Webhooks → **disable** the live endpoint (do not delete it:
+deleting loses the delivery history you will want). Events queue for ~3 days, so
+re-enabling and using **Resend** recovers everything. If you rotate the signing
+secret, update `STRIPE_WEBHOOK_SECRET` and redeploy in the same sitting — a
+deployment with the old secret answers `400 invalid_signature` to every delivery.
+
+### 8.4 — Price configuration
+
+Archive the live prices in Stripe rather than deleting them; a deleted price
+breaks the subscription that references it. Then repoint `STRIPE_PRICE_*` and
+`VITE_STRIPE_PRICE_*` — **all four from one clipboard** — and redeploy without
+cache. Anyone already subscribed keeps the price they bought.
+
+### 8.5 — The privilege migrations (20260801160000, 20260801170000)
+
+These are the only two that are genuinely reversible, and reversing them is
+**widening access**, so it needs a decision rather than a reflex.
+
+If the app breaks in a way you can trace to a `42501`, the correct fix is a NEW
+migration granting the specific privilege the specific call site needs — not a
+blanket re-widening. The emergency escape hatch, if you truly need the app back
+before you can diagnose it:
+
+```sql
+-- EMERGENCY ONLY. This restores the pre-migration blanket grant on ONE table.
+-- Record which table and why, and replace it with a narrow grant the same week.
+grant select, insert, update, delete on table public.<table> to authenticated;
+```
+
+Do **not** re-run the platform's old
+`alter default privileges … grant all … to anon, authenticated, service_role`.
+That is the setting Supabase is removing, it grants on every FUTURE table too,
+and it is how `billing` ended up one `42501` away from unsellable.
+
+### 8.6 — Billing state
+
+**Do not reverse `20260801140000` or `20260801150000` after real webhook events
+have been processed.** Dropping `last_stripe_event_id` / `last_stripe_event_at`
+throws away the high-water mark, and the next Stripe redelivery — which is a
+routine event, not an incident — is then applied blind. That is exactly audit
+FLAG-3, and it downgrades paying customers. Dropping `checkout_attempts` destroys
+the binding between a Stripe subscription and a user, after which
+`apply_stripe_subscription_event` answers `unknown_subscription` for every
+lifecycle event and no renewal or cancellation is ever recorded.
+
+If a specific row is wrong, fix THAT row through the reviewed path
+(`apply_stripe_billing_event`) and record why. A wrong plan on one account is a
+support ticket; a missing ordering column is a silent revenue bug across the
+whole customer base.
 
 ---
 
