@@ -19,7 +19,13 @@ on:
     # mean a real run here. A throwaway `ci-probe/...` branch carries the
     # deliberate mutation, the run is recorded, and the branch is deleted. None
     # of it is ever merged, and nothing outside this prefix is affected.
-    branches: [main, 'ci-probe/**']
+    #
+    # TWO PREFIXES, because the jobs a probe needs differ. `ci-probe/**` skips
+    # `verify`, `e2e` and `csp` (see the note on `verify`) since a database gate
+    # is the target and the browser suites are expensive. `ci-probe-full/**`
+    # runs everything, for the controls whose target IS the e2e guard or the
+    # enforcing CSP.
+    branches: [main, 'ci-probe/**', 'ci-probe-full/**']
   pull_request:
     branches: [main]
   # Manual re-runs, once this file is on the default branch.

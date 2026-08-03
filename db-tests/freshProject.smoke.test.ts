@@ -500,10 +500,24 @@ describe('the server-only surfaces are not reachable by a client', () => {
   it.each(['tasks', 'journal_entries', 'quit_habits', 'vision_cards', 'profiles'])(
     'service_role holds no direct write on %s either',
     async (table) => {
-      // The server never writes these — every server path is billing, checkout
-      // or the calendar read. A write grant would be unreviewed surface.
-      const { error } = await service().from(table).insert({ title: 'x', id: A.id, user_id: A.id })
-      expect(error, `service_role must not be able to insert into ${table}`).toBeTruthy()
+      /*
+       * The server never writes these — every server path is billing, checkout
+       * or the calendar read. A write grant would be unreviewed surface.
+       *
+       * A filtered DELETE rather than an INSERT, deliberately: an insert would
+       * need a per-table payload, and a wrong column answers 42703 (undefined
+       * column), which is truthy and would pass this test for entirely the
+       * wrong reason. Every one of these tables has `id`, so the statement is
+       * valid everywhere and the ONLY thing that can refuse it is the grant.
+       */
+      const { error } = await service()
+        .from(table)
+        .delete()
+        .eq('id', '00000000-0000-4000-8000-000000000000')
+      expect(error, `service_role must not be able to delete from ${table}`).toBeTruthy()
+      expect(error?.code, `expected a privilege refusal on ${table}, got ${error?.message}`).toBe(
+        '42501',
+      )
     },
   )
 

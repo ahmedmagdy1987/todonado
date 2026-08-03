@@ -173,6 +173,20 @@ test('reset-password never renders text supplied in the URL', async ({ page }) =
   ]) {
     await page.goto(url)
     await expect(page.getByRole('heading', { name: 'Set a new password' })).toBeVisible()
+
+    /*
+     * WAIT FOR THE VERDICT BEFORE READING THE PAGE.
+     *
+     * The page validates the link first and shows "Checking your reset link…"
+     * while it does. Reading textContent during that window caught the interim
+     * state and failed on the LAST assertion only — the two security assertions
+     * above it passed, because the attacker text is never rendered at any point.
+     * That made it a flaky test that was never a flaky guarantee, which is the
+     * worst combination: a red run nobody trusts, on the one file that proves a
+     * real vulnerability stays closed. Retrying hid it; waiting fixes it.
+     */
+    await expect(page.getByText(/Checking your reset link/i)).toHaveCount(0)
+
     const body = (await page.locator('body').textContent()) ?? ''
     expect(body, `attacker text from ${url.split('?')[0]} reached the page`).not.toContain('555-0100')
     expect(body).not.toContain('unknown device')
