@@ -168,10 +168,31 @@ jobs:
           # guaranteed failure.
           version: 2.111.0
 
-      # `supabase start` boots Postgres, GoTrue, PostgREST and Storage locally
-      # and applies supabase/migrations — the same files, no handwritten schema.
+      # First run failed here with
+      #   "failed to bind host port for 0.0.0.0:54322: address already in use"
+      # before Supabase had started anything, so something on the runner holds
+      # the port. Show what, rather than guessing.
+      - name: Show what holds the Supabase ports
+        run: |
+          sudo ss -ltnp | grep -E ':5432[0-9]' || echo "nothing listening on 5432x"
+          docker ps -a --format '{{.Names}} {{.Ports}}' || true
+
+      - name: Free any stale Supabase ports
+        run: |
+          supabase stop --no-backup || true
+          for p in 54320 54321 54322 54323 54324 54327 54329; do
+            sudo fuser -k -n tcp "$p" 2>/dev/null || true
+          done
+          sudo ss -ltnp | grep -E ':5432[0-9]' || echo "ports clear"
+
+      # Only the three services this proves anything about: Postgres, GoTrue and
+      # PostgREST. Studio, storage, realtime, imgproxy, edge-runtime, analytics
+      # and the pooler are not exercised by these tests, and every one of them is
+      # another image to pull and another port to collide on.
       - name: Start the local Supabase stack
-        run: supabase start
+        run: |
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit,realtime,storage
+          supabase status
 
       - name: Show what it applied
         run: supabase migration list --local
