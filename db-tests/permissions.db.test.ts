@@ -180,6 +180,22 @@ describe('billing RLS — rows, not table access', () => {
   let ownerId = ''
   let otherId = ''
 
+  /**
+   * BE THIS USER FOR THE REST OF THE SESSION.
+   *
+   * The third argument to set_config is `is_local`. Passing TRUE scopes the
+   * value to the current transaction, and these connections are in autocommit,
+   * so the claim is discarded the instant the SELECT that set it commits. Every
+   * later statement then runs with a NULL auth.uid(), RLS matches no row, and a
+   * select-own test "passes" against an empty result for entirely the wrong
+   * reason. Session scope is what the tests below actually mean.
+   */
+  const beUser = async (c: pg.Client, uid: string) => {
+    await c.query(`select set_config('request.jwt.claim.sub', $1, false)`, [uid])
+    const { rows } = await c.query('select auth.uid() as uid')
+    expect(rows[0].uid, 'the claim must survive into the next statement').toBe(uid)
+  }
+
   beforeAll(async () => {
     ownerId = await makeUser(root, 'rls-owner@dbtest.local')
     otherId = await makeUser(root, 'rls-other@dbtest.local')
@@ -220,7 +236,7 @@ describe('billing RLS — rows, not table access', () => {
   it('an authenticated user sees ITS OWN row and only that row', async () => {
     const c = await connect('authenticated')
     try {
-      await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ownerId])
+      await beUser(c, ownerId)
       const { rows } = await c.query('select user_id from public.billing')
       expect(rows).toHaveLength(1)
       expect(rows[0].user_id).toBe(ownerId)
@@ -232,7 +248,7 @@ describe('billing RLS — rows, not table access', () => {
   it("an authenticated user cannot see another user's row even when it names it", async () => {
     const c = await connect('authenticated')
     try {
-      await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ownerId])
+      await beUser(c, ownerId)
       const { rows } = await c.query('select user_id from public.billing where user_id = $1', [
         otherId,
       ])
@@ -245,7 +261,7 @@ describe('billing RLS — rows, not table access', () => {
   it('an authenticated user cannot INSERT or UPDATE — there is no write policy AND no grant', async () => {
     const c = await connect('authenticated')
     try {
-      await c.query(`select set_config('request.jwt.claim.sub', $1, true)`, [ownerId])
+      await beUser(c, ownerId)
       await expect(
         c.query(`update public.billing set plan = 'pro' where user_id = $1`, [ownerId]),
       ).rejects.toThrow(/permission denied/i)

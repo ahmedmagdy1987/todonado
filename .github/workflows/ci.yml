@@ -161,8 +161,13 @@ jobs:
           fi
           echo "refused a supabase.co host, and said so"
 
+      # BOTH reporters. With `--reporter=json` alone a failure prints NOTHING to
+      # the log — the JSON goes to a file and the run says only "exit code 1",
+      # which is a database failure you cannot diagnose without re-running.
       - name: Privilege and concurrency tests (real connections)
-        run: npm run test:db -- --reporter=json --outputFile=/tmp/db-results.json
+        run: |
+          npm run test:db -- --reporter=default --reporter=json \
+            --outputFile.json=/tmp/db-results.json
 
       # "passed with skipped tests" is not a database proof.
       - name: Confirm every expected database test actually executed
@@ -282,7 +287,9 @@ jobs:
           export SUPABASE_ANON_KEY="$ANON_KEY"
           export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
           echo "local API: $SUPABASE_URL"
-          npm run test:postgrest -- --reporter=json --outputFile=/tmp/postgrest-results.json
+          # Both reporters, for the reason given on the database job's test step.
+          npm run test:postgrest -- --reporter=default --reporter=json \
+            --outputFile.json=/tmp/postgrest-results.json
 
       - name: Confirm every expected PostgREST test actually executed
         run: |
