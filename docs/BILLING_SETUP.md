@@ -14,17 +14,19 @@
 Every step works if you do it in this order, and fails in a specific, recoverable way if you do
 not. Two orderings actually matter:
 
-1. **Apply the migration BEFORE setting live keys.** The webhook refuses to write against a
+1. **Apply all three migrations BEFORE setting live keys.** The webhook refuses to write against a
    database without the event-ordering columns — it answers `503 billing_schema_outdated` and
    grants nothing. That is deliberate (§1), but it means a checkout completed before the
-   migration lands does not upgrade anyone until Stripe's retries succeed.
+   migrations land does not upgrade anyone until Stripe's retries succeed. The third file is the
+   one that lets the server read `billing` at all: without it checkout answers
+   `500 billing_lookup_failed` and nothing can be sold (§1.3).
 2. **Create the webhook endpoint and set its signing secret BEFORE telling anyone.** With
    `STRIPE_WEBHOOK_SECRET` unset the webhook answers `503 not_configured`. Stripe retries for
    ~3 days so nothing is lost, but no plan flips until it is right.
 
 | # | Step | Where | Reversible? |
 |---|---|---|---|
-| 1 | Apply the migration | your terminal | additive — nothing to undo |
+| 1 | Apply the **three** pending migrations, in order | your terminal | see §1 — two are additive, one narrows privileges |
 | 2 | Create live product + prices | Stripe dashboard | yes |
 | 3 | Set the seven env vars | Vercel | yes |
 | 4 | Redeploy (no build cache) | Vercel | yes |
@@ -34,7 +36,17 @@ not. Two orderings actually matter:
 
 ---
 
-## 1. Apply the migration — FIRST, before any live key
+## 1. Apply the migrations — FIRST, before any live key
+
+**THREE files are pending, and the order is chronological.** `supabase db push` applies them in
+this order by itself; the list is here so you can check what landed, and run them by hand if you
+prefer.
+
+| # | File | What it does |
+|---|---|---|
+| 1 | `20260801140000_billing_event_ordering.sql` | two nullable columns on `billing` + `apply_stripe_billing_event` |
+| 2 | `20260801150000_checkout_attempts.sql` | the `checkout_attempts` table and the reserve/mark/bind functions |
+| 3 | `20260801160000_billing_service_role_access.sql` | the SQL privilege contract for `billing` |
 
 ```bash
 supabase login                                   # real terminal; a non-TTY shell cannot
@@ -42,8 +54,7 @@ supabase link --project-ref lplsbfduankkpglyusjp
 supabase db push
 ```
 
-The pending file is **`supabase/migrations/20260801140000_billing_event_ordering.sql`**. Its
-operative SQL in full, so you can run it by hand if you prefer:
+### 1.1 — `20260801140000_billing_event_ordering.sql`
 
 ```sql
 alter table public.billing
@@ -51,7 +62,8 @@ alter table public.billing
   add column if not exists last_stripe_event_at timestamptz;
 ```
 
-(The file also carries two `comment on column` statements — documentation only.)
+(The file also carries two `comment on column` statements — documentation only, plus the
+`apply_stripe_billing_event` function.)
 
 **Why it is safe.** Both columns are nullable with no default, so this is a catalog-only change:
 no table rewrite, no validation pass over existing rows. Unlike a CHECK constraint it cannot fail
@@ -75,6 +87,94 @@ select column_name from information_schema.columns
 where table_name = 'billing' and column_name like 'last_stripe_event%';
 -- expect exactly two rows
 ```
+
+### 1.2 — `20260801150000_checkout_attempts.sql`
+
+Creates `public.checkout_attempts` (server-only: RLS on, no policy of any kind, no table grant to
+anybody) and the four SECURITY DEFINER functions the money path drives. Purely additive.
+`api/create-checkout-session.ts` answers `503 billing_schema_outdated` until it lands.
+
+```sql
+select to_regclass('public.checkout_attempts') is not null as table_present;
+-- expect true
+```
+
+### 1.3 — `20260801160000_billing_service_role_access.sql`
+
+**This is the one that is NOT purely additive. Read this section before running it.**
+
+It installs the SQL privilege contract for `public.billing`:
+
+```sql
+revoke all on table public.billing from public;
+revoke all on table public.billing from service_role;
+grant  select on table public.billing to service_role;
+revoke all on table public.billing from authenticated;
+grant  select on table public.billing to authenticated;
+revoke all on table public.billing from anon;
+```
+
+**Why it exists.** `service_role` needs an explicit `SELECT` on `billing` because three
+server-side handlers read the table **directly**, not through an RPC:
+
+| Handler | Columns | What breaks without the grant |
+|---|---|---|
+| `api/create-checkout-session.ts` | `stripe_customer_id, stripe_subscription_id, subscription_status` | the duplicate-subscription guard returns `500 billing_lookup_failed`; **nobody can buy anything** |
+| `api/create-portal-session.ts` | `stripe_customer_id` | `500 billing_lookup_failed`; a paying customer cannot reach the portal to manage or **cancel** |
+| `api/_lib/entitlement.ts` (`resolveServerPlan`) | `plan` | the error is swallowed and the caller falls back, so **a paying Pro user is silently served as Free** — no error, no alert |
+
+**RLS BYPASS AND TABLE PRIVILEGES ARE DIFFERENT CONTROLS.** This is the whole reason the gap
+existed. `service_role` is `BYPASSRLS`, and every comment in the repo saying "the webhook uses the
+service-role key, which bypasses RLS" is true — and irrelevant. `BYPASSRLS` decides which **rows**
+a role sees once it is allowed to touch the table; whether it may touch the table at all is a
+`GRANT`. There was no `GRANT` on `billing` anywhere in this repository. What access existed came
+from Supabase's `ALTER DEFAULT PRIVILEGES`, and `supabase/config.toml` records that the implicit
+default for `auto_expose_new_tables` **flipped to `false` on 2026-05-30** and the setting
+disappears entirely on 2026-10-30. A fully local Supabase stack in CI answered the checkout guard's
+own SELECT with `42501 permission denied for table billing`.
+
+**Direct billing writes stay RPC-controlled, deliberately.** `service_role` gets `SELECT` and
+nothing else — no `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES` or `TRIGGER`. Every write
+goes through `apply_stripe_billing_event`, `bind_verified_checkout` or
+`apply_stripe_subscription_event`, which own the event ordering, the downgrade rules and the
+`select … for update` lock. A direct write grant would be a second, unreviewed path around all of
+it. There is no `.insert()`, `.update()`, `.upsert()` or `.delete()` against `billing` anywhere in
+the application.
+
+**What changes on the live database.** Two privileges that exist today are removed. Neither is
+used, so neither changes behaviour:
+
+- **`anon` loses `SELECT`.** An anonymous `select * from billing` used to answer `200 []` (the
+  select-own policy matching no row) and will now answer a permission error. Nothing in the app
+  makes that request — `usePlan()` is disabled until there is a user — so the only thing affected
+  is the live-probe recipe in `CLAUDE.md` §7, which changes answer accordingly.
+- **`anon` and `authenticated` lose `INSERT`/`UPDATE`/`DELETE`.** `billing` has a SELECT-own policy
+  and no write policy of any kind, so RLS already refused all of these. This removes the surface
+  underneath RLS rather than relying on RLS alone.
+
+**What must NOT change: the authenticated self-read.** `src/features/billing/usePlan.ts` and the
+settings data export (`src/features/settings/exportData.ts`) both read the signed-in user's own
+`billing` row through PostgREST. That read is legitimate and it ships today, so the migration grants
+`authenticated` an explicit `SELECT` rather than leaving it resting on the same platform default
+that just failed for `service_role`. `db-tests/permissions.postgrest.test.ts` proves the self-read
+still works against a real stack, and that user B still cannot see user A's row.
+
+Confirm it landed:
+
+```sql
+select coalesce(nullif(a.grantee::regrole::text,'-'),'PUBLIC') as grantee, a.privilege_type
+  from pg_class c
+  left join lateral aclexplode(c.relacl) a on true
+ where c.oid = 'public.billing'::regclass and a.grantee <> c.relowner
+ order by 1,2;
+-- expect exactly two rows: authenticated | SELECT   and   service_role | SELECT
+```
+
+> **The privilege contract is executable, not a claim in a document.**
+> `db-tests/permissions.db.test.ts` states the whole matrix (4 roles x 7 privileges) and reads the
+> installed ACL back from the catalog; `db-tests/billingGrant.db.test.ts` applies the chain only as
+> far as `20260801150000`, checks the SELECT is genuinely absent, applies `20260801160000` alone and
+> checks it appears — so "the migration grants it" is proved rather than assumed.
 
 ---
 
