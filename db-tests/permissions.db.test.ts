@@ -219,3 +219,75 @@ describe('what each role can actually DO, executed', () => {
     await c.end()
   })
 })
+
+describe('SCHEMA privileges — the search_path of a SECURITY DEFINER function', () => {
+  /**
+   * REVOKE EXECUTE is not the whole story.
+   *
+   * Every one of these functions runs as `postgres` with `search_path=public`.
+   * If an untrusted role could CREATE objects in a schema on that path, it
+   * could plant a function or operator that the body resolves to instead of the
+   * intended one, and it would run with the definer's rights. That is the
+   * classic SECURITY DEFINER escalation, and no amount of revoking EXECUTE on
+   * the outer function prevents it.
+   *
+   * PostgreSQL 15 removed PUBLIC's CREATE on `public` by default, so on a
+   * modern server this holds without help. It is asserted anyway because it is
+   * a property we depend on, not one we control.
+   */
+  const SEARCH_PATH_SCHEMAS = ['public']
+
+  it('every function search_path is exactly the schemas we audit here', async () => {
+    // If a function ever gains another schema on its path, this fails and the
+    // list above must grow — otherwise the audit silently covers less than the
+    // functions actually resolve against.
+    const { rows } = await root.query(
+      `select p.proname, p.proconfig
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.proname = any($1)`,
+      [BILLING_FUNCTIONS],
+    )
+    for (const r of rows) {
+      const cfg = (r.proconfig as string[]).find((c) => c.startsWith('search_path='))
+      expect(cfg, `${r.proname} must pin search_path`).toBeTruthy()
+      const schemas = cfg!.replace('search_path=', '').split(',').map((s) => s.trim())
+      expect(schemas).toEqual(SEARCH_PATH_SCHEMAS)
+    }
+  })
+
+  it.each(['public', 'anon', 'authenticated'])(
+    'REQUIRED: %s cannot CREATE objects in any searched schema',
+    async (role) => {
+      for (const schema of SEARCH_PATH_SCHEMAS) {
+        const { rows } = await root.query('select has_schema_privilege($1,$2,$3) as ok', [
+          role,
+          schema,
+          'CREATE',
+        ])
+        expect(
+          rows[0].ok,
+          `${role} holding CREATE on ${schema} would let it shadow an object a SECURITY DEFINER function resolves`,
+        ).toBe(false)
+      }
+    },
+  )
+
+  it('the searched schema is owned by the same role that owns the functions', async () => {
+    const { rows } = await root.query(
+      `select nspowner::regrole::text as owner from pg_namespace where nspname = 'public'`,
+    )
+    expect(rows[0].owner).toBe('postgres')
+  })
+
+  it('service_role can USE public but does not own it', async () => {
+    const usage = await root.query(
+      `select has_schema_privilege('service_role','public','USAGE') as ok`,
+    )
+    expect(usage.rows[0].ok).toBe(true)
+    const create = await root.query(
+      `select has_schema_privilege('service_role','public','CREATE') as ok`,
+    )
+    // Not required by anything the money path does, so it should not have it.
+    expect(create.rows[0].ok).toBe(false)
+  })
+})
