@@ -192,16 +192,31 @@ describe('service_role, through PostgREST', () => {
     expect(data).toBe('unknown_attempt')
   })
 
-  it('CANNOT bypass the state machine merely because it is service_role', async () => {
-    const reserved = await service().rpc('reserve_checkout_attempt', {
+  /*
+   * RESERVE RETURNS THE EXISTING OPEN ATTEMPT, whatever price it was created
+   * with. That is the one-open-attempt invariant doing its job, and the first
+   * version of the two tests below assumed the opposite: each called reserve
+   * with 'price_monthly', got back an attempt reserved earlier in this file
+   * with 'price_x', and the binding failed with attempt_price_mismatch. The
+   * invariant working is what broke the assumption. Read the price off the
+   * attempt that comes back rather than the one that was asked for.
+   */
+  const openAttempt = async (): Promise<{ id: string; price_id: string }> => {
+    const { data, error } = await service().rpc('reserve_checkout_attempt', {
       p_user_id: userAId, p_price_id: 'price_monthly',
     })
-    const attemptId = (reserved.data as { id: string }).id
+    expect(error).toBeNull()
+    return data as { id: string; price_id: string }
+  }
 
-    // Wrong price for what the attempt reserved: refused, not forced through.
+  it('CANNOT bypass the state machine merely because it is service_role', async () => {
+    const attempt = await openAttempt()
+
+    // A price that is NOT what this attempt reserved: refused, not forced through.
     const { data } = await service().rpc('bind_verified_checkout', {
-      p_attempt_id: attemptId, p_event_id: 'evt_1', p_event_at: new Date().toISOString(),
-      p_customer_id: 'cus_1', p_subscription_id: 'sub_1', p_price_id: 'price_something_else',
+      p_attempt_id: attempt.id, p_event_id: 'evt_1', p_event_at: new Date().toISOString(),
+      p_customer_id: 'cus_1', p_subscription_id: 'sub_1',
+      p_price_id: `${attempt.price_id}_definitely_not_this`,
       p_status: 'active', p_period_end: null, p_plan: 'pro',
     })
     expect(data, 'the function validates its own transitions regardless of caller').toBe(
@@ -210,14 +225,13 @@ describe('service_role, through PostgREST', () => {
   })
 
   it('a controlled binding flow reaches Pro', async () => {
-    const reserved = await service().rpc('reserve_checkout_attempt', {
-      p_user_id: userAId, p_price_id: 'price_monthly',
-    })
-    const attemptId = (reserved.data as { id: string }).id
+    const attempt = await openAttempt()
 
     const { data } = await service().rpc('bind_verified_checkout', {
-      p_attempt_id: attemptId, p_event_id: `evt_ok_${stamp}`, p_event_at: new Date().toISOString(),
-      p_customer_id: 'cus_1', p_subscription_id: `sub_${stamp}`, p_price_id: 'price_monthly',
+      p_attempt_id: attempt.id, p_event_id: `evt_ok_${stamp}`,
+      p_event_at: new Date().toISOString(),
+      p_customer_id: 'cus_1', p_subscription_id: `sub_${stamp}`,
+      p_price_id: attempt.price_id,
       p_status: 'active', p_period_end: null, p_plan: 'pro',
     })
     expect(data).toBe('applied')
