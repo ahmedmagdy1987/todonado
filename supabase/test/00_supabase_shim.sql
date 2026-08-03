@@ -42,9 +42,28 @@
 --  `service_role`) without explicit GRANTs", its implicit default "flips to
 --  `false` on 2026-05-30 to match the new cloud default", and the field is
 --  "removed in 2026-10-30 once the always-revoked behaviour is permanent".
---  That date is past. Automatic grants are not a thing the Data API roles get
---  any more — for ANY of the three, not just service_role — so reproducing them
---  is not fidelity, it is fiction.
+--  That date is past.
+--
+--  MEASURED, NOT INFERRED. The `supabase postgrest permissions` job prints the
+--  stack's real catalog, and what it actually shows for schema public is:
+--
+--    for postgres, in public, tables:
+--      {postgres=arwdDxtm/postgres, anon=Dxtm/postgres,
+--       authenticated=Dxtm/postgres, service_role=Dxtm/postgres}
+--
+--  Read the letters: D=TRUNCATE, x=REFERENCES, t=TRIGGER, m=MAINTAIN. The four
+--  that matter — a=INSERT, r=SELECT, w=UPDATE, d=DELETE — are NOT there for any
+--  of the three Data API roles. The platform did not delete the default ACL, it
+--  NARROWED it to the privileges nothing uses. That is why a service-role SELECT
+--  on billing was refused while every "service_role has table access" assumption
+--  in this repo went on looking reasonable.
+--
+--  This file models "no automatic privilege on an application table" rather than
+--  reproducing Dxtm exactly, and the difference is deliberate: those four are
+--  precisely the privileges no code in this repo uses, every migration that
+--  cares revokes before it grants, and modelling them would put this file back
+--  in the business of inventing privileges. Where an outcome could differ the
+--  suite asserts the outcome, not the mechanism.
 --
 --  THE RULE THIS FILE NOW FOLLOWS: it may create Supabase's INFRASTRUCTURE —
 --  the four roles, the auth and storage schemas, the extensions, schema-level

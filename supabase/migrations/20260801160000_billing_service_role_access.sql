@@ -34,10 +34,24 @@
 --  true — and irrelevant to this failure. BYPASSRLS decides which ROWS a role
 --  may see once it is allowed to touch the table at all. Whether it may touch
 --  the table at all is a GRANT, and no GRANT on public.billing existed anywhere
---  in this repository. The access was arriving — where it arrived at all — from
---  Supabase's ALTER DEFAULT PRIVILEGES on schema public, which is platform
---  behaviour this repo does not own, does not version, and (as the local stack
---  proved) cannot rely on.
+--  in this repository. The access was assumed to arrive from Supabase's ALTER
+--  DEFAULT PRIVILEGES on schema public, which is platform behaviour this repo
+--  does not own, does not version, and cannot rely on.
+--
+--  WHAT THE PLATFORM ACTUALLY GIVES NOW, read off the local stack's catalog
+--  rather than guessed:
+--
+--    for postgres, in public, tables:
+--      {postgres=arwdDxtm/postgres, anon=Dxtm/postgres,
+--       authenticated=Dxtm/postgres, service_role=Dxtm/postgres}
+--
+--  D=TRUNCATE, x=REFERENCES, t=TRIGGER, m=MAINTAIN. The four that matter —
+--  a=INSERT, r=SELECT, w=UPDATE, d=DELETE — are absent for all three Data API
+--  roles. The default ACL was not removed, it was NARROWED to the privileges
+--  nothing uses (supabase/config.toml records `auto_expose_new_tables` flipping
+--  implicitly to false on 2026-05-30, and the field disappearing on 2026-10-30).
+--  So a new table in this schema is readable by nobody until a migration says
+--  so, which is the correct default and is exactly what this file now does.
 --
 --  WHY THE RAW-POSTGRES SUITE DID NOT CATCH IT
 --

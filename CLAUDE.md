@@ -789,6 +789,35 @@ service-role client but filters by the JWT-verified caller.
 > ⚠️ The live-probe recipe below ("anon `select` on `billing` → `200 []`") changes answer once file
 > 3 is applied: anon then gets a permission error. That is the migration working.
 >
+> ### 🚩 KNOWN, UNFIXED, AND BIGGER THAN BILLING — a fresh Supabase project would be dead
+>
+> The `supabase` CI job prints the local stack's real catalog, and the default privileges on
+> schema `public` are now:
+>
+> ```
+> for postgres, in public, tables:
+>   {postgres=arwdDxtm/postgres, anon=Dxtm/postgres,
+>    authenticated=Dxtm/postgres, service_role=Dxtm/postgres}
+> ```
+>
+> `D`=TRUNCATE, `x`=REFERENCES, `t`=TRIGGER, `m`=MAINTAIN. **`a`=INSERT, `r`=SELECT, `w`=UPDATE and
+> `d`=DELETE are absent for all three Data API roles.** The same run shows it per table: on
+> `profiles`, `projects` and `tasks`, `authenticated` holds only `MAINTAIN/REFERENCES/TRIGGER/
+> TRUNCATE` and **no SELECT**.
+>
+> No migration in this repo grants a table privilege to `anon` or `authenticated` — every table has
+> relied on the platform's old blanket default. **The live project is fine**: it was provisioned
+> before the change and its tables still carry the broad grants. But a project created from
+> `supabase/migrations/` **today** — a staging environment, a disaster-recovery restore, a second
+> region — would come up with RLS policies that never get consulted, because every read would be
+> refused by the grant layer first. The app would sign in and then show nothing, everywhere.
+>
+> This iteration fixed `billing` because that is where it was caught and where money depends on it.
+> **The rest of the schema is unaudited for this and is expected to be affected.** The fix pattern is
+> the one in `20260801160000`: revoke, then grant exactly what the feature needs. Do NOT "fix" it by
+> re-widening the default privileges — that is the setting the platform is deliberately removing, and
+> a blanket grant on every future table is how `billing` ended up one 42501 away from unsellable.
+>
 > **IT MUST BE APPLIED BEFORE LIVE STRIPE KEYS ARE SET.** The webhook does not fall back to the
 > old unordered write when the columns are absent — it fails closed with
 > `503 billing_schema_outdated` and grants nothing, deliberately, because silently degrading to
