@@ -49,6 +49,33 @@ export async function readRawBody(
   return Buffer.from(JSON.stringify(parsed))
 }
 
+/**
+ * Copy raw bytes into a body backed by a fresh, ordinary `ArrayBuffer`.
+ *
+ * WHY THIS EXISTS — and why it is a copy rather than a cast. Since TypeScript
+ * 5.7 `Buffer` is generic over its backing store, so `Buffer.concat` /
+ * `Buffer.from` yield `Buffer<ArrayBufferLike>` — the store may be a
+ * `SharedArrayBuffer`, and a pooled `Buffer` is a VIEW into a shared 8 KB slab.
+ * The DOM's `BodyInit` reaches `BufferSource = ArrayBufferView<ArrayBuffer> |
+ * ArrayBuffer`, which demands an ordinary `ArrayBuffer`, so a `Buffer` is
+ * rejected outright (TS2322). `new Uint8Array(n)` is typed
+ * `Uint8Array<ArrayBuffer>`, which satisfies BOTH that and Node's own
+ * `NodeJS.ArrayBufferView` — so this one line compiles under `tsconfig.api.json`
+ * (lib ES2023, no DOM) AND under the platform's own DOM-lib compilation of the
+ * very same file, which is where the build actually broke.
+ *
+ * BYTE-EXACTNESS IS THE ENTIRE POINT. `.set()` copies the bytes verbatim,
+ * honouring the source's `byteOffset`/`byteLength`, so a pooled `Buffer` yields
+ * its own bytes and not its neighbours'. Nothing is decoded, re-encoded, parsed,
+ * trimmed or normalised: Stripe's webhook signature is an HMAC over exactly
+ * these bytes, and any transformation here would fail verification.
+ */
+function toBodyBytes(raw: Buffer): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(raw.byteLength)
+  bytes.set(raw)
+  return bytes
+}
+
 export function toNodeHandler(
   handler: WebHandler,
 ): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
@@ -69,7 +96,9 @@ export function toNodeHandler(
         else headers.set(key, value)
       }
 
-      const body = method === 'GET' || method === 'HEAD' ? undefined : await readRawBody(req)
+      const raw = method === 'GET' || method === 'HEAD' ? undefined : await readRawBody(req)
+      // `undefined` stays `undefined`: GET/HEAD and empty bodies must stay bodyless.
+      const body = raw === undefined ? undefined : toBodyBytes(raw)
       const response = await handler(new Request(url, { method, headers, body }))
 
       res.statusCode = response.status
