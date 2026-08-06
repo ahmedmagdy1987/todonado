@@ -101,6 +101,13 @@ export const PRO_PRICE_COPY = {
    * already the separator the marketing copy uses elsewhere.
    */
   yearlySummary: `or ${usd(PRO_YEARLY_USD)}/year · ${usd(PRO_YEARLY_PER_MONTH_USD)}/month billed annually, save ${PRO_YEARLY_SAVING_PERCENT}%`,
+  /**
+   * The one-line statement of what Pro costs, for the intro above the cards.
+   *
+   * Derived like everything else here: the sentence a visitor reads first and
+   * the amount on the card cannot disagree, because there is one number.
+   */
+  sentence: `Pro is ${usd(PRO_MONTHLY_USD)}/month or ${usd(PRO_YEARLY_USD)}/year.`,
 } as const
 
 /** Structured annual pricing, for a card that renders the parts itself. */

@@ -407,6 +407,47 @@ test('pricing: the annual saving is stated as 20%, and the arithmetic holds', as
   expect(body, 'a wrong discount is worse than none').not.toMatch(/save\s*(?!20%)\d+%/i)
 })
 
+test('pricing: the intro states the real offer, with no pre-Stripe language left', async ({
+  page,
+}) => {
+  /*
+   * The page used to say "Prices are an early hypothesis we're still
+   * validating, and nothing is charged yet" directly above the real amounts.
+   * Stripe is configured, so that line contradicted the numbers beside it.
+   */
+  for (const route of ['/pricing', '/welcome']) {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(route)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.evaluate(async () => {
+      const step = Math.round(window.innerHeight * 0.8)
+      for (let y = 0; y < document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y)
+        await new Promise((r) => setTimeout(r, 90))
+      }
+    })
+    const body = await page.locator('body').innerText()
+    const lower = body.toLowerCase()
+
+    expect(body, `${route}: approved copy missing`).toContain(
+      'Start free. Upgrade to Pro anytime from your plan settings.',
+    )
+    expect(body, `${route}: supporting price line missing`).toContain(
+      'Pro is $5/month or $48/year.',
+    )
+
+    for (const stale of [
+      'early hypothesis',
+      'nothing is charged',
+      'willingness-to-pay',
+      'fake door',
+      'test these numbers',
+    ]) {
+      expect(lower, `${route} still renders "${stale}"`).not.toContain(stale)
+    }
+  }
+})
+
 test('pricing: signed-out visitors see prices without authenticating', async ({ page }) => {
   // No session is ever created here: the whole point is that the price is
   // public. A pricing page that needed a login would be the same bug wearing

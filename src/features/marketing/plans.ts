@@ -26,7 +26,7 @@ import {
   FREE_QUIT_HABITS,
   FREE_VISION_CARDS,
 } from '@/lib/config'
-import { PRO_MONTHLY_USD, PRO_YEARLY, type YearlyPricing } from './pricing'
+import { PRO_MONTHLY_USD, PRO_PRICE_COPY, PRO_YEARLY, type YearlyPricing } from './pricing'
 
 export type PaidTier = 'pro' | 'team'
 export type PlanId = 'free' | PaidTier
@@ -139,5 +139,17 @@ export const PLANS: Plan[] = [
   },
 ]
 
-export const PRICING_DISCLAIMER =
-  'Prices are an early hypothesis we’re still validating, and nothing is charged yet. Pick a paid plan to get notified at launch.'
+/**
+ * The line above the plan cards.
+ *
+ * It used to read "Prices are an early hypothesis we're still validating, and
+ * nothing is charged yet. Pick a paid plan to get notified at launch." That was
+ * written when the paid CTAs only recorded interest and there was no Stripe
+ * account behind them. Stripe is configured now and the page quotes the real
+ * amounts, so calling them a hypothesis undercut the numbers beside it and told
+ * a visitor the opposite of what the product does.
+ *
+ * The amount is NOT written here: it comes from ./pricing.ts, so this sentence
+ * and the cards below it cannot quote different figures.
+ */
+export const PRICING_DISCLAIMER = `Start free. Upgrade to Pro anytime from your plan settings. ${PRO_PRICE_COPY.sentence}`

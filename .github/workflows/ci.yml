@@ -82,7 +82,10 @@ jobs:
       # 87 -> 91: e2e/marketing.spec.ts gained four price-consistency checks.
       # The public page quoted $6/mo while Stripe charged $5/mo and $48/yr, and
       # nothing compared a RENDERED price with anything.
-      EXPECTED_E2E_TESTS: '91'
+      #
+      # 91 -> 92: and one more for the intro COPY, which said prices were "an
+      # early hypothesis" and "nothing is charged yet" directly above them.
+      EXPECTED_E2E_TESTS: '92'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

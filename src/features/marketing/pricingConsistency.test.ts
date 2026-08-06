@@ -12,7 +12,7 @@ import {
   PRO_YEARLY_USD,
   usd,
 } from './pricing'
-import { PLANS } from './plans'
+import { PLANS, PRICING_DISCLAIMER } from './plans'
 import { priceIdFor } from '@/features/billing/stripeConfig'
 
 /**
@@ -105,6 +105,67 @@ describe('the copy can never mislabel the annual plan', () => {
   it('states the saving as $12 and 20%', () => {
     expect(PRO_PRICE_COPY.yearlySaving).toBe('Save $12 a year (20%)')
     expect(PRO_PRICE_COPY.yearlySummary).toContain('save 20%')
+  })
+})
+
+describe('the public copy states what the product actually does', () => {
+  it('is the approved sentence, and it names the plan-settings route', () => {
+    expect(PRICING_DISCLAIMER).toContain('Start free. Upgrade to Pro anytime from your plan settings.')
+  })
+
+  it('carries the supporting price line, DERIVED from the amounts', () => {
+    expect(PRO_PRICE_COPY.sentence).toBe('Pro is $5/month or $48/year.')
+    expect(PRICING_DISCLAIMER).toContain(PRO_PRICE_COPY.sentence)
+    // Derived: change PRO_MONTHLY_USD and this sentence follows.
+    expect(PRO_PRICE_COPY.sentence).toContain(usd(PRO_MONTHLY_USD))
+    expect(PRO_PRICE_COPY.sentence).toContain(usd(PRO_YEARLY_USD))
+  })
+
+  it('drops every pre-Stripe phrase', () => {
+    /*
+     * These were written when the paid CTAs only recorded interest. Stripe is
+     * configured now, so each one told a visitor the opposite of what the
+     * product does, right next to the real price.
+     */
+    for (const stale of [
+      'early hypothesis',
+      'nothing is charged',
+      'willingness-to-pay',
+      'fake door',
+      'test these numbers',
+      'get notified at launch',
+    ]) {
+      expect(PRICING_DISCLAIMER.toLowerCase(), `disclaimer still says "${stale}"`).not.toContain(
+        stale,
+      )
+    }
+  })
+
+  it('no RENDERED marketing string carries a pre-Stripe phrase', () => {
+    /*
+     * Scans the rendered marketing surfaces with COMMENTS STRIPPED. The
+     * comments in these files legitimately describe the fake-door history and
+     * the willingness-to-pay table; a developer note is not a claim to a user.
+     */
+    const SURFACES = [
+      './plans.ts',
+      './pricing.ts',
+      './PricingPage.tsx',
+      './components/PricingTeaser.tsx',
+      './components/LandingFaq.tsx',
+      './components/UpgradeIntentModal.tsx',
+    ]
+    const STALE = ['early hypothesis', 'nothing is charged', 'willingness-to-pay', 'test these numbers']
+    for (const rel of SURFACES) {
+      const code = read(rel)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+        .toLowerCase()
+      for (const stale of STALE) {
+        expect(code, `${rel} renders "${stale}"`).not.toContain(stale)
+      }
+    }
   })
 })
 
