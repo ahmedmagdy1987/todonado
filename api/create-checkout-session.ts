@@ -17,6 +17,7 @@ import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, redactSecrets, withErrorBoundary } from './_lib/http.js'
 import { toNodeHandler } from './_lib/nodeAdapter.js'
 import { enforceRateLimit } from './_lib/rateLimit.js'
+import { isDefinitivelyMissing } from './_lib/stripeErrors.js'
 
 /**
  * Stripe subscription statuses that mean "this user already has a subscription
@@ -397,27 +398,6 @@ function isMissingCheckoutSchema(error: { code?: string; message?: string } | nu
     error.code === 'PGRST205' ||
     /checkout_attempts|reserve_checkout_attempt/.test(message)
   )
-}
-
-/**
- * Did Stripe DEFINITIVELY say this session does not exist?
- *
- * Only `resource_missing` on an invalid-request error means "gone". Every other
- * failure — connection, rate limit, API 5xx, authentication, or a shape we do
- * not recognise — means UNKNOWN, and unknown must never release the
- * one-open-attempt slot while a payable session may still be live.
- *
- * Matched on the error's own `code`/`type` rather than `instanceof`: this
- * handler can see an error that crossed a module boundary or came from a test
- * double, and an `instanceof` check that quietly failed would fail OPEN — the
- * exact direction that costs a customer a double charge.
- */
-export function isDefinitivelyMissing(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false
-  const e = err as { type?: unknown; code?: unknown; statusCode?: unknown }
-  if (e.code === 'resource_missing') return true
-  // A 404 on an invalid-request error is the same statement in an older shape.
-  return e.type === 'StripeInvalidRequestError' && e.statusCode === 404
 }
 
 /** Web-shaped handler — exported for unit tests. */

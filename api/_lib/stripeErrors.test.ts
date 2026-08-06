@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 // The .js extension is required: tsconfig.api.json uses NodeNext, so an
 // extensionless relative import is a compile error (and a runtime crash).
-import { isDefinitivelyMissing } from './create-checkout-session.js'
+import { isDefinitivelyMissing } from './stripeErrors.js'
 
 /**
  * NOT KNOWING IS NOT THE SAME AS KNOWING IT IS GONE.
