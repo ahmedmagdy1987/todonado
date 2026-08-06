@@ -217,6 +217,230 @@
     animation-play-state: paused;
   }
 
+  /* ================================================================== */
+  /*  Vortex field — the hero's signature funnel.                        */
+  /*                                                                     */
+  /*  Obeys every rule the living background pays for above, for the     */
+  /*  same measured reasons: NO `filter: blur()` (a blurred surface      */
+  /*  re-rasterises whenever it moves), transform/opacity ONLY, and      */
+  /*  NOTHING SCALES. Soft edges are radial-gradient alpha falloff,      */
+  /*  rasterised once and thereafter only transformed.                   */
+  /*                                                                     */
+  /*  The cone is a STATIC 3D transform computed at paint: `perspective` */
+  /*  + `rotateX` on the stage, `translateZ` per ring. Without the       */
+  /*  perspective these are four concentric circles (a dartboard); with  */
+  /*  it they are a funnel. It costs nothing per frame.                  */
+  /* ================================================================== */
+  .vortex {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Paint containment: nothing here can widen the document, which is what
+       keeps 320px free of horizontal scroll. */
+    contain: layout paint;
+    /* Pointer depth. Two custom properties written by VortexField, at most
+       once per animation frame. Defaults mean it renders correctly with no
+       JS at all (and under reduced motion, where the listener never attaches). */
+    transform: translate3d(calc(var(--vx, 0) * 1px), calc(var(--vy, 0) * 1px), 0);
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  /*
+   * NARROW SCREENS GET A QUIETER FUNNEL. On a phone every pixel is content,
+   * so the funnel drops back to atmosphere: dimmed, and sunk behind the
+   * product card rather than crossing the copy. Text legibility outranks the
+   * decoration every time, and a hero nobody can read is not a better hero.
+   */
+  .vortex {
+    opacity: 0.5;
+  }
+
+  @media (min-width: 1024px) {
+    .vortex {
+      opacity: 1;
+    }
+  }
+
+  .vortex__stage {
+    position: absolute;
+    left: 50%;
+    top: 66%;
+    width: 0;
+    height: 0;
+    transform-style: preserve-3d;
+    /* The tilt. 64deg reads as "looking down into it" without flattening the
+       rings into lines. */
+    transform: perspective(900px) rotateX(64deg);
+  }
+
+  /*
+   * At desktop widths the funnel sits behind the PRODUCT CARD, not in the
+   * middle of the hero, so the motes visibly converge on the thing that
+   * represents an ordered day. That is the entire argument of the image; a
+   * centred funnel would just be wallpaper. On narrow screens the card stacks
+   * below the copy, so centred is correct there.
+   */
+  @media (min-width: 1024px) {
+    .vortex__stage {
+      /* In the gap between the copy and the card, not behind either. The eye of
+         the funnel has to be VISIBLE for the image to mean anything; hidden
+         behind the card it degrades into stray ellipses. */
+      left: 57%;
+      top: 52%;
+    }
+  }
+
+  .vortex__ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--size);
+    height: var(--size);
+    margin-left: calc(var(--size) / -2);
+    margin-top: calc(var(--size) / -2);
+    border-radius: 50%;
+    border: 1px solid rgba(var(--tone), var(--o));
+    transform: translateZ(var(--z));
+  }
+
+  /* The eye of the funnel. A gradient, not a shadow, and it animates OPACITY
+     only — the cheapest thing a compositor can be asked to do. */
+  .vortex__core {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 300px;
+    height: 300px;
+    margin: -150px 0 0 -150px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle closest-side,
+      rgba(167, 176, 255, 0.55) 0%,
+      rgba(108, 92, 231, 0.3) 30%,
+      rgba(78, 168, 255, 0.12) 58%,
+      rgba(78, 168, 255, 0) 78%
+    );
+    animation: vortex-core 11s ease-in-out infinite;
+    will-change: opacity;
+  }
+
+  /*
+   * A mote's orbit. The parent is a ZERO-SIZE point that rotates; the mote
+   * inside holds one static `translateX`. That is what makes circular motion
+   * cost a single composited rotation and lets the mote's gradient rasterise
+   * exactly once.
+   */
+  .vortex__orbit {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    transform: translateZ(var(--z));
+    transform-style: preserve-3d;
+    animation: vortex-spin var(--dur) linear infinite;
+    animation-delay: var(--delay);
+    will-change: transform;
+  }
+
+  .vortex__mote {
+    position: absolute;
+    width: var(--size, 20px);
+    height: var(--size, 20px);
+    margin: calc(var(--size, 20px) / -2) 0 0 calc(var(--size, 20px) / -2);
+    border-radius: 50%;
+    transform: translateX(var(--r));
+    background: radial-gradient(
+      circle closest-side,
+      rgba(var(--tone), 1) 0%,
+      rgba(var(--tone), 0.6) 26%,
+      rgba(var(--tone), 0.18) 52%,
+      rgba(var(--tone), 0) 76%
+    );
+  }
+
+  .vortex[data-paused='true'] .vortex__orbit,
+  .vortex[data-paused='true'] .vortex__core {
+    animation-play-state: paused;
+  }
+
+  /*
+   * REDUCED MOTION KEEPS THE COMPOSITION AND DROPS THE MOVEMENT. The funnel,
+   * its depth, the core and every mote stay exactly where they are; only the
+   * orbiting and the pulse stop, and the pointer listener is never attached
+   * (VortexField returns early). A still vortex is still the brand image.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .vortex {
+      transform: none;
+      transition: none;
+    }
+    .vortex__orbit,
+    .vortex__core {
+      animation: none;
+    }
+  }
+
+  /* ================================================================== */
+  /*  Staggered hero entrance.                                           */
+  /*                                                                     */
+  /*  One keyframe, one class, a per-element delay. `fill-mode: both` is */
+  /*  load-bearing: without it an element with a 320ms delay renders at  */
+  /*  full opacity, then snaps to hidden when its animation starts.      */
+  /* ================================================================== */
+  .hero-rise {
+    animation: hero-rise 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--rise-delay, 0ms);
+  }
+
+  /*
+   * Scoped reduced-motion override rather than relying on the global rule.
+   * The global rule collapses DURATION but not DELAY, so a 320ms delay would
+   * hold the element at `from` (invisible) for 320ms — a flash of missing
+   * content, which is worse than the animation it was meant to remove.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-rise {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /*
+   * The connector between showcase sections: features as one system rather
+   * than a stack of unrelated cards. Scales from the top on entry, so it reads
+   * as the thread being drawn downward through the page.
+   */
+  .section-thread {
+    position: relative;
+    width: 1px;
+    height: 68px;
+    margin: 0 auto;
+    background: linear-gradient(
+      to bottom,
+      rgba(108, 92, 231, 0) 0%,
+      rgba(108, 92, 231, 0.5) 42%,
+      rgba(78, 168, 255, 0.32) 100%
+    );
+    transform-origin: top center;
+    transform: scaleY(0);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .section-thread[data-shown='true'] {
+    transform: scaleY(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .section-thread {
+      transition: none;
+      transform: scaleY(1);
+    }
+  }
+
   /*
    * A slow sheen across a primary CTA. Deliberately NOT on the Button primitive:
    * this is landing-page polish, and every button in the app quietly shimmering
@@ -443,6 +667,49 @@ html {
   100% {
     transform: translate3d(1.5rem, -60vh, 0);
     opacity: 0;
+  }
+}
+
+/*
+ * One revolution of a mote around the funnel. `linear` on purpose: an orbit
+ * that eases is an orbit that looks wrong, and easing would also cluster the
+ * motes at the turn points where they read as a flicker rather than as flow.
+ * The parent is zero-size, so this rotation moves the child and touches
+ * nothing else in the tree.
+ */
+@keyframes vortex-spin {
+  from {
+    transform: translateZ(var(--z)) rotate(0deg);
+  }
+  to {
+    transform: translateZ(var(--z)) rotate(360deg);
+  }
+}
+
+/* The eye of the funnel, breathing. OPACITY ONLY — no scale, because scaling a
+   gradient re-rasterises it every frame and that is the one thing this whole
+   system is built to avoid. */
+@keyframes vortex-core {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The hero's staggered entrance. Small travel, generous easing: the point is
+   that the line ARRIVES, not that it flies. 14px is enough to read as motion
+   and short enough that nothing is unreadable while it happens. */
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
 }
 
