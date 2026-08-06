@@ -80,9 +80,17 @@ const lifecycleEvent = (type: string, subId: string, over: Record<string, unknow
       id: subId,
       status: type.endsWith('deleted') ? 'canceled' : 'active',
       customer: 'cus_1',
-      current_period_end: T.t2 + 2_592_000,
       metadata: { user_id: UID },
-      items: { data: [{ price: { id: MONTHLY } }] },
+      /*
+       * THE PERIOD END IS ON THE ITEM, which is the shape Stripe actually
+       * sends. It moved off the Subscription in API 2025-03-31.basil, and this
+       * project pins stripe@22.3.0 whose ApiVersion is 2026-06-24.dahlia.
+       *
+       * These fixtures used to carry it at the TOP LEVEL, which is why the
+       * suite stayed green while production wrote NULL forever: the doubles
+       * agreed with the code and both disagreed with Stripe.
+       */
+      items: { data: [{ price: { id: MONTHLY }, current_period_end: T.t2 + 2_592_000 }] },
       ...over,
     },
   },
@@ -108,8 +116,10 @@ const goodStripe = (over: { price?: string; session?: Record<string, unknown> } 
         status: 'active',
         livemode: false,
         customer: 'cus_1',
-        current_period_end: T.t2 + 2_592_000,
-        items: { data: [{ price: { id: over.price ?? MONTHLY } }] },
+        // On the ITEM, as Stripe sends it under the pinned API version.
+        items: {
+          data: [{ price: { id: over.price ?? MONTHLY }, current_period_end: T.t2 + 2_592_000 }],
+        },
       },
     },
   })
@@ -126,6 +136,20 @@ const attempt = (over: Partial<AttemptRow> = {}): AttemptRow => ({
 
 const skipOf = async (res: Response) =>
   ((await res.json()) as { skipped?: string }).skipped ?? null
+
+/**
+ * The refusal code, whichever shape the handler used.
+ *
+ * A livemode mismatch used to be a 200 carrying `{ skipped }`; it is now a 503
+ * carrying `{ error }`, because a 2xx marks the event delivered and Stripe
+ * never retries it — which permanently discards a real payment that arrives
+ * mid mode-switch. Reading both keeps these assertions about the REFUSAL
+ * rather than about the envelope it came in.
+ */
+const refusalOf = async (res: Response) => {
+  const body = (await res.json()) as { skipped?: string; error?: string }
+  return body.error ?? body.skipped ?? null
+}
 
 let errorSpy: ReturnType<typeof vi.spyOn>
 let warnSpy: ReturnType<typeof vi.spyOn>
@@ -639,7 +663,14 @@ describe('D — Stripe mode consistency fails closed', () => {
     })
 
     const res = await webhook(hook())
-    expect(await skipOf(res)).toBe('livemode_mismatch')
+    /*
+     * RETRIABLE, NOT 200. A 2xx marks the event delivered and Stripe never
+     * resends it, so a genuine payment arriving during a mode switch would be
+     * discarded permanently. A 5xx is retried for ~3 days, which outlasts any
+     * sane switch.
+     */
+    expect(res.status, 'Stripe must be asked to retry, not told we handled it').toBeGreaterThanOrEqual(500)
+    expect(await refusalOf(res)).toBe('livemode_mismatch')
     expect(db.state.billing?.plan, 'a config error must never downgrade a payer').toBe('pro')
   })
 
@@ -657,7 +688,11 @@ describe('D — Stripe mode consistency fails closed', () => {
       },
     })
 
-    expect(await skipOf(await webhook(hook()))).toBe('livemode_mismatch')
+    {
+      const r = await webhook(hook())
+      expect(r.status, 'Stripe must be asked to retry').toBeGreaterThanOrEqual(500)
+      expect(await refusalOf(r)).toBe('livemode_mismatch')
+    }
     expect(db.state.billing?.plan).toBe('pro')
   })
 
@@ -667,7 +702,11 @@ describe('D — Stripe mode consistency fails closed', () => {
     getSupabaseAdmin.mockReturnValue(db.client)
     getStripeMock.mockReturnValue({ ...s.stripe, webhooks: { constructEvent: () => completedEvent() } })
 
-    expect(await skipOf(await webhook(hook()))).toBe('livemode_mismatch')
+    {
+      const r = await webhook(hook())
+      expect(r.status, 'Stripe must be asked to retry').toBeGreaterThanOrEqual(500)
+      expect(await refusalOf(r)).toBe('livemode_mismatch')
+    }
     expect(db.state.billing).toBeNull()
   })
 

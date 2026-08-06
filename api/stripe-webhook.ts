@@ -13,6 +13,7 @@ import { toNodeHandler } from './_lib/nodeAdapter.js'
 // Leaf module from src/ (no `@/` imports) — safe for Vercel to bundle here.
 import {
   planForStatus,
+  currentPeriodEndFor,
   priceIdsForSubscription,
   type MinimalStripeEvent,
   type MinimalSubscription,
@@ -121,12 +122,42 @@ async function webhook(req: Request): Promise<Response> {
    * came from Stripe — not from the mode we are running.
    */
   if (!livemodeMatches(event.livemode, env)) {
+    /*
+     * 503, NOT 200 — AND THE DIFFERENCE IS A CUSTOMER'S SUBSCRIPTION.
+     *
+     * A 2xx tells Stripe the event was handled, so it is marked delivered and
+     * NEVER redelivered. That is the correct answer for "this event is not
+     * mine and never will be". It is the wrong answer here, because a livemode
+     * mismatch is a CONFIGURATION fault, not a permanent property of the event:
+     * docs/BILLING_SETUP.md walks the owner through a mode switch during which
+     * both endpoints can legitimately be armed at once. In that window a real
+     * `checkout.session.completed` for a real payment can arrive while this
+     * deployment still declares the other mode, and a 200 would discard it
+     * permanently. The customer is charged and never provisioned, with a green
+     * delivery log hiding it.
+     *
+     * Stripe retries a 5xx with backoff for ~3 days, which is far longer than
+     * any sane mode switch, so the event is simply redelivered once the
+     * configuration is corrected. No manual replay, no lost purchase.
+     *
+     * This is the same fail-closed-and-retry stance this file already takes for
+     * `billing_schema_outdated` and for a mode-inconsistent deployment; the
+     * livemode branch was the one place that did not follow it.
+     *
+     * NOTHING IS MUTATED ON THIS PATH. The refusal happens before any billing
+     * write, so a redelivery cannot double-apply, and the existing event-id
+     * de-duplication still covers the case where the same event is retried
+     * after the fix.
+     *
+     * SIGNATURE FIRST. `constructEvent` has already run above, so an unsigned
+     * request can never reach this branch and turn it into a retry amplifier.
+     */
     console.error(
       `[api/stripe-webhook] refusing event ${event.id ?? '<no id>'}: livemode=${String(
         event.livemode,
-      )} does not match STRIPE_MODE=${env.stripeMode}`,
+      )} does not match STRIPE_MODE=${env.stripeMode}; answering 503 so Stripe retries`,
     )
-    return json(200, { received: true, skipped: 'livemode_mismatch' })
+    return apiError(503, 'livemode_mismatch')
   }
 
   const eventId = typeof event.id === 'string' && event.id.length > 0 ? event.id : null
@@ -220,8 +251,17 @@ async function handleCheckoutCompleted(
       return json(200, { received: true, skipped: 'session_not_complete' })
     }
     if (!livemodeMatches(session.livemode, env)) {
+      /*
+       * 503 for the same reason as the event-level check above: ONE POLICY for
+       * every livemode disagreement. The event's own livemode already matched
+       * STRIPE_MODE to get here, so a retrieved object from the other mode
+       * means the deployment's key and mode disagree — a configuration fault,
+       * not a permanent property of this event. Retrying gives the real
+       * purchase a route to land once the configuration is fixed; a 200 would
+       * bin it. Nothing is written on this path.
+       */
       console.error(`[api/stripe-webhook] session ${sessionId} livemode does not match STRIPE_MODE`)
-      return json(200, { received: true, skipped: 'livemode_mismatch' })
+      return apiError(503, 'livemode_mismatch')
     }
 
     const customerId = typeof session.customer === 'string' ? session.customer : null
@@ -233,8 +273,9 @@ async function handleCheckoutCompleted(
 
     subscription = (await stripe.subscriptions.retrieve(subscriptionId)) as typeof subscription
     if (!livemodeMatches(subscription.livemode, env)) {
+      // Same policy: a livemode disagreement is a config fault, so retry.
       console.error(`[api/stripe-webhook] subscription ${subscriptionId} livemode mismatch`)
-      return json(200, { received: true, skipped: 'livemode_mismatch' })
+      return apiError(503, 'livemode_mismatch')
     }
 
     /*
@@ -274,7 +315,9 @@ async function handleCheckoutCompleted(
       p_subscription_id: subscriptionId,
       p_price_id: purchased[0],
       p_status: subscription.status ?? null,
-      p_period_end: toIso(subscription.current_period_end),
+      // From the ITEM matching a configured price, not the Subscription — the
+      // field moved in API 2025-03-31.basil. See currentPeriodEndFor.
+      p_period_end: toIso(currentPeriodEndFor(subscription, allowed)),
       p_plan: grantedPlan,
     })
 
@@ -328,6 +371,18 @@ async function handleSubscriptionLifecycle(
   const status = deleted ? 'canceled' : (sub.status ?? null)
 
   /*
+   * The period end comes from the subscription ITEM matching one of our own
+   * prices. `configuredPriceIds()` defaults to `serverEnv()`, which this
+   * handler does not otherwise need.
+   *
+   * A DELETION DELIBERATELY DOES NOT CLEAR IT. The plan is already being set
+   * to 'free', which is what removes access; the date the last paid period
+   * ended stays on the row as a record. Overwriting it with null would destroy
+   * information for no benefit.
+   */
+  const periodEnd = currentPeriodEndFor(sub, configuredPriceIds())
+
+  /*
    * A REVOCATION IS HONOURED REGARDLESS OF PRICE. Retiring a price must not
    * strand its subscribers on Pro forever, and the subscription id has already
    * proven this is our subscription. Grants are the asymmetric case and they
@@ -340,8 +395,15 @@ async function handleSubscriptionLifecycle(
     p_plan: deleted ? 'free' : planForStatus(status),
     p_customer_id: typeof sub.customer === 'string' ? sub.customer : null,
     p_status: status,
-    p_period_end: toIso(sub.current_period_end),
-    p_set_period_end: sub.current_period_end != null,
+    /*
+     * Same correction as the checkout path. `p_set_period_end` is what tells
+     * the SQL whether to touch the column at all, so an unknown period end
+     * LEAVES THE EXISTING VALUE ALONE rather than nulling it: a lifecycle event
+     * that happens not to carry item periods (or a deletion) must not erase a
+     * renewal date we already knew.
+     */
+    p_period_end: toIso(periodEnd),
+    p_set_period_end: periodEnd != null,
   })
 
   if (error) return schemaOrServerError(error, 'apply_stripe_subscription_event')

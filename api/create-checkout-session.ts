@@ -244,14 +244,36 @@ async function checkout(req: Request): Promise<Response> {
       }
     } catch (err) {
       /*
-       * A session id we hold that Stripe will not return is not a reason to
-       * lock the user out forever. Mark the attempt failed (terminal) so the
-       * next request can reserve cleanly.
+       * NOT KNOWING IS NOT THE SAME AS KNOWING IT IS GONE.
+       *
+       * This used to mark the attempt terminal on ANY error. A timeout, a 429,
+       * a Stripe 5xx or a DNS blip therefore RELEASED the one-open-attempt slot
+       * while the original Checkout Session was still open and still payable —
+       * so the next request minted a second payable session and the customer
+       * could be charged twice for a subscription the product cannot see,
+       * cancel or honour. That is precisely the defect
+       * 20260801150000_checkout_attempts.sql exists to prevent, reintroduced
+       * through the error path instead of the happy path.
+       *
+       * So the slot is released ONLY on a definitive answer from Stripe:
+       * `resource_missing` (the session genuinely does not exist). Everything
+       * else — connection, rate limit, API 5xx, auth/config, or an error shape
+       * we do not recognise — keeps the attempt OPEN and returns a retryable
+       * status. Holding a slot is recoverable; double-charging is not.
        */
+      const definitive = isDefinitivelyMissing(err)
+
       console.error(
-        `[api/create-checkout-session] could not retrieve session for attempt ${attempt.id}:`,
+        `[api/create-checkout-session] could not retrieve session for attempt ${attempt.id} ` +
+          `(${definitive ? 'definitive: resource_missing' : 'transient/unknown — slot held'}):`,
         redactSecrets(err instanceof Error ? err.message : 'unknown'),
       )
+
+      if (!definitive) {
+        // Retryable, and the upstream message is NOT passed to the caller.
+        return apiError(503, 'stripe_unavailable')
+      }
+
       await admin.rpc('mark_checkout_attempt', { p_attempt_id: attempt.id, p_status: 'failed' })
       return apiError(502, 'stripe_error')
     }
@@ -375,6 +397,27 @@ function isMissingCheckoutSchema(error: { code?: string; message?: string } | nu
     error.code === 'PGRST205' ||
     /checkout_attempts|reserve_checkout_attempt/.test(message)
   )
+}
+
+/**
+ * Did Stripe DEFINITIVELY say this session does not exist?
+ *
+ * Only `resource_missing` on an invalid-request error means "gone". Every other
+ * failure — connection, rate limit, API 5xx, authentication, or a shape we do
+ * not recognise — means UNKNOWN, and unknown must never release the
+ * one-open-attempt slot while a payable session may still be live.
+ *
+ * Matched on the error's own `code`/`type` rather than `instanceof`: this
+ * handler can see an error that crossed a module boundary or came from a test
+ * double, and an `instanceof` check that quietly failed would fail OPEN — the
+ * exact direction that costs a customer a double charge.
+ */
+export function isDefinitivelyMissing(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false
+  const e = err as { type?: unknown; code?: unknown; statusCode?: unknown }
+  if (e.code === 'resource_missing') return true
+  // A 404 on an invalid-request error is the same statement in an older shape.
+  return e.type === 'StripeInvalidRequestError' && e.statusCode === 404
 }
 
 /** Web-shaped handler — exported for unit tests. */

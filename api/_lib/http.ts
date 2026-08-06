@@ -57,6 +57,17 @@ export type ApiErrorCode =
   | 'billing_misconfigured'
   | 'missing_signature'
   | 'invalid_signature'
+  // A signed, genuine Stripe event whose `livemode` disagrees with STRIPE_MODE.
+  // Answered 503 rather than 200 ON PURPOSE: a 2xx marks the event delivered
+  // and it is never retried, so a real payment arriving mid mode-switch would
+  // be discarded forever. A 5xx makes Stripe retry for ~3 days, which outlasts
+  // any sane switch. Nothing is written on this path.
+  | 'livemode_mismatch'
+  // Stripe could not be reached, or answered in a way that does NOT prove the
+  // resource is gone (timeout, 429, 5xx, unrecognised shape). The caller should
+  // retry; critically, the one-open-attempt slot is HELD, because releasing it
+  // while a payable session may still exist is how a customer gets billed twice.
+  | 'stripe_unavailable'
   | 'billing_lookup_failed'
   | 'billing_upsert_failed'
   | 'billing_read_failed'
