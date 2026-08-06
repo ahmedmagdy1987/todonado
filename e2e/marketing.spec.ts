@@ -347,3 +347,91 @@ test('landing: OG tags and the zero-database guarantee still hold', async ({ pag
 
   expect(dbCalls, `the landing hit the database:\n${dbCalls.join('\n')}`).toEqual([])
 })
+
+/* ─────────────────────────── PRICE CONSISTENCY ─────────────────────────────
+ *
+ * The public pricing page displayed "$6 /mo · per month, billed yearly" while
+ * Stripe was configured and live-tested at $5/month and $48/year. Nothing
+ * compared a rendered price with anything, so a visitor was quoted a number
+ * the product does not charge and every gate stayed green.
+ *
+ * These read the RENDERED page, which is the only place the bug was visible.
+ */
+
+const PRICING_SURFACES = ['/pricing', '/welcome'] as const
+
+test('pricing: the public page quotes $5/month and $48/year, on desktop and mobile', async ({
+  page,
+}) => {
+  for (const route of PRICING_SURFACES) {
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto(route)
+      // The teaser is below the fold on /welcome and lazily mounted.
+      await page.evaluate(async () => {
+        const step = Math.round(window.innerHeight * 0.8)
+        for (let y = 0; y < document.body.scrollHeight; y += step) {
+          window.scrollTo(0, y)
+          await new Promise((r) => setTimeout(r, 90))
+        }
+      })
+      const body = await page.locator('body').innerText()
+      const where = `${route} @ ${width}px`
+
+      expect(body, `${where}: monthly price missing`).toContain('$5')
+      expect(body, `${where}: yearly price missing`).toContain('$48')
+      // The equivalent must never appear without its qualifier.
+      if (/\$4(?!\d)/.test(body)) {
+        expect(body, `${where}: "$4" shown without "billed annually"`).toContain('billed annually')
+      }
+      // The value that actually shipped, and the classic mislabellings.
+      expect(body, `${where}: stale $6 price still rendered`).not.toMatch(/\$6(?!\d)/)
+      expect(body, `${where}`).not.toContain('$48/month')
+      expect(body, `${where}`).not.toContain('$4/year')
+      expect(body, `${where}`).not.toContain('$5/year')
+      // The period was previously stated twice and then contradicted.
+      expect(body, `${where}: redundant period label`).not.toContain('/mo · per month')
+    }
+  }
+})
+
+test('pricing: the annual saving is stated as 20%, and the arithmetic holds', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/pricing')
+  // /pricing is a lazy route chunk: without this the body is still "Loading…".
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const body = await page.locator('body').innerText()
+
+  // 12 x $5 = $60;  $60 - $48 = $12;  $12 / $60 = 20%.
+  expect(body).toMatch(/save\s*20%/i)
+  expect(body, 'a wrong discount is worse than none').not.toMatch(/save\s*(?!20%)\d+%/i)
+})
+
+test('pricing: signed-out visitors see prices without authenticating', async ({ page }) => {
+  // No session is ever created here: the whole point is that the price is
+  // public. A pricing page that needed a login would be the same bug wearing
+  // a different hat.
+  const dbCalls: string[] = []
+  page.on('request', (req) => {
+    if (/\/auth\/v1\/(token|user|signup)/.test(req.url())) dbCalls.push(req.url())
+  })
+  await page.goto('/pricing')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const body = await page.locator('body').innerText()
+  expect(body).toContain('$5')
+  expect(body).toContain('$48')
+  expect(new URL(page.url()).pathname, 'pricing must not redirect to auth').toBe('/pricing')
+  expect(dbCalls, 'pricing must not require a session').toEqual([])
+})
+
+test('pricing: the Pro CTA still reaches the existing checkout entry point', async ({ page }) => {
+  // Behaviour must be UNCHANGED by a copy fix: the paid CTA opens the same
+  // intent modal it did before, and never navigates a signed-out visitor to
+  // Stripe.
+  await page.goto('/pricing')
+  const before = new URL(page.url()).pathname
+  await page.getByRole('button', { name: 'Start Pro' }).first().click()
+  await page.waitForTimeout(700)
+  expect(new URL(page.url()).pathname, 'the CTA must not navigate away').toBe(before)
+  expect(page.url(), 'a signed-out CTA must never reach Stripe').not.toContain('checkout.stripe.com')
+})

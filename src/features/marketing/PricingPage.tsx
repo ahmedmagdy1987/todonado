@@ -8,6 +8,7 @@ import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { UpgradeIntentModal } from './components/UpgradeIntentModal'
 import { PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
+import { PRO_PRICE_COPY, usd } from './pricing'
 
 /**
  * NOT BUILT — and each line says WHY.
@@ -49,10 +50,17 @@ const NOT_BUILT: { what: string; why: string }[] = [
   },
 ]
 
+/**
+ * The headline amount and its period.
+ *
+ * `small` is now just the period. It used to be `/mo · ${plan.priceNote}`,
+ * which rendered "/mo · per month, billed yearly" — the period stated twice
+ * and then contradicted.
+ */
 function priceLabel(plan: Plan): { big: string; small: string } {
   if (plan.priceMonthly === 0) return { big: 'Free', small: plan.priceNote }
   if (plan.priceMonthly == null) return { big: 'Soon', small: plan.priceNote }
-  return { big: `$${plan.priceMonthly}`, small: `/mo · ${plan.priceNote}` }
+  return { big: usd(plan.priceMonthly), small: PRO_PRICE_COPY.monthlySuffix }
 }
 
 interface PlanCardProps {
@@ -80,9 +88,28 @@ function PlanCard({ plan, onPaidCta, onFreeCta }: PlanCardProps) {
           <p className="text-sm text-text-muted">{plan.tagline}</p>
         </div>
 
-        <div className="flex items-end gap-1">
-          <span className="font-display text-3xl font-bold">{big}</span>
-          <span className="pb-1 text-xs text-text-muted">{small}</span>
+        <div className="space-y-1">
+          <div className="flex items-end gap-1">
+            <span className="font-display text-3xl font-bold">{big}</span>
+            <span className="pb-1 text-xs text-text-muted">{small}</span>
+          </div>
+          {/*
+            The annual alternative, rendered from derived values so it cannot
+            drift from the monthly figure above it. "billed annually" is part
+            of the same sentence as the per-month equivalent, never separated
+            from it: "$4/month" on its own would be a price we do not offer.
+          */}
+          {plan.yearly && (
+            <p className="text-xs text-text-muted">
+              or{' '}
+              <span className="font-medium text-text-primary/90">
+                {usd(plan.yearly.totalUsd)}
+                {PRO_PRICE_COPY.yearlySuffix}
+              </span>{' '}
+              · {usd(plan.yearly.perMonthUsd)}/month billed annually, save{' '}
+              {plan.yearly.savingPercent}%
+            </p>
+          )}
         </div>
 
         <ul className="flex-1 space-y-2.5">

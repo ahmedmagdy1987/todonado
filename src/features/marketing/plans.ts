@@ -1,11 +1,19 @@
 /**
- * PRICING HYPOTHESIS — UNVALIDATED. This is the SINGLE source of truth for the
- * landing + pricing pages and the fake-door tiers. Edit tiers / prices / copy
- * HERE. See docs/PRODUCT_AUDIT.md §6 and docs/READINESS_CHECKLIST.md (D6/D11).
+ * Tiers, copy and feature lists for the landing + pricing pages.
  *
- * Nothing is charged yet: the paid CTAs only record willingness-to-pay
- * (see ./api/upgradeIntents.ts) — the whole point is to test these numbers
- * BEFORE building Stripe.
+ * ── PRO'S AMOUNTS ARE NOT WRITTEN HERE ANY MORE ────────────────────────────
+ *
+ * They come from ./pricing.ts, which is the single source of truth for every
+ * displayed amount. This file used to carry a PRICING HYPOTHESIS from before
+ * Stripe existed — `priceMonthly: 6, priceNote: 'per month, billed yearly'` —
+ * written when the paid CTAs only recorded willingness-to-pay. Stripe was then
+ * configured at $5/month and $48/year and nothing updated this file, so the
+ * public page quoted a number the product does not charge.
+ *
+ * Free and Team have no Stripe price and keep their literal values: 0 and null
+ * are states, not amounts.
+ *
+ * See docs/PRODUCT_AUDIT.md §6 and docs/READINESS_CHECKLIST.md (D6/D11).
  */
 
 /** Tiers a user can express purchase intent for. MUST match the DB check in
@@ -18,6 +26,7 @@ import {
   FREE_QUIT_HABITS,
   FREE_VISION_CARDS,
 } from '@/lib/config'
+import { PRO_MONTHLY_USD, PRO_YEARLY, type YearlyPricing } from './pricing'
 
 export type PaidTier = 'pro' | 'team'
 export type PlanId = 'free' | PaidTier
@@ -26,9 +35,22 @@ export interface Plan {
   id: PlanId
   name: string
   tagline: string
-  /** USD per month, billed annually. 0 = free, null = no fixed price yet. */
+  /**
+   * Headline USD amount, charged PER MONTH on the monthly plan.
+   * 0 = free, null = no fixed price yet.
+   *
+   * It is the monthly price, not an annualised one. The old field meant "per
+   * month, billed annually", which is why the card said "$6 /mo · per month,
+   * billed yearly" — a monthly figure wearing an annual label.
+   */
   priceMonthly: number | null
   priceNote: string
+  /**
+   * The annual alternative, when the plan has one. Present ⇒ the card renders
+   * the annual line; absent ⇒ it cannot, so Free and Team can never sprout a
+   * bogus "billed annually".
+   */
+  yearly?: YearlyPricing
   cta: string
   /** Visually highlighted as the recommended plan. */
   featured?: boolean
@@ -73,8 +95,9 @@ export const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     tagline: 'The week ahead, and what your days are telling you.',
-    priceMonthly: 6,
-    priceNote: 'per month, billed yearly',
+    priceMonthly: PRO_MONTHLY_USD,
+    priceNote: 'per month',
+    yearly: PRO_YEARLY,
     cta: 'Start Pro',
     featured: true,
     /*

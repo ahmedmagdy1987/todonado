@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Reveal } from '../demo/Reveal'
 import { SECTION_RHYTHM } from '../sectionRhythm'
 import { PLANS, PRICING_DISCLAIMER } from '../plans'
+import { PRO_PRICE_COPY, usd } from '../pricing'
 
 /** Free + Pro only — the Team tier lives on the full pricing page. */
 const TEASER_IDS = ['free', 'pro'] as const
@@ -51,13 +52,29 @@ export function PricingTeaser({ onStartFree, ctaLabel }: PricingTeaserProps) {
                   {plan.featured && <Badge variant="brand">Most popular</Badge>}
                 </div>
 
-                <div className="flex items-end gap-1">
-                  <span className="font-display text-3xl font-bold">
-                    {plan.priceMonthly === 0 ? 'Free' : `$${plan.priceMonthly}`}
-                  </span>
-                  <span className="pb-1.5 text-xs text-text-muted">
-                    {plan.priceMonthly === 0 ? plan.priceNote : `/mo · ${plan.priceNote}`}
-                  </span>
+                <div className="space-y-1">
+                  <div className="flex items-end gap-1">
+                    <span className="font-display text-3xl font-bold">
+                      {plan.priceMonthly === 0 ? 'Free' : usd(plan.priceMonthly ?? 0)}
+                    </span>
+                    <span className="pb-1.5 text-xs text-text-muted">
+                      {plan.priceMonthly === 0
+                        ? plan.priceNote
+                        : PRO_PRICE_COPY.monthlySuffix}
+                    </span>
+                  </div>
+                  {/* Same derived annual line as the full pricing page, so the
+                      teaser and the page cannot quote different numbers. */}
+                  {plan.yearly && (
+                    <p className="text-xs text-text-muted">
+                      or{' '}
+                      <span className="font-medium text-text-primary/90">
+                        {usd(plan.yearly.totalUsd)}
+                        {PRO_PRICE_COPY.yearlySuffix}
+                      </span>{' '}
+                      · {usd(plan.yearly.perMonthUsd)}/month billed annually
+                    </p>
+                  )}
                 </div>
 
                 <ul className="flex-1 space-y-2.5">
