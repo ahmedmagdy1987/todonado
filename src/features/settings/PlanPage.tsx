@@ -7,6 +7,7 @@ import { usePlan } from '@/features/billing/usePlan'
 import { isBillingConfigured, priceIdFor, type BillingInterval } from '@/features/billing/stripeConfig'
 import { openBillingPortal, startCheckout } from '@/features/billing/api/checkout'
 import { PLANS } from '@/features/marketing/plans'
+import { PRO_PRICE_COPY } from '@/features/marketing/pricing'
 import { FREE_HISTORY_DAYS } from '@/lib/config'
 import { UpgradeIntentModal } from '@/features/marketing/components/UpgradeIntentModal'
 
@@ -160,9 +161,17 @@ export function PlanPage() {
           </div>
         ) : billingReady ? (
           <div className="mt-6 space-y-3">
+            {/*
+              THE AMOUNT IS ON THE BUTTON. This page previously read
+              "Upgrade · Monthly" / "Upgrade · Yearly" with no price anywhere,
+              so the first time anyone saw what they were about to pay was
+              Stripe's own checkout page. The figures come from the same
+              module the public pricing page uses, so the two cannot disagree.
+            */}
             <div className="flex flex-wrap gap-2">
               <Button size="lg" onClick={() => doCheckout('monthly')} loading={busy === 'monthly'} disabled={busy !== null}>
-                Upgrade · Monthly
+                Upgrade · {PRO_PRICE_COPY.monthlyAmount}
+                {PRO_PRICE_COPY.monthlySuffix}
               </Button>
               <Button
                 size="lg"
@@ -171,9 +180,13 @@ export function PlanPage() {
                 loading={busy === 'yearly'}
                 disabled={busy !== null}
               >
-                Upgrade · Yearly
+                Upgrade · {PRO_PRICE_COPY.yearlyAmount}
+                {PRO_PRICE_COPY.yearlySuffix}
               </Button>
             </div>
+            <p className="text-xs text-text-muted">
+              {PRO_PRICE_COPY.yearlyPerMonth}. {PRO_PRICE_COPY.yearlySaving}.
+            </p>
             <p className="text-xs text-text-muted">Secure checkout by Stripe · cancel anytime.</p>
             {checkoutReturn === 'cancel' && (
               <p className="text-xs text-text-muted">Checkout canceled. No charge was made.</p>

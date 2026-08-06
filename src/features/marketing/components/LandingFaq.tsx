@@ -15,7 +15,7 @@ interface Qa {
 const FAQ: Qa[] = [
   {
     q: 'Is Todonado free?',
-    a: 'Most of it, permanently. The effort-aware capacity meter, the overbooking guard, “Plan my day”, roll-over and recovery, focus mode with Pomodoro, recurring tasks, the template and checklist catalog, breathwork and the quit tracker are all free: that is the complete daily loop, not a trial. Nothing is charged today at all.',
+    a: 'Most of it, permanently. The effort-aware capacity meter, the overbooking guard, “Plan my day”, roll-over and recovery, focus mode with Pomodoro, recurring tasks, the template and checklist catalog, breathwork and the quit tracker are all free: that is the complete daily loop, not a trial. Pro adds the week ahead and the retrospective, and you can upgrade anytime from your plan settings.',
   },
   {
     q: 'What do I get with Pro?',

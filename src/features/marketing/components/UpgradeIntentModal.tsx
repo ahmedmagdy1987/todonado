@@ -65,9 +65,26 @@ export function UpgradeIntentModal({ plan, source, onClose }: UpgradeIntentModal
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
           <p className="flex items-start gap-2 text-sm text-text-muted">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+            {/*
+              TWO PLANS OPEN THIS MODAL AND THEY ARE NO LONGER IN THE SAME
+              STATE. It used to say "{plan} isn't live yet and nothing is
+              charged" for both, which stopped being true for Pro the moment
+              Stripe was configured: Pro is purchasable from plan settings
+              today. Team genuinely is not built, so it keeps the honest
+              not-yet-live wording, without claiming anything about charging.
+            */}
             <span>
-              {plan.name} isn’t live yet and nothing is charged. Leave your email and we’ll notify
-              you at launch. Your interest helps us decide it’s worth building.
+              {plan.comingSoon ? (
+                <>
+                  {plan.name} isn’t live yet. Leave your email and we’ll notify you at launch.
+                  Your interest helps us decide it’s worth building.
+                </>
+              ) : (
+                <>
+                  {plan.name} is live. Start free, then upgrade anytime from your plan settings.
+                  Leave your email if you’d like a reminder.
+                </>
+              )}
             </span>
           </p>
           <label className="flex flex-col gap-1.5">
