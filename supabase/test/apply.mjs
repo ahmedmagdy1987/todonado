@@ -18,6 +18,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL, URL } from 'node:url'
 import pg from 'pg'
+import { assertDisposableDatabaseUrl } from '../../scripts/databaseTarget.js'
 
 export const MIGRATIONS_DIR = fileURLToPath(new URL('../migrations', import.meta.url))
 export const SHIM_PATH = fileURLToPath(new URL('./00_supabase_shim.sql', import.meta.url))
@@ -26,11 +27,18 @@ export const SHIM_PATH = fileURLToPath(new URL('./00_supabase_shim.sql', import.
  * A disposable database, never a hosted project. Exported because every entry
  * point — the CLI below and the staged test — must make the same refusal, and
  * one of the workflow's negative controls asserts it fires.
+ *
+ * IT NOW DELEGATES TO THE SHARED ALLOW-LIST. The previous implementation was
+ * `/supabase\.co/.test(url)`, a deny-list, which accepted an RDS endpoint, a
+ * bare public IP, or anyone's staging box — and this function gates
+ * `--reset`, which DROPS the public, auth and storage schemas. One rule, in
+ * scripts/databaseTarget.js, so this file and db-tests/helpers.ts cannot drift.
+ *
+ * The `supabase.co` message is preserved verbatim by the shared guard because
+ * the workflow's negative control greps for that exact sentence.
  */
 export function refuseHostedHost(url) {
-  if (/supabase\.co/.test(url)) {
-    throw new Error('REFUSING to run against a supabase.co host — disposable databases only.')
-  }
+  assertDisposableDatabaseUrl(url)
 }
 
 /**

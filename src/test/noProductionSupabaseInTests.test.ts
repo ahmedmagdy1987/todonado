@@ -77,7 +77,16 @@ describe('no test source hardcodes a hosted Supabase host', () => {
    * production project. What matters is that no TEST does.
    */
   const SCANNED = ['e2e', 'e2e-csp', 'db-tests', 'scripts']
-  const EXEMPT = new Set(['scripts/assert-local-supabase.mjs', 'scripts/supabaseTarget.js'])
+  /*
+   * The GUARDS themselves must name the thing they refuse — that is what makes
+   * them guards. Everything else in these directories is a test, and a test
+   * naming a production host is the bug this scanner exists to catch.
+   */
+  const EXEMPT = new Set([
+    'scripts/assert-local-supabase.mjs',
+    'scripts/supabaseTarget.js',
+    'scripts/databaseTarget.js',
+  ])
 
   function walk(dir: string, out: string[] = []): string[] {
     let entries: string[]
