@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { qk } from '@/lib/queryKeys'
@@ -40,27 +41,64 @@ export function useJournalEntries(userId: string) {
 }
 
 /**
- * A playback link for one recording.
+ * A playback source for one recording, as a `blob:` URL.
  *
- * SIGNED, NEVER PUBLIC. The bucket is private (see the migration), so this is
- * the only way to hear a clip — and the link expires. Keyed by path so two
- * entries never share a URL, and `staleTime` is comfortably under the signature
- * lifetime so a link is refreshed before it can die mid-listen.
+ * SIGNED, NEVER PUBLIC. The bucket is private (see the migration), so a signed
+ * request is the only way to reach a clip.
+ *
+ * ── WHY A BLOB AND NOT THE SIGNED URL ──────────────────────────────────────
+ *
+ * This used to hand the absolute `https://<ref>.supabase.co/storage/...` signed
+ * URL straight to `<audio src>`, and the deployed CSP BLOCKED IT:
+ *
+ *     media-src 'self' blob:
+ *
+ * names no Supabase origin, so the browser refused the media before any request
+ * left it. The player rendered, the controls worked, and nothing played — no
+ * error, no log, nothing in any test. A Pro-only feature was silently dead in
+ * production. Verified against the enforcing policy: the signed URL raises a
+ * `media-src` violation, a `blob:` URL raises none.
+ *
+ * `download()` is a `connect-src` fetch, which the policy already allows, and
+ * the resulting object URL is covered by the `blob:` that generated sleep noise
+ * already relies on. So playback works with NO CSP CHANGE — which is the point:
+ * adding the Storage origin to `media-src` would have fixed it by widening the
+ * policy, and this bucket is private precisely so that origin never has to be
+ * broadly reachable.
+ *
+ * THE TRADEOFF, STATED: the whole clip is buffered before playback and HTTP
+ * range seeking is lost. Both are acceptable here and only here, because a
+ * journal note is hard-capped by the migration (`audio_seconds`), so "the whole
+ * clip" is a few hundred KB. Do not copy this pattern to unbounded media.
+ *
+ * The URL is revoked in `gcTime`'s cleanup below; without that, every re-render
+ * of a different day would leak one object per clip for the life of the tab.
  */
 export function useAudioUrl(path: string | null) {
-  return useQuery({
+  const query = useQuery({
     queryKey: qk.journalAudio(path ?? ''),
     enabled: !!path,
     retry: false,
     staleTime: (SIGNED_URL_SECONDS - 300) * 1000,
     queryFn: async (): Promise<string | null> => {
-      const { data, error } = await supabase.storage
-        .from(AUDIO_BUCKET)
-        .createSignedUrl(path!, SIGNED_URL_SECONDS)
-      if (error) return null
-      return data?.signedUrl ?? null
+      const { data, error } = await supabase.storage.from(AUDIO_BUCKET).download(path!)
+      if (error || !data) return null
+      return URL.createObjectURL(data)
     },
   })
+
+  /*
+   * Revoke when the URL changes or the component goes away. Keyed on the URL
+   * itself rather than on `path`, so a refetch that mints a new object still
+   * releases the old one.
+   */
+  const url = query.data ?? null
+  useEffect(() => {
+    if (!url) return
+    return () => URL.revokeObjectURL(url)
+  }, [url])
+
+  return query
 }
 
 export function useJournalMutations(userId: string) {

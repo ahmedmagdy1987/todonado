@@ -192,11 +192,40 @@ test('journal audio: record → upload → signed playback → delete leaves no 
   )
   expect(intruderWrite.ok, "nor write into someone else's folder").toBeFalsy()
 
-  // --- Playback renders in the page after a reload -------------------------
+  // --- Playback actually WORKS after a reload ------------------------------
+  //
+  // THIS USED TO ASSERT THE `src` ATTRIBUTE AND NOTHING ELSE, which is how a
+  // dead player shipped: the deployed CSP is `media-src 'self' blob:`, the src
+  // was an absolute signed URL on the Storage origin, and the browser refused
+  // the media before any request left it. The element rendered, the controls
+  // worked, no sound came out, and this assertion stayed green.
+  //
+  // A src attribute is not evidence. The media pipeline is, so that is what is
+  // asserted now — the same standard e2e/sleep-sounds.spec.ts already holds.
   await page.reload()
   const player = page.getByLabel("Today's voice note")
   await expect(player).toBeVisible({ timeout: 30_000 })
-  await expect(player).toHaveAttribute('src', /token=/)
+
+  // The source must be a blob: URL, which is what `media-src blob:` permits.
+  await expect(player).toHaveAttribute('src', /^blob:/)
+
+  const playable = await player.evaluate(
+    (el: HTMLAudioElement) =>
+      new Promise<{ readyState: number; error: number | null; duration: number }>((resolve) => {
+        const report = () =>
+          resolve({
+            readyState: el.readyState,
+            error: el.error ? el.error.code : null,
+            duration: Number.isFinite(el.duration) ? el.duration : -1,
+          })
+        if (el.readyState >= 2) return report()
+        el.addEventListener('loadedmetadata', report, { once: true })
+        el.addEventListener('error', report, { once: true })
+        setTimeout(report, 15_000)
+      }),
+  )
+  expect(playable.error, 'the recording must not fail to load').toBeNull()
+  expect(playable.readyState, 'metadata must actually arrive').toBeGreaterThanOrEqual(2)
 
   // --- Deleting the entry deletes the object: NO ORPHANS -------------------
   //
