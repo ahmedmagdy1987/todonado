@@ -53,6 +53,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      # THE PLATFORM'S OWN COMPILATION CONTEXT.
+      #
+      # `npm run typecheck` builds api/ under tsconfig.api.json (lib ES2023, no
+      # DOM). Vercel compiles the same files against the ROOT tsconfig.json,
+      # which has no compilerOptions, so the DOM lib is included. Two different
+      # lib sets over one set of files, and CI only ever checked one of them —
+      # which is how commit 1304b36's TS2322 (Buffer -> BodyInit) passed every
+      # gate here and failed the production build. See tsconfig.api.vercel.json.
+      - run: npm run typecheck:vercel
       - run: npm run lint
       - run: npm run test
       - run: npm run build

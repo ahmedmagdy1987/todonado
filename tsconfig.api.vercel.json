@@ -1,0 +1,45 @@
+{
+  /*
+   * THE PLATFORM'S COMPILATION CONTEXT, REPLICATED.
+   *
+   * ── WHY THIS FILE EXISTS ──────────────────────────────────────────────────
+   *
+   * `npm run typecheck` is `tsc -b`, which builds the three projects referenced
+   * by tsconfig.json. The only one containing `api/` is tsconfig.api.json, and
+   * it deliberately sets `lib: ["ES2023"]` with NO DOM, because Node provides
+   * undici's fetch types rather than the DOM's.
+   *
+   * Vercel does not use that project. Its Node builder compiles each function
+   * against the ROOT tsconfig.json, which is a solution-style file (`files: []`
+   * plus `references`) carrying NO `compilerOptions` at all — so no `lib`
+   * override, and the DOM lib is included by default.
+   *
+   * Two different `lib` sets over the same files, and CI only ever exercised
+   * one of them. That gap shipped a broken production build: commit 1304b36
+   * fixed `api/_lib/nodeAdapter.ts(73,74) TS2322 — Buffer<ArrayBufferLike> is
+   * not assignable to BodyInit`, which passed `npm run typecheck` and every CI
+   * job while failing on Vercel, because DOM's `BufferSource` resolves to
+   * `ArrayBufferView<ArrayBuffer>` and undici's `BodyInit` accepts a plain
+   * `NodeJS.ArrayBufferView`.
+   *
+   * ── WHAT IT CHANGES, AND WHAT IT DELIBERATELY DOES NOT ────────────────────
+   *
+   * ONLY `lib`. Everything else — strict, noUnusedLocals, NodeNext resolution,
+   * `types: ["node"]`, the `include` list — is inherited from tsconfig.api.json,
+   * so this is a second CONTEXT over one source of truth, not a second source of
+   * truth. If the API config gains a file or a rule, this inherits it.
+   *
+   * It is NOT added to tsconfig.json's `references`: staying out of the solution
+   * build keeps `tsc -b` byte-identical and avoids the `composite` requirement.
+   * It runs as its own script (`npm run typecheck:vercel`) and its own CI step.
+   *
+   * DOM here does not weaken anything. It is a STRICTER superset for this
+   * purpose: a file must satisfy BOTH lib sets to pass CI, which is exactly the
+   * property that was missing.
+   */
+  "extends": "./tsconfig.api.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.api.vercel.tsbuildinfo",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+  }
+}
