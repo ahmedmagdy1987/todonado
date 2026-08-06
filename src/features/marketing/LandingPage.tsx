@@ -1,14 +1,16 @@
-import { Suspense, lazy, type ReactNode } from 'react'
+import { Suspense, lazy, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { Badge, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { LivingBackground } from './components/LivingBackground'
+import { VortexField } from './components/VortexField'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { HeroMeterDemo } from './demo/HeroMeterDemo'
 import { LazySection, LazyWidget, Reveal } from './demo/Reveal'
+import { useInView } from './demo/useReveal'
 import { SECTION_RHYTHM } from './sectionRhythm'
 
 /**
@@ -56,6 +58,22 @@ interface ShowcaseProps {
   children: ReactNode
   /** Put the widget on the left at desktop widths (alternating rhythm). */
   flip?: boolean
+}
+
+/**
+ * The thread between showcase sections.
+ *
+ * The features used to read as four unrelated cards stacked down a page. They
+ * are one system — capacity feeds the plan, the plan feeds focus, focus feeds
+ * the week — and a single drawn line says that faster than a paragraph would.
+ * It is `aria-hidden` because it carries no information a screen reader needs;
+ * the heading order already expresses the structure.
+ */
+function SectionThread() {
+  const [ref, inView] = useInView<HTMLDivElement>({ rootMargin: '0px 0px -20% 0px', threshold: 0 })
+  return (
+    <div ref={ref} aria-hidden className="section-thread" data-shown={inView ? 'true' : 'false'} />
+  )
 }
 
 /** One short line, one live widget. No paragraphs — the widget is the argument. */
@@ -133,22 +151,47 @@ export function LandingPage() {
 
           {/* Tight vertical rhythm on mobile so the live meter — the signature —
               still clears the fold on a 390x844 phone. */}
+          {/* The funnel the product is named after. Decorative, motion-gated,
+              and positioned to converge on the card. */}
+          <VortexField />
+
           <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-4 py-10 sm:gap-12 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-            <div className="animate-fade-in">
-              <Badge variant="brand" className="mb-6">
+            {/*
+              STAGGERED, NOT ANIMATED-AS-A-BLOCK. Each element arrives on its
+              own beat so the eye is led badge -> line -> line -> promise ->
+              action, which is the order the page wants to be read in. The
+              delays are small and the whole sequence is done in under a
+              second: motion that delays comprehension is a bug, not polish.
+            */}
+            <div>
+              <Badge variant="brand" className="hero-rise mb-6">
                 <Sparkles className="h-3 w-3" aria-hidden />
                 Your daily command center
               </Badge>
               <h1 className="font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
-                Plan a realistic day.
-                <br />
-                <span className="text-gradient-brand">Not a wish-list.</span>
+                {/* Two block spans rather than a `<br>`: each line can then
+                    carry its own delay, and the accessible name is unchanged. */}
+                <span className="hero-rise block" style={{ '--rise-delay': '90ms' } as CSSProperties}>
+                  Plan a realistic day.
+                </span>
+                <span
+                  className="hero-rise text-gradient-brand block"
+                  style={{ '--rise-delay': '210ms' } as CSSProperties}
+                >
+                  Not a wish-list.
+                </span>
               </h1>
-              <p className="mt-6 max-w-md text-base leading-relaxed text-text-muted sm:text-lg">
+              <p
+                className="hero-rise mt-6 max-w-md text-base leading-relaxed text-text-muted sm:text-lg"
+                style={{ '--rise-delay': '330ms' } as CSSProperties}
+              >
                 Every task carries the minutes it costs. The meter tells you the truth before the
                 day does.
               </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <div
+                className="hero-rise mt-9 flex flex-col gap-3 sm:flex-row"
+                style={{ '--rise-delay': '430ms' } as CSSProperties}
+              >
                 <Button size="lg" onClick={startFree} className="cta-sheen">
                   {ctaLabel}
                   <ArrowRight className="h-4 w-4" aria-hidden />
@@ -159,13 +202,21 @@ export function LandingPage() {
                   </Button>
                 </Link>
               </div>
-              <p className="mt-4 text-xs text-text-muted">
+              <p
+                className="hero-rise mt-4 text-xs text-text-muted"
+                style={{ '--rise-delay': '520ms' } as CSSProperties}
+              >
                 Free to start · no credit card · dark, installable PWA.
               </p>
             </div>
 
             <div className="flex justify-center lg:justify-end">
-              <div className="relative">
+              {/* The card settles in last and from slightly further away, so it
+                  reads as the thing the funnel has just resolved into. */}
+              <div
+                className="hero-rise relative"
+                style={{ '--rise-delay': '300ms' } as CSSProperties}
+              >
                 {/* Breathing halo. Behind the card, blurred, decorative — the
                     card itself is perfectly still so no text ever moves. */}
                 <div
@@ -195,6 +246,8 @@ export function LandingPage() {
           <LazyWidget component={CapacityDemo} minHeight={360} label="the capacity demo" />
         </Showcase>
 
+        <SectionThread />
+
         <Showcase
           eyebrow="Auto-plan"
           flip
@@ -208,6 +261,8 @@ export function LandingPage() {
           <LazyWidget component={AutoPlanDemo} minHeight={640} label="the auto-plan demo" />
         </Showcase>
 
+        <SectionThread />
+
         <Showcase
           eyebrow="Focus"
           line={
@@ -218,6 +273,8 @@ export function LandingPage() {
         >
           <LazyWidget component={FocusDemo} minHeight={450} label="the focus demo" />
         </Showcase>
+
+        <SectionThread />
 
         {/* Week planning is the flagship paid feature and was invisible to anyone
             who hadn't signed up. This runs the REAL planWeek, same as the app. */}
