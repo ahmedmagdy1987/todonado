@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { assertDisposableDatabaseUrl } from '../scripts/databaseTarget.js'
 
 /**
  * Integration tests against a REAL, DISPOSABLE PostgreSQL.
@@ -8,6 +9,20 @@ import pg from 'pg'
  * useful as documentation, but they cannot tell you whether a function COMPILES,
  * whether a partial unique index actually serialises two connections, or
  * whether PUBLIC still holds EXECUTE. This can.
+ *
+ * ── THE TARGET IS GUARDED, AND THAT IS NOT A FORMALITY ─────────────────────
+ *
+ * This file used to hand `process.env.DATABASE_URL` to `pg.Client` unchecked,
+ * and `resetBillingState` below deletes EVERY row in `public.billing` and
+ * `public.checkout_attempts` with no WHERE clause. A developer with a
+ * production connection string exported in their shell who ran the documented
+ * `npm run test:db` would have wiped live billing, irrecoverably — there is no
+ * client write path to that table. Every other suite in the repo already
+ * refused a non-local target; this one, the only one that runs unqualified
+ * DELETEs, did not.
+ *
+ * `assertDisposableDatabaseUrl` is an ALLOW-LIST over the parsed hostname and
+ * it throws BEFORE a socket is opened. See scripts/databaseTarget.js.
  */
 export const DATABASE_URL = process.env.DATABASE_URL ?? ''
 
@@ -18,6 +33,8 @@ export const STATEMENT_TIMEOUT_MS = 5_000
 export const SCHEMA_STATEMENT_TIMEOUT_MS = 60_000
 
 export async function connect(role?: string): Promise<pg.Client> {
+  // FIRST STATEMENT, before the client is even constructed.
+  assertDisposableDatabaseUrl(DATABASE_URL)
   const client = new pg.Client({ connectionString: DATABASE_URL })
   await client.connect()
   await client.query(`set statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
@@ -35,7 +52,16 @@ export async function makeUser(c: pg.Client, email: string): Promise<string> {
   return rows[0].id as string
 }
 
+/**
+ * THE DESTRUCTIVE ONE. Three unqualified deletes.
+ *
+ * It re-asserts the target rather than trusting that `connect()` did, because
+ * a `pg.Client` can reach this function from anywhere — a fixture, a scratch
+ * database, a future helper that builds its own client — and the cost of the
+ * check is a string parse against the cost of being wrong once.
+ */
 export async function resetBillingState(c: pg.Client): Promise<void> {
+  assertDisposableDatabaseUrl(DATABASE_URL)
   await c.query('delete from public.checkout_attempts')
   await c.query('delete from public.billing')
   await c.query(`delete from auth.users where email like '%@dbtest.local'`)
@@ -126,6 +152,14 @@ export async function tableGrants(
  * It gets its own database rather than trying to un-apply anything.
  */
 export function databaseUrlFor(name: string): string {
+  /*
+   * Guarded here too, because `createScratchDatabase` builds its OWN pg.Client
+   * from this string and never goes through `connect()`. Only the pathname
+   * changes, so the host is already the validated one — but a second
+   * `create database` path that could reach a real server is exactly the kind
+   * of gap a future refactor opens, and the check costs a string parse.
+   */
+  assertDisposableDatabaseUrl(DATABASE_URL)
   const u = new URL(DATABASE_URL)
   u.pathname = `/${name}`
   return u.toString()
