@@ -75,7 +75,10 @@ jobs:
     env:
       # Same rule as the database and PostgREST gates: a journey that skipped is
       # a journey nobody ran, and Playwright exits 0 for a skip.
-      EXPECTED_E2E_TESTS: '82'
+      # 82 -> 87: e2e/landing.spec.ts gained five browser-level checks for the
+      # hero vortex (decorative, orbiting + parking, reduced motion, the
+      # staggered entrance always resolving visible, and both CTA destinations).
+      EXPECTED_E2E_TESTS: '87'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

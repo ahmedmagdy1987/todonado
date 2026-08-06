@@ -146,3 +146,133 @@ test('living background: never widens the page, at any width', async ({ page }) 
     await expectNoHorizontalOverflow(page, width)
   }
 })
+
+/**
+ * The vortex funnel.
+ *
+ * Same promises as the background above, for the same reasons: this is the
+ * largest decorative element on the page, it is the one the product is named
+ * after, and every way it can go wrong is invisible to a build.
+ */
+const VORTEX = '.vortex'
+
+test('vortex: decorative, and provably so', async ({ page }) => {
+  await page.goto('/welcome')
+
+  const vortex = page.locator(VORTEX)
+  await expect(vortex).toHaveCount(1)
+  await expect(vortex).toHaveAttribute('aria-hidden', 'true')
+  expect(await vortex.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none')
+
+  // A background must never be a tab stop.
+  expect(await vortex.locator('a, button, input, [tabindex]').count()).toBe(0)
+
+  // The full composition: five rings receding, one eye, nine orbiting motes.
+  await expect(page.locator('.vortex__ring')).toHaveCount(5)
+  await expect(page.locator('.vortex__core')).toHaveCount(1)
+  await expect(page.locator('.vortex__mote')).toHaveCount(9)
+
+  // It is behind the copy: the hero heading must be hit-testable, which it
+  // cannot be if a full-bleed decorative layer is painted over it.
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+})
+
+test('vortex: orbits, and parks when the tab is hidden', async ({ page }) => {
+  await page.goto('/welcome')
+
+  const orbit = page.locator('.vortex__orbit').first()
+  const anim = await orbit.evaluate((el) => {
+    const cs = getComputedStyle(el)
+    return {
+      duration: cs.animationDuration,
+      iterations: cs.animationIterationCount,
+      state: cs.animationPlayState,
+      timing: cs.animationTimingFunction,
+    }
+  })
+  expect(anim.iterations).toBe('infinite')
+  expect(anim.state).toBe('running')
+  // Slow enough to read as an orbit rather than a spinner.
+  expect(Number.parseFloat(anim.duration)).toBeGreaterThan(10)
+  expect(anim.timing, 'an orbit that eases is an orbit that looks wrong').toBe('linear')
+
+  // THE MEASURED RULE: nothing in the funnel may be blurred. A blurred surface
+  // is re-rasterised every time it moves, which is what cost ~40fps before.
+  for (const sel of ['.vortex__mote', '.vortex__core', '.vortex__ring']) {
+    const filter = await page.locator(sel).first().evaluate((el) => getComputedStyle(el).filter)
+    expect(filter, `${sel} must never be blurred`).toBe('none')
+  }
+
+  // Hidden tab ⇒ every cycle parks.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(page.locator(VORTEX)).toHaveAttribute('data-paused', 'true')
+  expect(await orbit.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe('paused')
+})
+
+test('vortex: reduced motion keeps the funnel and stops only the movement', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/welcome')
+
+  // The composition survives in full — this is not "turn the design off".
+  await expect(page.locator('.vortex__ring')).toHaveCount(5)
+  await expect(page.locator('.vortex__mote')).toHaveCount(9)
+  const visible = await page.locator('.vortex__ring').first().evaluate((el) => {
+    const cs = getComputedStyle(el)
+    return cs.display !== 'none' && cs.opacity !== '0' && cs.visibility !== 'hidden'
+  })
+  expect(visible, 'the funnel is held still, not removed').toBe(true)
+
+  // Nothing orbits, and nothing pulses.
+  expect(await page.locator('.vortex__orbit').first().evaluate((el) => getComputedStyle(el).animationName)).toBe('none')
+  expect(await page.locator('.vortex__core').evaluate((el) => getComputedStyle(el).animationName)).toBe('none')
+
+  // The pointer listener is never attached, so moving the mouse writes nothing.
+  await page.mouse.move(200, 200)
+  await page.mouse.move(900, 500)
+  await page.waitForTimeout(150)
+  const vx = await page.locator(VORTEX).evaluate((el) => el.style.getPropertyValue('--vx'))
+  expect(vx, 'no pointer parallax under reduced motion').toBe('')
+})
+
+test('hero: the staggered entrance always resolves to fully visible', async ({ page }) => {
+  /*
+   * The failure this exists to catch is a delayed element that never arrives —
+   * `fill-mode: both` holds it at `from` (opacity 0) for the whole delay, so a
+   * broken animation name or a stripped keyframe leaves the hero permanently
+   * blank while the build stays green.
+   */
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    await page.emulateMedia({ reducedMotion })
+    await page.goto('/welcome')
+    await page.waitForTimeout(1600) // longest delay + duration, comfortably
+
+    const states = await page.locator('.hero-rise').evaluateAll((els) =>
+      els.map((el) => {
+        const cs = getComputedStyle(el)
+        return { opacity: Number(cs.opacity), transform: cs.transform }
+      }),
+    )
+    expect(states.length, 'the hero staggers at least five elements').toBeGreaterThanOrEqual(5)
+    for (const s of states) {
+      expect(s.opacity, `every hero element ends visible (${reducedMotion})`).toBe(1)
+      expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(s.transform)
+    }
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  }
+})
+
+test('hero: both CTAs still go where they claim', async ({ page }) => {
+  await page.goto('/welcome')
+
+  // Secondary CTA is a real link to a real page.
+  await page.getByRole('link', { name: 'See pricing' }).click()
+  await expect(page).toHaveURL(/\/pricing$/)
+
+  // Primary CTA sends a signed-out visitor to the auth page.
+  await page.goto('/welcome')
+  await page.getByRole('button', { name: 'Start free' }).first().click()
+  await expect(page).toHaveURL(/\/login$/)
+})
