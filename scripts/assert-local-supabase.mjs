@@ -53,7 +53,20 @@ for (const { name, host } of findHostedSupabaseEnv()) {
  * Supabase origin because that is the origin production connects to.
  */
 const SCANNED_DIRS = ['e2e', 'e2e-csp', 'db-tests', 'scripts']
-const EXEMPT = new Set(['scripts/assert-local-supabase.mjs', 'scripts/supabaseTarget.js'])
+/*
+ * The GUARDS themselves are exempt, because a guard has to name the thing it
+ * refuses. `scripts/databaseTarget.js` is the third: it is the allow-list that
+ * decides which Postgres the destructive db-tests suite may touch, and it
+ * declares HOSTED_SUPABASE_MARKER for the refusal message the workflow's
+ * negative control greps for.
+ *
+ * Kept in step with the same list in src/test/noProductionSupabaseInTests.test.ts.
+ */
+const EXEMPT = new Set([
+  'scripts/assert-local-supabase.mjs',
+  'scripts/supabaseTarget.js',
+  'scripts/databaseTarget.js',
+])
 
 function walk(dir, out = []) {
   let entries

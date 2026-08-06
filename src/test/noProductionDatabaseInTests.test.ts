@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath, URL } from 'node:url'
 import {
   ALLOWED_SERVICE_HOSTS,
   DatabaseTargetError,
@@ -167,6 +169,33 @@ describe('the guard refuses everything else', () => {
     expect(redactDatabaseUrl(`postgres://admin:${secret}@db.example.com:5432/postgres`)).toBe(
       'db.example.com:5432',
     )
+  })
+})
+
+describe('the two hosted-host scanners cannot drift apart', () => {
+  /*
+   * There are TWO scanners enforcing "no test source names a hosted Supabase
+   * host": the vitest one in noProductionSupabaseInTests.test.ts and the CI
+   * one in scripts/assert-local-supabase.mjs. Each keeps its own EXEMPT list.
+   *
+   * Adding scripts/databaseTarget.js to only the first is exactly what
+   * happened while writing this change, and it passed locally and then failed
+   * two CI jobs. One list falling behind the other is a silent trap, so the
+   * lists are pinned to each other here.
+   */
+  const readList = (rel: string) => {
+    const source = readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
+    const at = source.indexOf('const EXEMPT')
+    expect(at, `EXEMPT not found in ${rel}`).toBeGreaterThan(-1)
+    const block = source.slice(at, source.indexOf('])', at))
+    return [...block.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+  }
+
+  it('both EXEMPT lists hold exactly the same files', () => {
+    const fromTest = readList('./noProductionSupabaseInTests.test.ts')
+    const fromScript = readList('../../scripts/assert-local-supabase.mjs')
+    expect(fromScript).toEqual(fromTest)
+    expect(fromTest).toContain('scripts/databaseTarget.js')
   })
 })
 
