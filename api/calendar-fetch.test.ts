@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetRateLimitStores } from './_lib/rateLimit.js'
+import {
+  AGGREGATE_DEADLINE_MS,
+  DB_QUERY_LIMIT,
+  MAX_CONCURRENT_FETCHES,
+  MAX_EVENTS_PER_REQUEST,
+  MAX_SOURCES_PER_REQUEST,
+  PER_SOURCE_TIMEOUT_MS,
+} from './_lib/calendarLimits.js'
 
 /**
  * /api/calendar-fetch — auth, the SERVER-SIDE Pro gate, and the open-proxy guard.
@@ -35,6 +43,8 @@ const configure = () => {
 
 interface Captured {
   columns: Record<string, string>
+  /** The `.limit()` applied to the calendar_sources query, if any. */
+  limit?: number
 }
 
 /**
@@ -62,6 +72,15 @@ function makeAdmin(opts: {
         select: () => q,
         eq: (col: string, val: string) => {
           if (captured && table === 'calendar_sources') captured.columns[col] = val
+          return q
+        },
+        /*
+         * The cap must be on the QUERY, not applied after loading every row.
+         * Recording it here is what lets a test assert that, rather than only
+         * observing how many fetches happened.
+         */
+        limit: (n: number) => {
+          if (captured && table === 'calendar_sources') captured.limit = n
           return q
         },
         maybeSingle: async () => result,
@@ -166,7 +185,10 @@ describe('the Pro gate is enforced SERVER-SIDE', () => {
     fetchIcsGuarded.mockResolvedValue('BEGIN:VEVENT')
     const res = await handler(post({ authorization: 'Bearer good' }))
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ sources: [{ id: 's1', ics: 'BEGIN:VEVENT' }] })
+    // .sources rather than the whole body: the response also carries `truncated`.
+    expect(((await res.json()) as { sources: unknown[] }).sources).toEqual([
+      { id: 's1', ics: 'BEGIN:VEVENT' },
+    ])
   })
 
   it('allows a founding account with no billing row', async () => {
@@ -308,7 +330,9 @@ describe('per-source error mapping is safe', () => {
     )
     fetchIcsGuarded.mockRejectedValue(new SsrfError('fetch_failed'))
     const res = await handler(post({ authorization: 'Bearer good' }))
-    expect((await res.json()) as unknown).toEqual({ sources: [{ id: 's1', error: 'fetch_failed' }] })
+    expect(((await res.json()) as { sources: unknown[] }).sources).toEqual([
+      { id: 's1', error: 'fetch_failed' },
+    ])
   })
 
   it('flags a row with no URL instead of crashing', async () => {
@@ -316,7 +340,9 @@ describe('per-source error mapping is safe', () => {
       makeAdmin({ billingPlan: 'pro', sources: [{ id: 's1', url: null }] }),
     )
     const res = await handler(post({ authorization: 'Bearer good' }))
-    expect((await res.json()) as unknown).toEqual({ sources: [{ id: 's1', error: 'invalid_source' }] })
+    expect(((await res.json()) as { sources: unknown[] }).sources).toEqual([
+      { id: 's1', error: 'invalid_source' },
+    ])
     expect(fetchIcsGuarded).not.toHaveBeenCalled()
   })
 
@@ -331,5 +357,216 @@ describe('per-source error mapping is safe', () => {
     getSupabaseAdmin.mockReturnValue(makeAdmin({ billingPlan: 'pro', sources: [] }))
     const res = await handler(post({ authorization: 'Bearer good' }))
     expect(res.headers.get('cache-control')).toContain('no-store')
+  })
+})
+
+/* ─────────────────────── ABUSE CONTROLS (issue #9) ─────────────────────────
+ *
+ * The endpoint used to select EVERY url source with no `.limit()` and loop over
+ * all of them. The only ceiling was a BYTE budget, and a source that 404s or
+ * times out consumes none of it — so an authenticated Pro account could turn
+ * one POST into unbounded outbound fan-out from Vercel's egress, terminated
+ * only by the platform timeout.
+ */
+describe('calendar abuse controls', () => {
+  const rows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ id: `s${i}`, url: `https://c${i}.example/f.ics` }))
+  const ONE_EVENT = 'BEGIN:VEVENT\r\nEND:VEVENT'
+
+  beforeEach(() => {
+    configure()
+    getUserFromAuthHeader.mockResolvedValue({ id: 'u1', email: 'pro@example.com', emailVerified: true })
+  })
+
+  it('caps the DATABASE QUERY, not just the loop', async () => {
+    const captured: Captured = { columns: {} }
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingPlan: 'pro', sources: rows(3), captured }))
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+
+    await handler(post({ authorization: 'Bearer good' }))
+    expect(captured.limit, 'the query itself must be limited').toBe(DB_QUERY_LIMIT)
+  })
+
+  it('fetches 10 sources, and never the 11th', async () => {
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingPlan: 'pro', sources: rows(11) }))
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const body = (await res.json()) as { sources: unknown[]; truncated: boolean }
+
+    expect(fetchIcsGuarded).toHaveBeenCalledTimes(MAX_SOURCES_PER_REQUEST)
+    expect(body.sources).toHaveLength(MAX_SOURCES_PER_REQUEST)
+    // The extra row is DETECTED, reported, and never fetched.
+    expect(body.truncated).toBe(true)
+    expect(fetchIcsGuarded.mock.calls.map((c) => c[0])).not.toContain('https://c10.example/f.ics')
+  })
+
+  it('does not claim truncation when it did not truncate', async () => {
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingPlan: 'pro', sources: rows(10) }))
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    expect(((await res.json()) as { truncated: boolean }).truncated).toBe(false)
+  })
+
+  it('fetches duplicate URLs ONCE and still answers every row', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [
+          { id: 'a', url: 'https://cal.example/f.ics?t=1' },
+          { id: 'b', url: 'https://cal.example/f.ics?t=1#frag' },
+          { id: 'c', url: 'https://CAL.example:443/f.ics?t=1' },
+          { id: 'd', url: 'https://cal.example/other.ics?t=1' },
+        ],
+      }),
+    )
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const body = (await res.json()) as { sources: { id: string; ics?: string }[] }
+
+    expect(fetchIcsGuarded, 'three equivalent rows are one request').toHaveBeenCalledTimes(2)
+    expect(body.sources).toHaveLength(4)
+    for (const id of ['a', 'b', 'c', 'd']) {
+      expect(body.sources.find((s) => s.id === id)?.ics).toBe(ONE_EVENT)
+    }
+  })
+
+  it('does NOT dedupe URLs that could return different content', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [
+          { id: 'a', url: 'https://cal.example/f.ics?t=1' },
+          { id: 'b', url: 'https://cal.example/f.ics?t=2' },
+          { id: 'c', url: 'https://cal.example/g.ics?t=1' },
+          { id: 'd', url: 'http://cal.example/f.ics?t=1' },
+        ],
+      }),
+    )
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+    await handler(post({ authorization: 'Bearer good' }))
+    expect(fetchIcsGuarded).toHaveBeenCalledTimes(4)
+  })
+
+  it('rejects an over-long URL without ever fetching it', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [{ id: 's1', url: `https://cal.example/${'a'.repeat(2100)}.ics` }],
+      }),
+    )
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    expect(fetchIcsGuarded).not.toHaveBeenCalled()
+    expect(((await res.json()) as { sources: unknown[] }).sources).toEqual([
+      { id: 's1', error: 'invalid_source' },
+    ])
+  })
+
+  it('never exceeds the concurrency limit', async () => {
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingPlan: 'pro', sources: rows(9) }))
+    let inFlight = 0
+    let peak = 0
+    fetchIcsGuarded.mockImplementation(async () => {
+      inFlight += 1
+      peak = Math.max(peak, inFlight)
+      await new Promise((r) => setTimeout(r, 5))
+      inFlight -= 1
+      return ONE_EVENT
+    })
+
+    await handler(post({ authorization: 'Bearer good' }))
+    expect(peak, 'no unbounded Promise.all fan-out').toBeLessThanOrEqual(MAX_CONCURRENT_FETCHES)
+  })
+
+  it('passes a per-source timeout that never outlasts the aggregate deadline', async () => {
+    getSupabaseAdmin.mockReturnValue(makeAdmin({ billingPlan: 'pro', sources: rows(2) }))
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+
+    await handler(post({ authorization: 'Bearer good' }))
+    for (const call of fetchIcsGuarded.mock.calls) {
+      const opts = call[1] as { timeoutMs: number; maxBytes: number }
+      expect(opts.timeoutMs).toBeGreaterThan(0)
+      expect(opts.timeoutMs).toBeLessThanOrEqual(PER_SOURCE_TIMEOUT_MS)
+      expect(opts.timeoutMs).toBeLessThanOrEqual(AGGREGATE_DEADLINE_MS)
+      expect(opts.maxBytes).toBeGreaterThan(0)
+      expect(opts.maxBytes).toBeLessThanOrEqual(2_000_000)
+    }
+  })
+
+  it('rejects a feed carrying more events than the aggregate cap', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({ billingPlan: 'pro', sources: [{ id: 's1', url: 'https://c.example/big.ics' }] }),
+    )
+    fetchIcsGuarded.mockResolvedValue(`${ONE_EVENT}\r\n`.repeat(MAX_EVENTS_PER_REQUEST + 1_000))
+
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const body = (await res.json()) as { sources: { id: string; error?: string; ics?: string }[] }
+    // REJECTED, not truncated: half a calendar would show a wrong capacity meter.
+    expect(body.sources).toEqual([{ id: 's1', error: 'too_many_events' }])
+  })
+
+  it('accepts a feed exactly at the cap', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({ billingPlan: 'pro', sources: [{ id: 's1', url: 'https://c.example/ok.ics' }] }),
+    )
+    fetchIcsGuarded.mockResolvedValue(`${ONE_EVENT}\r\n`.repeat(MAX_EVENTS_PER_REQUEST))
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const body = (await res.json()) as { sources: { ics?: string }[] }
+    expect(body.sources[0].ics).toBeDefined()
+  })
+
+  it('still returns partial results: one bad source does not sink the rest', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [
+          { id: 'ok', url: 'https://good.example/f.ics' },
+          { id: 'bad', url: 'https://bad.example/f.ics' },
+        ],
+      }),
+    )
+    fetchIcsGuarded.mockImplementation(async (url: string) => {
+      if (url.includes('bad')) throw new SsrfError('private_host', '10.0.0.1 is internal')
+      return ONE_EVENT
+    })
+
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const body = (await res.json()) as { sources: { id: string; ics?: string; error?: string }[] }
+    expect(body.sources.find((s) => s.id === 'ok')?.ics).toBeDefined()
+    expect(body.sources.find((s) => s.id === 'bad')?.error).toBe('invalid_source')
+  })
+
+  it('a single valid source still works exactly as before', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({ billingPlan: 'pro', sources: [{ id: 's1', url: 'https://c.example/f.ics' }] }),
+    )
+    fetchIcsGuarded.mockResolvedValue(`BEGIN:VCALENDAR\r\n${ONE_EVENT}\r\nEND:VCALENDAR`)
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { sources: { id: string; ics: string }[] }
+    expect(body.sources).toHaveLength(1)
+    expect(body.sources[0].ics).toContain('BEGIN:VEVENT')
+  })
+
+  it('NEVER leaks the source URL, its token, or an internal address', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [{ id: 's1', url: 'https://cal.example/private.ics?token=SUPER-SECRET-TOKEN' }],
+      }),
+    )
+    fetchIcsGuarded.mockRejectedValue(
+      new SsrfError('private_host', 'resolved to 10.1.2.3 (internal host cal.corp.local)'),
+    )
+
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const raw = await res.text()
+    for (const leak of ['SUPER-SECRET-TOKEN', 'token=', '10.1.2.3', 'cal.corp.local', 'private.ics']) {
+      expect(raw, `response must not contain ${leak}`).not.toContain(leak)
+    }
+    expect((JSON.parse(raw) as { sources: unknown[] }).sources).toEqual([
+      { id: 's1', error: 'invalid_source' },
+    ])
   })
 })

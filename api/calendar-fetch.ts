@@ -11,6 +11,17 @@ import {
 } from './_lib/entitlement.js'
 import { fetchIcsGuarded, SsrfError } from './_lib/ssrf.js'
 import { enforceRateLimit } from './_lib/rateLimit.js'
+import {
+  AGGREGATE_DEADLINE_MS,
+  DB_QUERY_LIMIT,
+  MAX_CONCURRENT_FETCHES,
+  MAX_EVENTS_PER_REQUEST,
+  MAX_SOURCES_PER_REQUEST,
+  PER_SOURCE_TIMEOUT_MS,
+  calendarUrlKey,
+  countVevents,
+  mapWithConcurrency,
+} from './_lib/calendarLimits.js'
 
 /**
  * POST /api/calendar-fetch
@@ -47,7 +58,12 @@ const MAX_TOTAL_BYTES = 4_000_000
 export interface CalendarFetchResult {
   id: string
   ics?: string
-  error?: 'invalid_source' | 'fetch_failed' | 'response_too_large'
+  /**
+   * `too_many_events` means the feed was fetched safely but carries more
+   * VEVENTs than the aggregate cap allows. The client already treats any
+   * source without `ics` as a failed source, so this needs no client change.
+   */
+  error?: 'invalid_source' | 'fetch_failed' | 'response_too_large' | 'too_many_events'
 }
 
 /** Map an internal SSRF code to the small, safe, client-facing set. */
@@ -131,43 +147,148 @@ async function calendarFetch(req: Request): Promise<Response> {
   }
   if (entitlement.plan !== 'pro') return apiError(403, 'pro_required')
 
+  /*
+   * THE CAP IS ON THE QUERY, NOT ON THE LOOP (issue #9). Selecting every row
+   * and slicing afterwards still transfers every row and still lets the count
+   * be chosen by the caller. `DB_QUERY_LIMIT` is MAX_SOURCES_PER_REQUEST + 1,
+   * so the extra row tells us more exist without our ever fetching it.
+   */
   const { data, error } = await admin
     .from('calendar_sources')
     .select('id,url')
     .eq('user_id', user.id) // the verified caller, never a body value
     .eq('kind', 'url')
+    .limit(DB_QUERY_LIMIT)
   if (error) return apiError(500, 'calendar_lookup_failed')
 
-  const rows = (data ?? []) as { id: string; url: string | null }[]
-  const sources: CalendarFetchResult[] = []
-  let totalBytes = 0
+  const allRows = (data ?? []) as { id: string; url: string | null }[]
+  const truncated = allRows.length > MAX_SOURCES_PER_REQUEST
+  const rows = truncated ? allRows.slice(0, MAX_SOURCES_PER_REQUEST) : allRows
 
-  // Sequential on purpose: bounded fan-out from our own IP, and it makes the
-  // running total cap meaningful.
-  for (const row of rows) {
-    if (!row.url) {
-      sources.push({ id: row.id, error: 'invalid_source' })
-      continue
+  /*
+   * ONE DEADLINE FOR THE WHOLE INVOCATION.
+   *
+   * A per-source timeout MULTIPLIES: ten sources at ten seconds each is a
+   * hundred seconds of billable execution the caller controls by adding rows.
+   * This bounds the invocation itself, and aborts work already in flight, so a
+   * hostile slow source cannot hold a runner past the deadline.
+   */
+  const deadlineAt = Date.now() + AGGREGATE_DEADLINE_MS
+  const aggregate = new AbortController()
+  const deadlineTimer = setTimeout(() => aggregate.abort(), AGGREGATE_DEADLINE_MS)
+
+  const sources: CalendarFetchResult[] = []
+  try {
+    /*
+     * DEDUPE BEFORE FETCHING. Rows are grouped by a conservative normalised key
+     * (fragment and default port removed, host lower-cased, everything else
+     * preserved), so N rows pointing at one feed cost ONE request. A row whose
+     * URL is unusable never reaches the network at all.
+     */
+    const byKey = new Map<string, { url: string; ids: string[] }>()
+    for (const row of rows) {
+      const key = row.url ? calendarUrlKey(row.url) : null
+      if (!key || !row.url) {
+        sources.push({ id: row.id, error: 'invalid_source' })
+        continue
+      }
+      const existing = byKey.get(key)
+      if (existing) existing.ids.push(row.id)
+      else byKey.set(key, { url: row.url, ids: [row.id] })
     }
-    const remaining = MAX_TOTAL_BYTES - totalBytes
-    if (remaining <= 0) {
-      sources.push({ id: row.id, error: 'response_too_large' })
-      continue
+
+    /*
+     * TWO SEPARATE BOUNDS, because they protect different things.
+     *
+     * Each fetch is capped individually at MAX_SOURCE_BYTES, which stops any one
+     * feed being unbounded. The TOTAL is enforced when the response is assembled
+     * below.
+     *
+     * An earlier draft RESERVED the full per-source cap up front and refunded
+     * the unused part. That is wrong with work in flight: 2 MB reserved twice
+     * exhausts a 4 MB total, so a third concurrent source was refused before it
+     * ran — a legitimate user with three calendars would have seen spurious
+     * `response_too_large`. The concurrency tests caught it.
+     */
+    let deliveredBytes = 0
+    let eventsSoFar = 0
+
+    const fetched = await mapWithConcurrency(
+      [...byKey.values()],
+      MAX_CONCURRENT_FETCHES,
+      async (entry): Promise<{ ids: string[]; ics?: string; error?: CalendarFetchResult['error'] }> => {
+        // Do not START new work once the deadline has passed.
+        if (aggregate.signal.aborted || Date.now() >= deadlineAt) {
+          return { ids: entry.ids, error: 'fetch_failed' }
+        }
+
+        const grant = Math.min(MAX_SOURCE_BYTES, MAX_TOTAL_BYTES - deliveredBytes)
+        if (grant <= 0) return { ids: entry.ids, error: 'response_too_large' }
+
+        try {
+          const ics = await fetchIcsGuarded(entry.url, {
+            maxBytes: grant,
+            // Never longer than what is left of the aggregate budget.
+            timeoutMs: Math.max(1, Math.min(PER_SOURCE_TIMEOUT_MS, deadlineAt - Date.now())),
+          })
+
+          /*
+           * Bound what the CLIENT must parse. The server does not parse ICS —
+           * that runs in the browser — so this caps handed-over work, not our
+           * own. A source that would push the aggregate past the cap is
+           * REJECTED rather than truncated: half a calendar silently missing
+           * its later events would show a wrong capacity meter, which is worse
+           * than an honest per-source failure the UI already handles.
+           */
+          const events = countVevents(ics)
+          if (eventsSoFar + events > MAX_EVENTS_PER_REQUEST) {
+            return { ids: entry.ids, error: 'too_many_events' }
+          }
+          eventsSoFar += events
+          deliveredBytes += Buffer.byteLength(ics, 'utf8')
+
+          return { ids: entry.ids, ics }
+        } catch (err) {
+          return { ids: entry.ids, error: safeError(err) }
+        }
+      },
+    )
+
+    /*
+     * Assemble, enforcing the TOTAL response budget exactly. Concurrency means
+     * several sources can each be under the per-source cap while their sum is
+     * over the total, and Vercel rejects a body over ~4.5 MB at the edge with an
+     * error the client cannot interpret. Dropping the overflow here turns that
+     * into a per-source `response_too_large` the UI already handles.
+     *
+     * One fetch fans back out to every row that shared its URL.
+     */
+    let responseBytes = 0
+    for (const result of fetched) {
+      const size = result.ics === undefined ? 0 : Buffer.byteLength(result.ics, 'utf8')
+      const overBudget = result.ics !== undefined && responseBytes + size > MAX_TOTAL_BYTES
+      if (result.ics !== undefined && !overBudget) responseBytes += size
+
+      for (const id of result.ids) {
+        if (result.ics !== undefined && !overBudget) sources.push({ id, ics: result.ics })
+        else {
+          sources.push({
+            id,
+            error: overBudget ? 'response_too_large' : (result.error ?? 'fetch_failed'),
+          })
+        }
+      }
     }
-    try {
-      const ics = await fetchIcsGuarded(row.url, {
-        maxBytes: Math.min(MAX_SOURCE_BYTES, remaining),
-      })
-      totalBytes += ics.length
-      sources.push({ id: row.id, ics })
-    } catch (err) {
-      sources.push({ id: row.id, error: safeError(err) })
-    }
+  } finally {
+    // Always: success, throw, or deadline. A live timer keeps a warm serverless
+    // instance awake, and an un-aborted controller leaks its listeners.
+    clearTimeout(deadlineTimer)
+    aggregate.abort()
   }
 
   // Per-user authenticated data: never store it in a shared or browser cache.
   // Freshness is managed client-side by the TanStack Query staleTime instead.
-  return json(200, { sources }, { 'cache-control': 'no-store, private' })
+  return json(200, { sources, truncated }, { 'cache-control': 'no-store, private' })
 }
 
 /** Web-shaped handler — exported for unit tests. */
