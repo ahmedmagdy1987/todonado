@@ -20,6 +20,7 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "test:postgrest": "vitest run --config vitest.postgrest.config.ts",
     "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "preflight:live": "node scripts/preflight-live.mjs",
     "csp:serve": "node scripts/serve-production-like.mjs",
     "test:csp": "playwright test --config playwright.csp.config.ts"
   },

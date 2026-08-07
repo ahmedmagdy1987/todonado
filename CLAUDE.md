@@ -749,10 +749,40 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
-> ### ⚠️ FOUR MIGRATIONS ARE PENDING — and that is deliberate
+> ### ✅ CORRECTED 2026-08-07 — ALL FOUR ARE APPLIED. THIS BOX WAS STALE, AND IT WAS BELIEVED
 >
-> **Applied through `20260801130000_journal_audio_quota`.** FOUR files sit in
-> `supabase/migrations/` **UNAPPLIED**, and they must be applied **in this order** (2026-08-04):
+> **The heading here said "FOUR MIGRATIONS ARE PENDING" and it was wrong.** A read-only probe found
+> `public.checkout_attempts` PRESENT and `anon` refused on `billing` and `tasks` — the documented
+> observable effects of the last three files below. The owner then ran the reconciliation query in
+> `docs/BILLING_SETUP.md` §02.1, which settled the fourth: `schema_migrations` carries
+> **all four** of `20260801140000`, `20260801150000`, `20260801160000`, `20260801170000`, latest
+> recorded `20260801170000`, and both `billing.last_stripe_event_id` and `last_stripe_event_at`
+> exist. **THERE IS NOTHING PENDING IN `supabase/migrations/`.**
+>
+> Note what it took to establish the fourth one. Its columns cannot be observed read-only — the
+> table-level grant is refused before column resolution, so present and absent both answer 42501 —
+> and the tempting inference ("it is earlier in the same `db push`, and `20260801150000`'s
+> functions call the one it defines") was deliberately NOT accepted, because that is the same
+> species of reasoning that produced the wrong claim in the first place. It took one query.
+>
+> **HOW THE PROBE DISTINGUISHES THE TWO CASES** — a table that does not exist answers
+> `404 PGRST205 "Could not find the table … in the schema cache"`; a table that exists without a
+> grant answers `401 42501 permission denied for table …`. Both are plain GETs with the committed
+> public anon key and return no rows.
+>
+> **WHY THIS MATTERS MORE THAN THE FACT ITSELF.** An agent read this box, took it for the state of
+> the database, and reported "checkout_attempts does not exist in Production" in a written plan —
+> having opened no connection at all. This is the SECOND time this section has gone stale after the
+> owner applied migrations (see the 2026-08-01 correction further down), so treat it as a standing
+> hazard rather than a one-off: **a file in `supabase/migrations/` is not evidence of anything, and
+> neither is this document.** The applied set lives in the database. Query it — §A of the inventory
+> file, or the reconciliation query in `docs/BILLING_SETUP.md` §02 — before stating what is applied.
+>
+> The table below is kept for what each file DOES and why the order matters, which is unchanged.
+> Read its "Pending file" column as "file", not as a claim about the database.
+>
+> Original text follows: *Applied through `20260801130000_journal_audio_quota`. FOUR files sit in
+> `supabase/migrations/` UNAPPLIED, and they must be applied in this order (2026-08-04):*
 >
 > | # | Pending file | What it does | Risk |
 > | --- | --- | --- | --- |
@@ -839,10 +869,11 @@ service-role client but filters by the JWT-verified caller.
 > the behaviour that caused FLAG-3 is worse than refusing. Stripe retries a 503, so events queued
 > during a gap are not lost. Order of operations: `docs/BILLING_SETUP.md` §1.
 >
-> **This is the ONE state the repo's own history says is dangerous** — an unapplied file in the
-> migrations folder is an invitation to run `supabase db push`, and commit `b2ee68c` exists because
-> docs once made that mistake reachable. So: an agent must **NOT** run `supabase db push`. The owner
-> runs it, in a real terminal, when they choose.
+> **That danger has passed — the folder is fully applied as of 2026-08-07** — but the RULE stands
+> unchanged: an unapplied file in the migrations folder is an invitation to run `supabase db push`,
+> and commit `b2ee68c` exists because docs once made that mistake reachable. An agent must **NOT**
+> run `supabase db push`, whatever it believes the folder contains. The owner runs it, in a real
+> terminal, when they choose.
 >
 > ### ✅ CORRECTED 2026-08-01 — the two July 08-01 files ARE applied
 >
@@ -977,14 +1008,22 @@ service-role client but filters by the JWT-verified caller.
    `VITE_SUPABASE_ANON_KEY` (a non-empty value wins over the default). Never commit `.env`.
 3. Set the per-repo git identity:
    `git config user.name "ahmedmagdy1987"` · `git config user.email "ahmedkassim17777@gmail.com"`.
-4. **Do NOT re-run migrations, and an agent must NOT apply the pending ones** — the cloud DB is
-   current through `20260801130000_journal_audio_quota`. FOUR deliberately unapplied files remain
-   (`20260801140000_billing_event_ordering.sql`, `20260801150000_checkout_attempts.sql`,
-   `20260801160000_billing_service_role_access.sql`,
-   `20260801170000_application_data_api_grants.sql`, in that order); the box above says what each
-   does and why they must land before live Stripe keys. Applying them is the owner's call, in a
+4. **Do NOT re-run migrations, and an agent must NOT apply any of them.** **Do not restate the
+   applied set from this file** — it has gone stale twice (see the 2026-08-07 correction at the top
+   of §7); re-verify with the §02.1 reconciliation query instead. As of 2026-08-07 the migrations
+   folder has NOTHING pending: all four of `20260801140000`, `20260801150000`, `20260801160000`,
+   `20260801170000` are verified applied. Applying anything is the owner's call, in a
    **real terminal** (TTY — see CLI note):
    `supabase login` → `supabase link --project-ref lplsbfduankkpglyusjp` → `supabase db push`.
+
+   > **The agent shell's `supabase` CLI is logged into a DIFFERENT account.** `supabase projects
+   > list` succeeds (the token lives in the Windows credential manager, which survives a wipe) but
+   > returns only `nqlzjuxqgajeoypyzlnv` (*command-center*) and `fkebzcywofzloaqeghtn`
+   > (*tuk-talk-thai*) — **`lplsbfduankkpglyusjp` is not among them.** So the Management API cannot
+   > read this project's migration history from here, and `supabase migration list --linked` fails
+   > with `LegacyProjectNotLinkedError`. Do not "fix" that by linking or logging in; use a
+   > read-only query in the SQL editor. Note the name collision: *command-center* is NOT Todonado,
+   > whatever the product tagline says.
 5. `npx playwright install chromium` — **a wipe also clears `~/AppData/Local/ms-playwright`**, so
    `npm run e2e` dies with `Executable doesn't exist at …chrome-headless-shell.exe`. That is a
    missing *browser*, not a broken suite. CI installs its own browsers, so this step is local-only.
