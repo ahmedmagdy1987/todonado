@@ -37,7 +37,8 @@
 > | FLAG-11 | **CLOSED** — CSP now enforces in production (report-only in dev, where Vite's inline HMR preamble would otherwise break) |
 > | FLAG-14 | **CLOSED** — active-subscription refusal, Stripe customer reuse, and a checkout idempotency key |
 > | FLAG-15 | **CLOSED** — one timeout and one byte budget per REQUEST rather than per hop; redirect bodies drained |
-> | FLAG-5, FLAG-6 | **STILL OPEN.** Residual risk stated in full in the `api/_lib/ssrf.ts` header, including the measured reason the suggested FLAG-6 fix is larger than it looks: an undici Agent passed to Node's built-in `fetch` never invokes the custom lookup (0 calls), while the same Agent on undici's own `fetch` does (1 call) |
+> | FLAG-6 | **CLOSED** (2026-08-07, issue #10) — the connection is PINNED to the address that was validated, via a custom `lookup` hook on a hop-scoped `node:https` Agent. No second resolution happens, so there is no TOCTOU window left to race. The undici problem below was real and was routed around rather than solved: `node:http`/`node:https` expose the same hook with no production dependency |
+> | FLAG-5 | **STILL OPEN.** Residual risk stated in full in the `api/_lib/ssrf.ts` header. The durable fix is a per-user cap on `calendar_sources` rows plus write-time URL validation — a migration the owner should schedule deliberately |
 
 ---
 
@@ -336,7 +337,7 @@ read up to 2 MB of the response back.
 **Fix:** validate the URL at WRITE time as well as fetch time, and cap `calendar_sources` rows per
 user. The write-time validation is the one that changes the shape of the problem.
 
-### FLAG-6 · Medium · FACT — SSRF guard re-resolves the hostname at connect time
+### FLAG-6 · Medium · FACT — ~~SSRF guard re-resolves the hostname at connect time~~ **CLOSED**
 
 `api/_lib/ssrf.ts:216`
 
@@ -349,6 +350,28 @@ Real-world exploitability on Vercel's managed runtime is limited (there is no co
 network to reach), which is why this is Medium and not High.
 **Fix:** pin the connection to the address that was validated — an undici `Agent` with a custom
 `lookup` returning the checked IP, keeping the original `Host` header and SNI.
+
+**CLOSED 2026-08-07 (issue #10).** The connection is pinned to a validated address. The suggested
+fix is right in shape and wrong in one detail: an undici `Agent` cannot be used, because Node's
+built-in `fetch` runs on Node's INTERNAL undici and rejects a dispatcher from the npm package
+(`UND_ERR_INVALID_ARG`, custom lookup invoked 0 times — measured 2026-08-01). `node:http` /
+`node:https` expose the same `lookup` hook, are already in the runtime, and cost no production
+dependency, so the module now builds on those instead of `fetch`.
+
+The hook returns the pre-validated literal address and never consults DNS, so the resolution the
+socket performs IS the one that was checked. The ORIGINAL hostname is kept for the `Host` header,
+SNI and certificate validation (`rejectUnauthorized: true`) — only the dialled address is
+substituted. Each redirect hop is re-resolved, re-validated and re-pinned, an https→http downgrade
+is refused, and the Agent is hop-scoped with `keepAlive: false` so no pooled socket can carry one
+hop's pin into another. `dns.lookup` is NOT monkey-patched: that is process-global and would alter
+resolution for Supabase and Stripe in the same lambda.
+
+**The test seam moved with it**, and that mattered more than it looks. The old tests injected
+`fetchImpl?: typeof fetch`, which cannot observe a connection address at all — every one of those
+66 tests passed against the vulnerable code. The seam is now `http.request`-shaped, so a test
+receives the real options object and CALLS the `lookup` hook to record which address would have
+been dialled. Verified by negative control: reintroducing the second resolution fails exactly one
+test, with `expected ['127.0.0.1'] to deeply equal ['93.184.216.34']`.
 
 ### FLAG-7 · Medium · FACT — ~~Journal audio has no per-user quota~~ **PARTLY CLOSED**
 

@@ -1,4 +1,8 @@
 import { lookup as dnsLookup } from 'node:dns/promises'
+import { request as httpRequest, Agent as HttpAgent } from 'node:http'
+import { request as httpsRequest, Agent as HttpsAgent } from 'node:https'
+import { isIP } from 'node:net'
+import type { LookupFunction } from 'node:net'
 
 /**
  * SSRF hardening for the calendar proxy.
@@ -12,51 +16,74 @@ import { lookup as dnsLookup } from 'node:dns/promises'
  *   2. Port allow-list (80/443). Stops the proxy being used to sweep internal
  *      services on odd ports.
  *   3. No embedded credentials (`https://user:pass@host`).
- *   4. DNS IS RESOLVED AND EVERY RESULTING ADDRESS VALIDATED BEFORE FETCHING, so
- *      `internal.corp` or a hostname deliberately pointed at 127.0.0.1 /
+ *   4. DNS IS RESOLVED AND EVERY RESULTING ADDRESS VALIDATED BEFORE CONNECTING,
+ *      so `internal.corp` or a hostname deliberately pointed at 127.0.0.1 /
  *      169.254.169.254 (cloud metadata) is rejected — a scheme/host string check
  *      alone would not catch that.
- *   5. REDIRECTS ARE FOLLOWED MANUALLY and each hop is re-validated. Without
- *      this, an allowed public host could simply 302 to the metadata endpoint,
- *      which defeats every check above.
- *   6. ONE timeout and ONE byte budget for the WHOLE request — set before the
+ *   5. THE VALIDATED ADDRESS IS THE ONE CONNECTED TO (see below). The socket is
+ *      pinned to it, so there is no second resolution to poison.
+ *   6. REDIRECTS ARE FOLLOWED MANUALLY and each hop is re-validated AND re-pinned.
+ *      Without this, an allowed public host could simply 302 to the metadata
+ *      endpoint, which defeats every check above.
+ *   7. ONE timeout and ONE byte budget for the WHOLE request — set before the
  *      first hop and spent by every hop after it — so a redirect chain cannot
- *      multiply either (audit FLAG-15). Redirect bodies are drained rather
+ *      multiply either (audit FLAG-15). Redirect bodies are released rather
  *      than abandoned.
  *
  * The pure parts are exported for unit testing; the network parts take injected
  * dependencies so the tests need no sockets.
  *
- * ── STILL OPEN, STATED RATHER THAN IMPLIED ──────────────────────────────────
+ * ── FLAG-6 / issue #10 — DNS REBINDING (TOCTOU) — FIXED HERE ────────────────
  *
- * FLAG-6 — DNS REBINDING (TOCTOU). Step 4 resolves the hostname and validates
- * every address, then hands the HOSTNAME to `fetch`, which resolves it AGAIN,
- * independently. A caller who controls their own DNS can answer the first
- * lookup with a public address and the second with a private one, and the body
- * comes back to them.
+ * THE BUG. `assertPublicHost` resolved the hostname and validated every
+ * address, and then the code THREW THE ADDRESSES AWAY and handed the HOSTNAME
+ * to `fetch`, which resolved it a SECOND time, independently. A caller who
+ * controls their own DNS answered the first lookup with a public address and
+ * the second with `127.0.0.1`, and the body came back to them. The address that
+ * was checked was never the address that was connected to.
  *
- * The audit's suggested fix is an undici `Agent` with a custom `lookup` pinned
- * to the checked IP. That was TRIED and measured (2026-08-01): passing such a
- * dispatcher to Node's BUILT-IN fetch does not work — the custom lookup is
- * never invoked (0 calls) and the request fails with UND_ERR_INVALID_ARG,
- * because the built-in fetch uses Node's internal undici, not the npm package.
- * The same Agent passed to undici's OWN `fetch` DOES invoke it (1 call). So the
- * real fix is not an extra option: it means adding undici as a production
- * dependency AND swapping the fetch implementation this module is built on,
- * which changes the `fetchImpl?: typeof fetch` contract that all 66 tests here
- * inject through. That was judged too large to land safely in the same pass as
- * the billing work; it is a contained, well-understood follow-up.
+ * THE FIX, AND WHY IT IS SHAPED LIKE THIS. The connection is pinned to the
+ * address that was actually validated, via a custom `lookup` hook on a
+ * hop-scoped Agent. The hook ignores the hostname it is handed and returns the
+ * pre-validated literal address — so the resolution the socket layer performs
+ * IS the resolution we checked, not a second one racing it. There is no window
+ * between the check and the connect for DNS to change under us, because no
+ * second DNS query happens at all.
  *
- * RESIDUAL RISK, precisely: a Pro or founding user — an authenticated,
- * paying account, not an anonymous attacker — can cause one GET from Vercel's
- * egress to an address of their choosing and read up to the byte cap back.
- * On Vercel's managed runtime there is no corporate internal network behind
- * that boundary, which is why the audit rates it Medium rather than High. The
- * cloud metadata endpoint (169.254.169.254) is the asset that would matter, and
- * hitting it requires winning a DNS race against a request the attacker cannot
- * observe. Bounding it: the endpoint is Pro-gated, rate limited to 6 requests
- * per minute per user (FLAG-10), and now capped by ONE timeout and ONE byte
- * budget per request (FLAG-15) rather than per hop.
+ * WHY NOT THE OBVIOUS ALTERNATIVES:
+ *
+ *   • SUBSTITUTING THE IP INTO THE URL (`https://93.184.216.34/f.ics` with a
+ *     `Host:` header) breaks TLS. The certificate is issued for the hostname,
+ *     so validation fails unless `servername` is threaded through by hand, and
+ *     any mistake there silently disables the check that makes https worth
+ *     anything. The lookup hook keeps the ORIGINAL hostname everywhere it is
+ *     load-bearing — Host header, SNI, and certificate validation — and swaps
+ *     only the address the socket dials.
+ *
+ *   • AN UNDICI `Agent`/`Dispatcher` passed to `fetch` DOES NOT WORK, and this
+ *     was measured rather than assumed (2026-08-01): Node's BUILT-IN fetch uses
+ *     Node's INTERNAL undici, not the npm package, so a dispatcher from the
+ *     installed `undici` is rejected with UND_ERR_INVALID_ARG and the custom
+ *     lookup is invoked ZERO times. Making it work meant adding undici as a
+ *     PRODUCTION dependency and swapping the fetch implementation wholesale.
+ *     `node:http` / `node:https` are in the runtime already, cost no dependency,
+ *     and expose the lookup hook directly.
+ *
+ *   • MONKEY-PATCHING `dns.lookup` is rejected outright. It is process-global,
+ *     so it would alter resolution for Supabase, Stripe and every other client
+ *     in the same lambda, and it leaks across concurrent calendar fetches.
+ *
+ * WHAT IS DELIBERATELY NOT SHARED. The Agent is created per hop and destroyed
+ * in that hop's `finally`, with `keepAlive: false`. A global or reused agent
+ * would pool sockets ACROSS hosts and requests, and a pooled socket is a
+ * connection that was pinned for a DIFFERENT hostname — which would reintroduce
+ * exactly the confusion this fix removes. Per hop is also what lets each
+ * redirect target be resolved, validated and pinned FRESH.
+ *
+ * The residual risk this closes, precisely: a Pro or founding user could cause
+ * one GET from Vercel's egress to an address of their choosing and read up to
+ * the byte cap back. That is now impossible through DNS: the only addresses
+ * reachable are ones `isPrivateIp` has already passed.
  *
  * FLAG-5 — AUTHENTICATED OPEN PROXY. The design note above is right that the
  * request BODY is ignored and wrong that this makes the URL ours: it comes from
@@ -73,7 +100,7 @@ import { lookup as dnsLookup } from 'node:dns/promises'
 export const MAX_ICS_BYTES = 8_000_000
 /** Abort a stalled/tar-pit ICS host. */
 export const FETCH_TIMEOUT_MS = 10_000
-/** Redirect hops to follow; each one is fully re-validated. */
+/** Redirect hops to follow; each one is fully re-validated AND re-pinned. */
 export const MAX_REDIRECTS = 3
 /** Only the standard web ports — an .ics feed has no business anywhere else. */
 export const ALLOWED_PORTS = new Set(['', '80', '443'])
@@ -211,6 +238,10 @@ const defaultResolver: Resolver = async (hostname) => {
  * Resolve a hostname and require EVERY returned address to be public. Throws
  * `private_host` if any is not — a host that resolves to a mix must be rejected
  * outright, since we cannot control which address the fetch will use.
+ *
+ * THE RETURN VALUE IS LOAD-BEARING, not informational. Discarding it is exactly
+ * what made this module vulnerable to DNS rebinding (issue #10): the caller
+ * MUST connect to one of these addresses rather than re-resolving the hostname.
  */
 export async function assertPublicHost(
   hostname: string,
@@ -229,8 +260,95 @@ export async function assertPublicHost(
   return addresses.map((a) => a.address)
 }
 
+/**
+ * A `lookup` hook that answers with ONE pre-validated address and never touches
+ * DNS. Handed to the hop's Agent, it is the entire fix for issue #10.
+ *
+ * Node's socket layer calls this in two shapes — `{ all: true }` wants an array
+ * of `{ address, family }`, the default wants `(err, address, family)`. Both are
+ * answered, because which one is used is an implementation detail of the
+ * runtime and a wrong guess would fail open by falling back to real DNS.
+ */
+export function pinnedLookup(address: string): LookupFunction {
+  const family = isIP(address)
+  // The hostname is IGNORED on purpose — that is the fix. Answering it would be
+  // a second resolution, which is exactly the window this closes.
+  return ((_hostname, options, callback) => {
+    const wantsAll =
+      typeof options === 'object' && options !== null && (options as { all?: boolean }).all === true
+    if (wantsAll) {
+      ;(callback as unknown as (
+        err: NodeJS.ErrnoException | null,
+        addresses: { address: string; family: number }[],
+      ) => void)(null, [{ address, family }])
+      return
+    }
+    ;(callback as unknown as (
+      err: NodeJS.ErrnoException | null,
+      address: string,
+      family: number,
+    ) => void)(null, address, family)
+  }) as LookupFunction
+}
+
+/** The request options this module builds. Structural, so fakes are cheap. */
+export interface SsrfRequestOptions {
+  protocol: 'http:' | 'https:'
+  /** The ORIGINAL hostname — Host header, SNI and certificate validation. */
+  hostname: string
+  port: number
+  path: string
+  method: 'GET'
+  headers: Record<string, string>
+  /** Hop-scoped, keepAlive:false, carrying `lookup`. Never a global agent. */
+  agent: HttpAgent | HttpsAgent
+  /** The pinned resolver. Same function the agent carries — see fetchIcsGuarded. */
+  lookup: LookupFunction
+  /** TLS verification stays ON. Stated rather than left to the default. */
+  rejectUnauthorized: boolean
+  /** SNI — omitted when the host is a literal IP, which SNI forbids. */
+  servername?: string
+}
+
+/** The minimum of `http.ClientRequest` this module drives. */
+export interface SsrfClientRequest {
+  on(event: 'error', listener: (err: Error) => void): unknown
+  end(): unknown
+  destroy(error?: Error): unknown
+}
+
+/** The minimum of `http.IncomingMessage` this module reads. */
+export interface SsrfIncomingMessage extends AsyncIterable<Uint8Array> {
+  statusCode?: number
+  headers: Record<string, string | string[] | undefined>
+  destroy(error?: Error): unknown
+  resume(): unknown
+}
+
+/**
+ * THE INJECTION SEAM, AT REQUEST LEVEL RATHER THAN FETCH LEVEL.
+ *
+ * The old seam was `fetchImpl?: typeof fetch`, and it could not express the
+ * thing that now matters: a `fetch` stub is handed a URL and has no lookup hook
+ * to exercise, so a test could not tell a pinned connection from an unpinned
+ * one. Injecting at the `http.request` level means a test receives the very
+ * options object the socket layer would — including `lookup` — and can invoke
+ * it to observe WHICH ADDRESS would actually be dialled.
+ */
+export type RequestImpl = (
+  options: SsrfRequestOptions,
+  onResponse: (res: SsrfIncomingMessage) => void,
+) => SsrfClientRequest
+
+const defaultRequestImpl: RequestImpl = (options, onResponse) => {
+  const send = options.protocol === 'http:' ? httpRequest : httpsRequest
+  // The cast is the boundary between our narrow structural options and Node's
+  // very wide RequestOptions; every field above is one Node accepts.
+  return send(options as never, (res) => onResponse(res as unknown as SsrfIncomingMessage))
+}
+
 export interface GuardedFetchDeps {
-  fetchImpl?: typeof fetch
+  requestImpl?: RequestImpl
   resolver?: Resolver
   maxBytes?: number
   timeoutMs?: number
@@ -238,15 +356,16 @@ export interface GuardedFetchDeps {
 
 /**
  * Fetch a user-supplied .ics URL safely. Validates the URL and its resolved
- * addresses, follows redirects MANUALLY (re-validating every hop), sends no
- * credentials, times out, and streams with a hard byte cap.
+ * addresses, PINS THE CONNECTION TO A VALIDATED ADDRESS, follows redirects
+ * MANUALLY (re-validating and re-pinning every hop), refuses an https→http
+ * downgrade, sends no credentials, times out, and streams with a hard byte cap.
  */
 export async function fetchIcsGuarded(
   rawUrl: string,
   deps: GuardedFetchDeps = {},
 ): Promise<string> {
   const {
-    fetchImpl = fetch,
+    requestImpl = defaultRequestImpl,
     resolver = defaultResolver,
     maxBytes = MAX_ICS_BYTES,
     timeoutMs = FETCH_TIMEOUT_MS,
@@ -272,79 +391,184 @@ export async function fetchIcsGuarded(
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const parsed = parseCalendarUrl(current)
     if ('reject' in parsed) throw new SsrfError(parsed.reject)
-    await assertPublicHost(parsed.url.hostname, resolver)
+
+    /*
+     * VALIDATE, THEN PIN. `assertPublicHost` proves every address this hostname
+     * answers with is public; we then dial ONE OF THOSE ADDRESSES rather than
+     * the hostname, so there is no second resolution for a rebinding attacker
+     * to win.
+     *
+     * The FIRST address is taken deliberately: `dns.lookup(…, {all:true})`
+     * returns getaddrinfo's order, which already applies the platform's
+     * RFC 6724 preference — so this is the address the OS would have chosen
+     * anyway, not an arbitrary pick that could strand an IPv6-only or
+     * IPv4-only host.
+     */
+    const addresses = await assertPublicHost(parsed.url.hostname, resolver)
+    const pinned = addresses[0]
 
     const msLeft = deadline - Date.now()
     if (msLeft <= 0) throw new SsrfError('fetch_failed', 'request deadline exceeded')
 
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), msLeft)
-    let res: Response
-    try {
-      res = await fetchImpl(parsed.url, {
-        method: 'GET',
-        // Manual: an allowed host must not be able to bounce us somewhere internal.
-        redirect: 'manual',
-        signal: controller.signal,
-        // No cookies, no ambient auth — this is an anonymous public fetch.
-        credentials: 'omit',
-        headers: { accept: 'text/calendar, text/plain;q=0.9, */*;q=0.8' },
-      })
-    } catch {
-      clearTimeout(timer)
-      throw new SsrfError('fetch_failed')
+    const isHttps = parsed.url.protocol === 'https:'
+    const lookup = pinnedLookup(pinned)
+
+    /*
+     * HOP-SCOPED AGENT. `keepAlive: false` and `maxSockets: 1` because a pooled
+     * socket is a connection pinned for a DIFFERENT hostname — reusing one
+     * would smuggle the previous hop's address into this one. Destroyed in the
+     * `finally` below, always.
+     */
+    const AgentCtor = isHttps ? HttpsAgent : HttpAgent
+    const agent = new AgentCtor({ keepAlive: false, maxSockets: 1, lookup })
+
+    const options: SsrfRequestOptions = {
+      protocol: parsed.url.protocol as 'http:' | 'https:',
+      // The ORIGINAL hostname, never the pinned IP: this is what sets the Host
+      // header, the SNI servername and the name the certificate is checked
+      // against. Only the ADDRESS is substituted, and only inside `lookup`.
+      hostname: parsed.url.hostname,
+      port: Number(parsed.url.port || (isHttps ? 443 : 80)),
+      path: `${parsed.url.pathname}${parsed.url.search}`,
+      method: 'GET',
+      headers: {
+        accept: 'text/calendar, text/plain;q=0.9, */*;q=0.8',
+        /*
+         * IDENTITY, NOT gzip. Node does not transparently decompress, so a
+         * compressed body would be counted at its COMPRESSED size against the
+         * byte cap — a 2 MB budget would admit a decompression bomb many times
+         * larger. Asking for identity keeps the number on the wire and the
+         * number in the cap the same number.
+         */
+        'accept-encoding': 'identity',
+      },
+      agent,
+      // Also passed at request level so the seam sees it. It is the SAME
+      // function object the agent carries, so the two cannot disagree.
+      lookup,
+      // Stated explicitly: a rebinding fix that quietly disabled certificate
+      // validation would trade one hole for a worse one.
+      rejectUnauthorized: true,
+      ...(isHttps && isIP(parsed.url.hostname) === 0
+        ? { servername: parsed.url.hostname }
+        : {}),
     }
 
-    try {
-      if (res.status >= 300 && res.status < 400) {
-        const location = res.headers.get('location')
-        if (!location) throw new SsrfError('fetch_failed')
-        /*
-         * DRAIN THE REDIRECT BODY (audit FLAG-15). A 3xx may still carry one,
-         * and an unread stream holds its socket until GC gets round to it.
-         * Cancelling releases it immediately and, more importantly, means a
-         * redirect body cannot be used to push bytes at us for free — the
-         * chain is bounded by MAX_REDIRECTS, but each hop was previously
-         * unbounded in size and simply never counted.
-         */
-        await res.body?.cancel().catch(() => {})
-        current = new URL(location, parsed.url).toString()
-        continue // re-validated at the top of the loop
-      }
-      if (!res.ok) throw new SsrfError('fetch_failed', `HTTP ${res.status}`)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let response: SsrfIncomingMessage | undefined
 
-      const declared = Number(res.headers.get('content-length'))
+    try {
+      response = await new Promise<SsrfIncomingMessage>((resolve, reject) => {
+        let settled = false
+        const finish = (fn: () => void) => {
+          if (settled) return
+          settled = true
+          fn()
+        }
+
+        const req = requestImpl(options, (res) => {
+          response = res
+          finish(() => resolve(res))
+        })
+        req.on('error', (err) => finish(() => reject(err)))
+
+        timer = setTimeout(() => {
+          /*
+           * SETTLE FIRST, THEN TEAR DOWN. `destroy()` synchronously emits
+           * 'error', which would otherwise win the race and reject with the
+           * transport error instead of the deadline one. Both collapse to
+           * `fetch_failed`, but only one of them says why.
+           */
+          finish(() => reject(new SsrfError('fetch_failed', 'request deadline exceeded')))
+          // Kill both halves: a response that has begun streaming holds the
+          // socket just as firmly as a request that never got one.
+          req.destroy(new Error('request deadline exceeded'))
+          response?.destroy(new Error('request deadline exceeded'))
+        }, msLeft)
+
+        req.end()
+      })
+
+      const status = response.statusCode ?? 0
+
+      if (status >= 300 && status < 400) {
+        const rawLocation = response.headers.location
+        const location = Array.isArray(rawLocation) ? rawLocation[0] : rawLocation
+        if (!location) throw new SsrfError('fetch_failed')
+
+        /*
+         * RELEASE THE REDIRECT BODY (audit FLAG-15). A 3xx may still carry one,
+         * and an unread message holds its socket until GC gets round to it.
+         * `resume()` then `destroy()` drains whatever is buffered and frees the
+         * socket immediately, so a redirect body cannot be used to push bytes
+         * at us for free — the chain is bounded by MAX_REDIRECTS, but each hop
+         * was previously unbounded in size and simply never counted.
+         */
+        response.resume()
+        response.destroy()
+
+        const next = new URL(location, parsed.url)
+
+        /*
+         * NO HTTPS → HTTP DOWNGRADE. A feed that starts encrypted must not be
+         * talked out of it by its own redirect: plaintext is both readable and
+         * REWRITABLE in flight, so an on-path attacker could otherwise pick the
+         * final destination regardless of every check here. Reported as
+         * `bad_scheme`, which already collapses to `invalid_source` for the
+         * client, so this adds no new externally visible code.
+         */
+        if (parsed.url.protocol === 'https:' && next.protocol === 'http:') {
+          throw new SsrfError('bad_scheme', 'refusing https to http downgrade')
+        }
+
+        current = next.toString()
+        continue // re-parsed, re-validated AND re-pinned at the top of the loop
+      }
+
+      if (status < 200 || status >= 300) {
+        throw new SsrfError('fetch_failed', `HTTP ${status}`)
+      }
+
+      const rawLength = response.headers['content-length']
+      const declared = Number(Array.isArray(rawLength) ? rawLength[0] : rawLength)
       if (Number.isFinite(declared) && declared > bytesRemaining) {
         throw new SsrfError('response_too_large')
       }
-      if (!res.body) {
-        const text = await res.text()
-        // Byte length, not string length: `text.length` counts UTF-16 code
-        // units, so a multi-byte feed measured that way understates its real
-        // size against a cap expressed in bytes.
-        if (Buffer.byteLength(text, 'utf8') > bytesRemaining) {
-          throw new SsrfError('response_too_large')
-        }
-        return text
-      }
 
-      // Running cap — the load-bearing guard, since chunked replies declare no length.
-      const reader = res.body.getReader()
+      /*
+       * BOUNDED READER. The running cap is the load-bearing guard, since a
+       * chunked reply declares no length at all — `content-length` above is an
+       * early exit for the honest case, never the real limit.
+       *
+       * The decoder is STREAMING (`{ stream: true }`) so a multi-byte character
+       * split across two chunks is reassembled rather than becoming two
+       * replacement characters, and the final `decode()` flushes any trailing
+       * partial sequence.
+       */
       const decoder = new TextDecoder()
       let text = ''
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        bytesRemaining -= value.byteLength
+      for await (const chunk of response) {
+        bytesRemaining -= chunk.byteLength
         if (bytesRemaining < 0) {
-          await reader.cancel()
+          response.destroy()
           throw new SsrfError('response_too_large')
         }
-        text += decoder.decode(value, { stream: true })
+        text += decoder.decode(chunk, { stream: true })
       }
       return text + decoder.decode()
+    } catch (err) {
+      // Anything that is not already one of ours is a transport failure. The
+      // caller collapses these to a small safe set; nothing from here names an
+      // address or echoes an upstream message.
+      throw err instanceof SsrfError ? err : new SsrfError('fetch_failed')
     } finally {
+      /*
+       * DETERMINISTIC CLEANUP, on every path — success, throw, redirect
+       * `continue`, or deadline. A live timer keeps a warm serverless instance
+       * awake; an undestroyed Agent keeps its socket.
+       */
       clearTimeout(timer)
+      agent.destroy()
     }
   }
   throw new SsrfError('too_many_redirects')

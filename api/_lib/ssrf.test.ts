@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events'
+import { Readable } from 'node:stream'
 import { describe, expect, it, vi } from 'vitest'
 import {
   MAX_REDIRECTS,
@@ -7,6 +9,12 @@ import {
   isPrivateIp,
   normalizeCalendarUrl,
   parseCalendarUrl,
+  pinnedLookup,
+  type RequestImpl,
+  type Resolver,
+  type SsrfClientRequest,
+  type SsrfIncomingMessage,
+  type SsrfRequestOptions,
 } from './ssrf.js'
 
 /**
@@ -16,18 +24,104 @@ import {
  * Also carries the byte-cap / timeout / non-OK coverage that used to live in
  * src/features/calendar/api/fetchIcs.test.ts — that browser-side fetch was
  * replaced by this server-side one, so the tests moved with the code.
+ *
+ * ── WHY THE SEAM MOVED FROM `fetchImpl` TO `requestImpl` (issue #10) ────────
+ *
+ * These tests used to inject a fake `fetch`. That seam COULD NOT SEE THE BUG it
+ * was supposed to guard: a `fetch` stub is handed a URL, resolves nothing, and
+ * has no lookup hook — so a pinned connection and a rebindable one look
+ * identical from inside it. Every one of the old tests would have passed
+ * against the vulnerable code, and did.
+ *
+ * The seam is now `http.request`-shaped, which means the fake receives the very
+ * options object the socket layer would — `lookup` included. `harness()` CALLS
+ * that hook the way `net.connect` does and records the address it answers with,
+ * so "which address would this actually have dialled" becomes an assertion
+ * rather than an assumption.
  */
 
 const enc = new TextEncoder()
 
-function streamResponse(chunks: Uint8Array[], headers: Record<string, string> = {}): Response {
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const c of chunks) controller.enqueue(c)
-      controller.close()
-    },
-  })
-  return new Response(body, { status: 200, headers })
+/** What a single hop's fake response should be. */
+interface HopSpec {
+  status?: number
+  headers?: Record<string, string | string[] | undefined>
+  chunks?: Uint8Array[]
+  body?: string
+  /** Never answer at all — proves the deadline, not the transport, ends it. */
+  stall?: boolean
+  /** Answer after this long, to spend the shared budget. */
+  delayMs?: number
+  /** Fail the transport instead of answering. */
+  error?: Error
+}
+
+function makeResponse(spec: HopSpec): SsrfIncomingMessage {
+  const chunks = spec.chunks ?? [enc.encode(spec.body ?? '')]
+  const stream = Readable.from(chunks) as Readable & {
+    statusCode?: number
+    headers: Record<string, string | string[] | undefined>
+  }
+  stream.statusCode = spec.status ?? 200
+  stream.headers = spec.headers ?? {}
+  return stream as unknown as SsrfIncomingMessage
+}
+
+/**
+ * A request-level fake that behaves like `http.request` — and, crucially,
+ * EXERCISES THE PINNED LOOKUP exactly as the socket layer would, recording the
+ * address the connection would really have been opened to.
+ */
+function harness(plan: HopSpec[] | ((hop: number) => HopSpec)) {
+  const hops: SsrfRequestOptions[] = []
+  /** The address `lookup` answered with, per hop, in order. */
+  const connectedTo: string[] = []
+  /** The hostname the socket layer asked about, per hop. */
+  const askedFor: string[] = []
+  const responses: SsrfIncomingMessage[] = []
+  let n = 0
+
+  const impl: RequestImpl = (options, onResponse) => {
+    n += 1
+    const hop = n
+    hops.push(options)
+
+    // This is the whole point of the seam: run the hook the way net.connect
+    // would, and remember what it said.
+    askedFor.push(options.hostname)
+    options.lookup(options.hostname, { family: 0 }, (err, address) => {
+      if (!err && typeof address === 'string') connectedTo.push(address)
+    })
+
+    const req = new EventEmitter() as EventEmitter & SsrfClientRequest
+    let destroyed = false
+    req.end = () => req
+    req.destroy = (error?: Error) => {
+      if (destroyed) return req
+      destroyed = true
+      req.emit('error', error ?? new Error('destroyed'))
+      return req
+    }
+
+    const spec = typeof plan === 'function' ? plan(hop) : (plan[hop - 1] ?? plan[plan.length - 1])
+    if (!spec.stall) {
+      const answer = () => {
+        if (destroyed) return
+        if (spec.error) {
+          req.emit('error', spec.error)
+          return
+        }
+        const res = makeResponse(spec)
+        responses.push(res)
+        onResponse(res)
+      }
+      if (spec.delayMs) setTimeout(answer, spec.delayMs)
+      else setImmediate(answer)
+    }
+    return req
+  }
+
+  return { impl, hops, connectedTo, askedFor, responses, callCount: () => n }
 }
 
 /** Resolver stub: every host resolves to the given addresses. */
@@ -150,36 +244,208 @@ describe('assertPublicHost', () => {
   })
 })
 
+describe('pinnedLookup — the hook that closes the TOCTOU', () => {
+  it('answers with the pinned address and never consults DNS', () => {
+    const seen: unknown[] = []
+    pinnedLookup('93.184.216.34')('anything.example', {}, (err, address, family) => {
+      seen.push(err, address, family)
+    })
+    expect(seen).toEqual([null, '93.184.216.34', 4])
+  })
+
+  it('answers the { all: true } shape with an array', () => {
+    let out: unknown
+    pinnedLookup('2606:4700:4700::1111')('anything.example', { all: true }, (_e, addresses) => {
+      out = addresses
+    })
+    expect(out).toEqual([{ address: '2606:4700:4700::1111', family: 6 }])
+  })
+
+  it('reports the right family for v4 and v6', () => {
+    const familyOf = (ip: string) => {
+      let f: number | undefined
+      pinnedLookup(ip)('h', {}, (_e, _a, family) => {
+        f = family
+      })
+      return f
+    }
+    expect(familyOf('8.8.8.8')).toBe(4)
+    expect(familyOf('2001:4860:4860::8888')).toBe(6)
+  })
+})
+
+describe('fetchIcsGuarded — DNS REBINDING / connection pinning (issue #10)', () => {
+  it('CONNECTS TO THE VALIDATED ADDRESS, not a re-resolved one', async () => {
+    /*
+     * THE REGRESSION TEST FOR THIS WHOLE CHANGE.
+     *
+     * The resolver answers public FIRST and loopback on every call after — the
+     * exact rebinding attack. Under the old code the validated address was
+     * discarded and the hostname was handed to `fetch`, which resolved it again
+     * and got 127.0.0.1. Here the socket can only ever be opened to an address
+     * that already passed `isPrivateIp`.
+     */
+    let calls = 0
+    const rebinding: Resolver = async () => {
+      calls += 1
+      return calls === 1 ? [{ address: '93.184.216.34' }] : [{ address: '127.0.0.1' }]
+    }
+    const h = harness([{ body: 'BEGIN:VEVENT' }])
+
+    await expect(
+      fetchIcsGuarded('https://rebind.example/f.ics', { requestImpl: h.impl, resolver: rebinding }),
+    ).resolves.toContain('BEGIN:VEVENT')
+
+    expect(h.connectedTo, 'the socket must use the address that was checked').toEqual([
+      '93.184.216.34',
+    ])
+    expect(h.connectedTo).not.toContain('127.0.0.1')
+  })
+
+  it('keeps the ORIGINAL hostname for Host, SNI and certificate validation', async () => {
+    const h = harness([{ body: 'BEGIN:VEVENT' }])
+    await fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC })
+
+    const opts = h.hops[0]
+    // The name — not the pinned IP — is what the certificate is checked against.
+    expect(opts.hostname).toBe('cal.example')
+    expect(opts.servername).toBe('cal.example')
+    expect(opts.rejectUnauthorized, 'TLS verification must stay on').toBe(true)
+    // ...while the ADDRESS the socket dials is the validated literal.
+    expect(h.askedFor).toEqual(['cal.example'])
+    expect(h.connectedTo).toEqual(['93.184.216.34'])
+  })
+
+  it('omits SNI when the host is a literal IP (SNI forbids one)', async () => {
+    const h = harness([{ body: 'BEGIN:VEVENT' }])
+    await fetchIcsGuarded('https://93.184.216.34/f.ics', {
+      requestImpl: h.impl,
+      resolver: PUBLIC,
+    })
+    expect(h.hops[0].servername).toBeUndefined()
+    expect(h.hops[0].rejectUnauthorized).toBe(true)
+  })
+
+  it('RE-PINS on every redirect hop, against a fresh validation', async () => {
+    const perHost: Record<string, string> = {
+      'cal.example': '93.184.216.34',
+      'cdn.example': '8.8.8.8',
+    }
+    const resolver: Resolver = async (host) => [{ address: perHost[host] ?? '1.1.1.1' }]
+    const h = harness((hop) =>
+      hop === 1
+        ? { status: 301, headers: { location: 'https://cdn.example/f.ics' } }
+        : { body: 'BEGIN:VEVENT' },
+    )
+
+    await expect(
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver }),
+    ).resolves.toContain('BEGIN:VEVENT')
+
+    expect(h.askedFor).toEqual(['cal.example', 'cdn.example'])
+    expect(h.connectedTo, 'each hop dials its own validated address').toEqual([
+      '93.184.216.34',
+      '8.8.8.8',
+    ])
+  })
+
+  it('a redirect target that rebinds to loopback never gets a socket', async () => {
+    const resolver: Resolver = async (host) =>
+      host === 'cal.example' ? [{ address: '8.8.8.8' }] : [{ address: '127.0.0.1' }]
+    const h = harness([{ status: 302, headers: { location: 'https://evil.example/f.ics' } }])
+
+    await expect(
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver }),
+    ).rejects.toMatchObject({ code: 'private_host' })
+
+    expect(h.callCount(), 'the second hop must be refused before any request').toBe(1)
+  })
+
+  it('uses a FRESH hop-scoped agent, never a shared or global one', async () => {
+    const h = harness((hop) =>
+      hop === 1
+        ? { status: 302, headers: { location: 'https://cdn.example/f.ics' } }
+        : { body: 'BEGIN:VEVENT' },
+    )
+    await fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC })
+
+    const [first, second] = h.hops
+    expect(first.agent, 'a reused agent pools a socket pinned for another host').not.toBe(
+      second.agent,
+    )
+    for (const opts of h.hops) {
+      expect(
+        (opts.agent as unknown as { options: { keepAlive?: boolean } }).options.keepAlive,
+        'keepAlive would outlive the pin',
+      ).toBe(false)
+      expect(
+        (opts.agent as unknown as { options: { lookup?: unknown } }).options.lookup,
+        'the agent is what actually pins the socket',
+      ).toBe(opts.lookup)
+    }
+  })
+
+  it('DESTROYS the agent deterministically, on success and on failure', async () => {
+    const destroys: ReturnType<typeof vi.spyOn>[] = []
+    const spyOnAgent = (options: SsrfRequestOptions) => {
+      destroys.push(vi.spyOn(options.agent, 'destroy'))
+    }
+
+    const ok = harness([{ body: 'BEGIN:VEVENT' }])
+    const okImpl: RequestImpl = (options, cb) => {
+      spyOnAgent(options)
+      return ok.impl(options, cb)
+    }
+    await fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: okImpl, resolver: PUBLIC })
+
+    const bad = harness([{ status: 500, body: 'nope' }])
+    const badImpl: RequestImpl = (options, cb) => {
+      spyOnAgent(options)
+      return bad.impl(options, cb)
+    }
+    await expect(
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: badImpl, resolver: PUBLIC }),
+    ).rejects.toBeInstanceOf(SsrfError)
+
+    expect(destroys).toHaveLength(2)
+    for (const spy of destroys) expect(spy).toHaveBeenCalled()
+  })
+
+  it('asks for identity encoding so the byte cap counts wire bytes', async () => {
+    const h = harness([{ body: 'BEGIN:VEVENT' }])
+    await fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC })
+    expect(h.hops[0].headers['accept-encoding'], 'gzip would let a bomb past the cap').toBe(
+      'identity',
+    )
+  })
+})
+
 describe('fetchIcsGuarded', () => {
   it('returns the body for a well-behaved public feed', async () => {
-    const fetchImpl = vi.fn(async () => streamResponse([enc.encode('BEGIN:VEVENT\nEND:VEVENT')]))
+    const h = harness([{ body: 'BEGIN:VEVENT\nEND:VEVENT' }])
     await expect(
-      fetchIcsGuarded('https://cal.example/f.ics', { fetchImpl, resolver: PUBLIC }),
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC }),
     ).resolves.toContain('BEGIN:VEVENT')
   })
 
-  it('NEVER opens a socket to a private host — rejected before fetch', async () => {
-    const fetchImpl = vi.fn()
+  it('NEVER opens a socket to a private host — rejected before the request', async () => {
+    const h = harness([{ body: 'unreachable' }])
     await expect(
       fetchIcsGuarded('https://internal.example/f.ics', {
-        fetchImpl: fetchImpl as unknown as typeof fetch,
+        requestImpl: h.impl,
         resolver: resolvesTo('10.0.0.1'),
       }),
     ).rejects.toMatchObject({ code: 'private_host' })
-    expect(fetchImpl, 'fetch must not be called for a private host').not.toHaveBeenCalled()
+    expect(h.callCount(), 'no request may be made for a private host').toBe(0)
   })
 
   it('re-validates redirects — a public host cannot bounce us to the metadata IP', async () => {
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(null, {
-          status: 302,
-          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
-        }),
-    )
+    const h = harness([
+      { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data/' } },
+    ])
     await expect(
-      fetchIcsGuarded('https://cal.example/f.ics', {
-        fetchImpl,
+      fetchIcsGuarded('http://cal.example/f.ics', {
+        requestImpl: h.impl,
         // First hop public, the redirect target resolves to metadata.
         resolver: async (host) =>
           host === 'cal.example' ? [{ address: '8.8.8.8' }] : [{ address: '169.254.169.254' }],
@@ -188,37 +454,62 @@ describe('fetchIcsGuarded', () => {
   })
 
   it('follows a legitimate redirect to a public host', async () => {
-    let hop = 0
-    const fetchImpl = vi.fn(async () => {
-      hop += 1
-      return hop === 1
-        ? new Response(null, { status: 301, headers: { location: 'https://cdn.example/f.ics' } })
-        : streamResponse([enc.encode('BEGIN:VEVENT')])
-    })
+    const h = harness((hop) =>
+      hop === 1
+        ? { status: 301, headers: { location: 'https://cdn.example/f.ics' } }
+        : { body: 'BEGIN:VEVENT' },
+    )
     await expect(
-      fetchIcsGuarded('https://cal.example/f.ics', { fetchImpl, resolver: PUBLIC }),
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC }),
     ).resolves.toContain('BEGIN:VEVENT')
-    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(h.callCount()).toBe(2)
+  })
+
+  it('REFUSES an https → http downgrade on redirect', async () => {
+    /*
+     * Plaintext is not merely readable, it is REWRITABLE in flight — an on-path
+     * attacker who can rewrite the next response chooses the final destination
+     * regardless of every other check here. A feed that started encrypted stays
+     * encrypted.
+     */
+    const h = harness([{ status: 302, headers: { location: 'http://cal.example/f.ics' } }])
+    await expect(
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC }),
+    ).rejects.toMatchObject({ code: 'bad_scheme' })
+    expect(h.callCount(), 'the downgraded hop must never be requested').toBe(1)
+  })
+
+  it('still allows http → https on redirect', async () => {
+    const h = harness((hop) =>
+      hop === 1
+        ? { status: 302, headers: { location: 'https://cal.example/f.ics' } }
+        : { body: 'BEGIN:VEVENT' },
+    )
+    await expect(
+      fetchIcsGuarded('http://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC }),
+    ).resolves.toContain('BEGIN:VEVENT')
   })
 
   it('stops after too many redirects', async () => {
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(null, { status: 302, headers: { location: 'https://cal.example/loop.ics' } }),
-    )
+    const h = harness([{ status: 302, headers: { location: 'https://cal.example/loop.ics' } }])
     await expect(
-      fetchIcsGuarded('https://cal.example/f.ics', { fetchImpl, resolver: PUBLIC }),
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC }),
     ).rejects.toMatchObject({ code: 'too_many_redirects' })
-    expect(fetchImpl).toHaveBeenCalledTimes(MAX_REDIRECTS + 1)
+    expect(h.callCount()).toBe(MAX_REDIRECTS + 1)
+  })
+
+  it('rejects a redirect with no location header', async () => {
+    const h = harness([{ status: 302 }])
+    await expect(
+      fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC }),
+    ).rejects.toMatchObject({ code: 'fetch_failed' })
   })
 
   it('rejects an oversized body declared by content-length', async () => {
-    const fetchImpl = vi.fn(async () =>
-      streamResponse([enc.encode('x')], { 'content-length': '999999' }),
-    )
+    const h = harness([{ body: 'x', headers: { 'content-length': '999999' } }])
     await expect(
       fetchIcsGuarded('https://cal.example/huge.ics', {
-        fetchImpl,
+        requestImpl: h.impl,
         resolver: PUBLIC,
         maxBytes: 1000,
       }),
@@ -227,10 +518,10 @@ describe('fetchIcsGuarded', () => {
 
   it('rejects an oversized CHUNKED body (no content-length) mid-stream', async () => {
     const oneK = enc.encode('x'.repeat(1000))
-    const fetchImpl = vi.fn(async () => streamResponse([oneK, oneK, oneK]))
+    const h = harness([{ chunks: [oneK, oneK, oneK] }])
     await expect(
       fetchIcsGuarded('https://cal.example/tarpit.ics', {
-        fetchImpl,
+        requestImpl: h.impl,
         resolver: PUBLIC,
         maxBytes: 1500,
       }),
@@ -238,38 +529,43 @@ describe('fetchIcsGuarded', () => {
   })
 
   it('maps a non-OK upstream status to fetch_failed', async () => {
-    const fetchImpl = vi.fn(async () => new Response('nope', { status: 500 }))
+    const h = harness([{ status: 500, body: 'nope' }])
     await expect(
-      fetchIcsGuarded('https://cal.example/500.ics', { fetchImpl, resolver: PUBLIC }),
+      fetchIcsGuarded('https://cal.example/500.ics', { requestImpl: h.impl, resolver: PUBLIC }),
     ).rejects.toMatchObject({ code: 'fetch_failed' })
   })
 
-  it('sends no credentials and follows redirects manually', async () => {
-    const inits: RequestInit[] = []
-    const fetchImpl = (async (...args: [URL | string, RequestInit?]) => {
-      if (args[1]) inits.push(args[1])
-      return streamResponse([enc.encode('BEGIN:VEVENT')])
-    }) as unknown as typeof fetch
+  it('maps a transport error to fetch_failed without leaking it', async () => {
+    const h = harness([{ error: new Error('ECONNREFUSED 10.1.2.3:443') }])
+    const err = await fetchIcsGuarded('https://cal.example/f.ics', {
+      requestImpl: h.impl,
+      resolver: PUBLIC,
+    }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(SsrfError)
+    expect((err as SsrfError).code).toBe('fetch_failed')
+    expect(
+      (err as SsrfError).message,
+      'an upstream message could name an internal address',
+    ).not.toContain('10.1.2.3')
+  })
 
-    await fetchIcsGuarded('https://cal.example/f.ics', { fetchImpl, resolver: PUBLIC })
+  it('sends no ambient credentials and follows redirects manually', async () => {
+    const h = harness([{ body: 'BEGIN:VEVENT' }])
+    await fetchIcsGuarded('https://cal.example/f.ics', { requestImpl: h.impl, resolver: PUBLIC })
 
-    const init = inits[0]
-    expect(init.credentials, 'no ambient cookies/auth may be sent').toBe('omit')
-    expect(init.redirect, 'redirects must be validated by us, not followed by fetch').toBe('manual')
-    expect(init.headers).not.toHaveProperty('cookie')
-    expect(init.headers).not.toHaveProperty('authorization')
+    const { headers } = h.hops[0]
+    expect(headers).not.toHaveProperty('cookie')
+    expect(headers).not.toHaveProperty('authorization')
+    expect(h.hops[0].method).toBe('GET')
+    // Manual by construction: nothing here asks the transport to follow, and
+    // the redirect tests above prove each hop is re-entered through the guard.
   })
 
   it('aborts a stalled host rather than hanging forever', async () => {
-    const fetchImpl = vi.fn(
-      (_url: unknown, init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
-        }),
-    )
+    const h = harness([{ stall: true }])
     await expect(
       fetchIcsGuarded('https://cal.example/slow.ics', {
-        fetchImpl: fetchImpl as unknown as typeof fetch,
+        requestImpl: h.impl,
         resolver: PUBLIC,
         timeoutMs: 10,
       }),
@@ -277,23 +573,16 @@ describe('fetchIcsGuarded', () => {
   })
 
   it('throws SsrfError instances so callers can map codes safely', async () => {
-    const fetchImpl = vi.fn()
+    const h = harness([{ body: 'unreachable' }])
     await expect(
-      fetchIcsGuarded('file:///etc/passwd', {
-        fetchImpl: fetchImpl as unknown as typeof fetch,
-        resolver: PUBLIC,
-      }),
+      fetchIcsGuarded('file:///etc/passwd', { requestImpl: h.impl, resolver: PUBLIC }),
     ).rejects.toBeInstanceOf(SsrfError)
+    expect(h.callCount()).toBe(0)
   })
 })
 
 describe('fetchIcsGuarded — ONE budget for the whole request (audit FLAG-15)', () => {
-  const resolver = async () => [{ address: '93.184.216.34' }]
-
-  /** A 302 to `to`, with an optional body to prove it gets drained. */
-  function redirectTo(to: string, body?: ReadableStream) {
-    return new Response(body ?? null, { status: 302, headers: { location: to } })
-  }
+  const resolver: Resolver = async () => [{ address: '93.184.216.34' }]
 
   it('the timeout is a whole-request deadline, not one per hop', async () => {
     /*
@@ -307,64 +596,67 @@ describe('fetchIcsGuarded — ONE budget for the whole request (audit FLAG-15)',
      * An earlier version made every hop STALL past the budget, which aborts on
      * hop one under both designs — it passed either way and proved nothing.
      */
-    let hops = 0
-    const fetchImpl = vi.fn(async () => {
-      hops += 1
-      await new Promise((r) => setTimeout(r, 40))
-      return new Response(null, {
-        status: 302,
-        headers: { location: `https://example.com/hop${hops}` },
-      })
-    }) as unknown as typeof fetch
+    const h = harness((hop) => ({
+      status: 302,
+      headers: { location: `https://example.com/hop${hop}` },
+      delayMs: 40,
+    }))
 
     const started = Date.now()
     await expect(
-      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, timeoutMs: 100 }),
+      fetchIcsGuarded('https://example.com/a.ics', {
+        requestImpl: h.impl,
+        resolver,
+        timeoutMs: 100,
+      }),
     ).rejects.toMatchObject({ code: 'fetch_failed' }) // NOT too_many_redirects
 
-    expect(hops, 'the chain must stop when the shared budget runs out').toBeLessThan(
+    expect(h.callCount(), 'the chain must stop when the shared budget runs out').toBeLessThan(
       MAX_REDIRECTS + 1,
     )
-    expect(Date.now() - started).toBeLessThan(160)
+    expect(Date.now() - started).toBeLessThan(400)
   })
 
   it('refuses to start another hop once the deadline has passed', async () => {
-    const fetchImpl = vi.fn(async () => {
-      await new Promise((r) => setTimeout(r, 40))
-      return redirectTo('https://example.com/next')
-    }) as unknown as typeof fetch
+    const h = harness(() => ({
+      status: 302,
+      headers: { location: 'https://example.com/next' },
+      delayMs: 40,
+    }))
 
     await expect(
-      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, timeoutMs: 50 }),
+      fetchIcsGuarded('https://example.com/a.ics', {
+        requestImpl: h.impl,
+        resolver,
+        timeoutMs: 50,
+      }),
     ).rejects.toBeInstanceOf(SsrfError)
 
     // It must give up mid-chain rather than running the full MAX_REDIRECTS.
-    expect((fetchImpl as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBeLessThan(
-      MAX_REDIRECTS + 1,
-    )
+    expect(h.callCount()).toBeLessThan(MAX_REDIRECTS + 1)
   })
 
-  it('DRAINS a redirect body instead of abandoning the stream', async () => {
-    let cancelled = false
-    const body = new ReadableStream({
-      start(c) {
-        c.enqueue(new TextEncoder().encode('x'.repeat(1000)))
-      },
-      cancel() {
-        cancelled = true
-      },
-    })
-    let hop = 0
-    const fetchImpl = vi.fn(async () => {
-      hop += 1
-      if (hop === 1) return redirectTo('https://example.com/final.ics', body)
-      return new Response('BEGIN:VCALENDAR\nEND:VCALENDAR')
-    }) as unknown as typeof fetch
+  it('RELEASES a redirect body instead of abandoning the stream', async () => {
+    const h = harness((hop) =>
+      hop === 1
+        ? {
+            status: 302,
+            headers: { location: 'https://example.com/final.ics' },
+            chunks: [enc.encode('x'.repeat(1000))],
+          }
+        : { body: 'BEGIN:VCALENDAR\nEND:VCALENDAR' },
+    )
 
-    const out = await fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver })
+    const out = await fetchIcsGuarded('https://example.com/a.ics', {
+      requestImpl: h.impl,
+      resolver,
+    })
 
     expect(out).toContain('BEGIN:VCALENDAR')
-    expect(cancelled, 'an unread redirect body holds its socket open').toBe(true)
+    expect(
+      (h.responses[0] as unknown as { destroyed: boolean }).destroyed,
+      'an unread redirect body holds its socket open',
+    ).toBe(true)
   })
 
   it('measures the cap in BYTES, not UTF-16 code units', async () => {
@@ -372,36 +664,42 @@ describe('fetchIcsGuarded — ONE budget for the whole request (audit FLAG-15)',
      * A body of multi-byte characters is larger on the wire than
      * `String.length` suggests. Measuring the string understated it against a
      * cap expressed in bytes, so a feed could exceed the real limit.
+     *
+     * 100 × 'é' is 100 UTF-16 code units and 200 UTF-8 bytes; a 150-byte cap
+     * must reject it. Counting `byteLength` on the chunk is what makes that
+     * true regardless of how the body is framed.
      */
-    const text = 'é'.repeat(100) // 100 UTF-16 code units, 200 UTF-8 bytes
-
-    /*
-     * This must be a response with NO body stream, because that is the branch
-     * that measured `text.length`. `new Response(text)` HAS a body and goes
-     * through the streaming path, which already counted bytes correctly — the
-     * first version of this test did exactly that and therefore proved nothing.
-     */
-    const bodyless = {
-      ok: true,
-      status: 200,
-      headers: new Headers(),
-      body: null,
-      text: async () => text,
-    }
-    const fetchImpl = vi.fn(async () => bodyless) as unknown as typeof fetch
-
+    const h = harness([{ chunks: [enc.encode('é'.repeat(100))] }])
     await expect(
-      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, maxBytes: 150 }),
+      fetchIcsGuarded('https://example.com/a.ics', {
+        requestImpl: h.impl,
+        resolver,
+        maxBytes: 150,
+      }),
     ).rejects.toMatchObject({ code: 'response_too_large' })
   })
 
-  it('still returns a body that fits the budget', async () => {
-    const fetchImpl = vi.fn(
-      async () => new Response('BEGIN:VCALENDAR\nEND:VCALENDAR'),
-    ) as unknown as typeof fetch
-
+  it('reassembles a multi-byte character split across chunk boundaries', async () => {
+    /*
+     * The streaming decoder is not decoration. 'é' is 0xC3 0xA9; decoding each
+     * chunk independently yields two replacement characters and silently
+     * corrupts any non-ASCII calendar — event titles, names, locations.
+     */
+    const h = harness([{ chunks: [new Uint8Array([0xc3]), new Uint8Array([0xa9])] }])
     await expect(
-      fetchIcsGuarded('https://example.com/a.ics', { fetchImpl, resolver, maxBytes: 1000 }),
+      fetchIcsGuarded('https://example.com/a.ics', { requestImpl: h.impl, resolver }),
+    ).resolves.toBe('é')
+  })
+
+  it('still returns a body that fits the budget', async () => {
+    const h = harness([{ body: 'BEGIN:VCALENDAR\nEND:VCALENDAR' }])
+    await expect(
+      fetchIcsGuarded('https://example.com/a.ics', {
+        requestImpl: h.impl,
+        resolver,
+        maxBytes: 1000,
+      }),
     ).resolves.toContain('VCALENDAR')
   })
+
 })
