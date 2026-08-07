@@ -245,7 +245,20 @@ jobs:
       # asserted separately from the table grant because confusing the two is
       # what produced the 42501, and db-tests/billingGrant.db.test.ts adds the
       # staged proof that 20260801160000 is what grants the SELECT.
-      EXPECTED_DB_TESTS: '131'
+      #
+      # 131 -> 142. db-tests/issue8Cleanup.db.test.ts EXECUTES the issue #8
+      # cleanup script (docs/, deliberately not named here — see below) against
+      # a scratch database seeded with the exact production inventory. PL/pgSQL
+      # fails at run time, not at parse time, so a guard that never fires until
+      # production has drifted is precisely the code that has to be run before
+      # it is trusted: each one is shown to ABORT with nothing deleted.
+      #
+      # THE FILENAME IS ABSENT ON PURPOSE. src/test/issue8CleanupSafety.test.ts
+      # asserts that no workflow names that script, because a name in CI is one
+      # edit away from a step that runs it against something real. The rule is
+      # absolute rather than "unless it is only a comment", since a scanner
+      # cannot tell the two apart and neither can a hurried reviewer.
+      EXPECTED_DB_TESTS: '142'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0

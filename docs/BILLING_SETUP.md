@@ -270,21 +270,51 @@ entitlement that was never paid for in live mode.
 > anything written in this document, **section A wins** — that is the whole reason it is the first
 > thing the query returns.
 
-The cleanup transaction itself is deliberately **not** stored in this repository. It is written
-against the inventory output — the row counts it asserts are the ones actually observed — so a
-version committed today would be stale the moment a row changed, and a stale destructive script in
-a docs folder is an invitation. Write it from the inventory, run it once, in a real terminal.
+The cleanup transaction is `docs/ISSUE_8_cleanup_sandbox_billing.sql`.
 
-**The shape it must have**, whoever writes it:
+> ### ⚠️ REVERSED 2026-08-07 — it IS committed now, and the old objection is answered
+>
+> This section previously said the cleanup transaction was "deliberately **not** stored in this
+> repository", because a script asserting observed row counts goes stale the moment a row changes
+> and "a stale destructive script in a docs folder is an invitation". Both halves of that were
+> right about the risk and wrong about the remedy.
+>
+> **Staleness is not a reason to keep it out; it is the reason to write the assertions down.** A
+> stale committed script that asserts `billing has 1 row` fails closed the instant that stops
+> being true, names what changed, and deletes nothing. A script composed by hand on the night of
+> the migration, from an inventory read minutes earlier, has whatever guards its author remembered
+> under time pressure — and nobody has ever reviewed it.
+>
+> **"An invitation" is answered by the default, not by absence.** The committed file ends in
+> `rollback;`. Running the whole thing does execute every assertion and both DELETEs, so the dry
+> run is real, and then discards the transaction. Turning it into a live cleanup is a deliberate
+> one-word edit that is never committed. Two suites hold that line:
+> `src/test/issue8CleanupSafety.test.ts` pins the trailing `rollback;`, the absence of any
+> `commit`, the absence of every DDL verb, and the fact that no npm script, workflow, migration or
+> deployment config so much as names the file; `db-tests/issue8Cleanup.db.test.ts` runs it against
+> a disposable PostgreSQL seeded with the exact inventory and shows each guard ABORTING.
+>
+> The remaining honest cost is that the file names four row ids, which will be wrong for anyone
+> reading this after the cleanup runs. That is fine: it is a record of a specific operation on a
+> specific day, and the assertions make a later mis-run impossible rather than merely unlikely.
 
-- explicit `begin;` … `rollback;` first, to read the counts, then a second run with `commit;`
+**The shape it has**, and that any successor must keep:
+
+- explicit `begin;` … `rollback;`, which is the committed default; a real run swaps that one word
 - pre-delete counts asserted against the inventory, and a `raise exception` if they disagree
 - `delete from public.checkout_attempts where …` before `delete from public.billing where …`
   (no FK forces this; it is the order the data was created in)
-- both deletes carrying the `stripe_customer_id is not null or stripe_subscription_id is not null`
-  predicate **in the statement itself**, never a bare `delete from public.billing`
+- `lock table public.checkout_attempts` **before** `public.billing`, matching
+  `bind_verified_checkout()` → `apply_stripe_billing_event()`. The other order deadlocks against a
+  webhook that lands mid-run.
+- the billing delete carrying the `stripe_customer_id is not null or stripe_subscription_id is not
+  null or last_stripe_event_id is not null` predicate **in the statement itself**, never a bare
+  `delete from public.billing`
+- a refusal if any attempt is non-terminal (an open purchase may still be payable) or carries a
+  session id that is not `cs_test_`
 - a post-delete verification selecting the same predicate and expecting **zero** rows, plus a
-  count of preserved rows that must be **unchanged**
+  count of preserved rows that must be **unchanged**, plus `auth.users` and the application tables
+  asserted unchanged
 - no `truncate`, no `drop`, no `alter`, and no statement touching a table outside the two
 
 ### 02.5 Verifying the cleanup
