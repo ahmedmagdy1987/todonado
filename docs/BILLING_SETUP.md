@@ -75,8 +75,9 @@ select count(*) as rows,
 
 -- 4. TEST-MODE leftovers. Stripe test ids are indistinguishable from live ones
 --    by shape, so the only reliable marker is that they were written while
---    STRIPE_MODE was test. List them and decide DELIBERATELY what happens to
---    each; §3 explains why a test-mode row must not survive into live.
+--    STRIPE_MODE was test. §02 is the decision (CLEAN SLATE) and explains why a
+--    test-mode row must not survive into live; docs/ISSUE_8_test_billing_inventory.sql
+--    is the fuller version of this query, and is the one to run.
 select user_id, plan, subscription_status, stripe_customer_id,
        stripe_subscription_id, current_period_end, updated_at
   from public.billing
@@ -109,12 +110,187 @@ select column_name from information_schema.columns
 
 ---
 
+## 02. THE TEST → LIVE DATA POLICY (issue #8) — decided, and the decision is CLEAN SLATE
+
+**The decision (2026-08-07, owner):** before Stripe is switched to Live, every Stripe
+TEST/Sandbox billing artifact is REMOVED from the production database, and Live billing starts
+from a clean billing state.
+
+This section is the answer to issue #8. It was open because `billing` has no `livemode` /
+`stripe_mode` column — `grep -rniE "stripe_mode|livemode" supabase/migrations` still returns
+nothing — so a row does not record which Stripe mode created it, and after the switch a Sandbox
+row still reads `plan = 'pro'`. The webhook will not correct it either: `livemodeMatches` refuses
+to act on an event whose mode disagrees with `STRIPE_MODE`, so a live-mode event never touches a
+row created in test mode. It would sit there granting Pro forever.
+
+**No schema change is needed to close this, and none is being made.** A `stripe_mode` column would
+make the question self-answering next time, but it is a migration bought to describe rows that are
+about to be deleted.
+
+### 02.1 What is in scope, and what the discriminator actually is
+
+Exactly two tables hold Stripe state. Nothing else in the schema does — `profiles` deliberately has
+no `plan` column (see the header of `20260706130000_billing.sql`), and `events`,
+`upgrade_intents` and `feature_intents` are signal-only with no entitlement and no Stripe ids.
+
+| Table | Stripe columns | Present in production today? |
+|---|---|---|
+| `public.billing` | `stripe_customer_id`, `stripe_subscription_id` | **yes** |
+| `public.billing` | `last_stripe_event_id`, `last_stripe_event_at` | **no** — added by `20260801140000`, still unapplied |
+| `public.checkout_attempts` | `stripe_session_id`, `stripe_subscription_id` | **no** — created by `20260801150000`, still unapplied |
+
+> **So today the cleanup is almost certainly a `billing`-only operation.** If the migrations are
+> applied first, `checkout_attempts` exists and is in scope too; it will be empty unless a checkout
+> has been started since. The inventory query answers this rather than assuming it.
+
+**THE DISCRIMINATOR IS THE PRESENCE OF A STRIPE ID, NOT THE EXISTENCE OF THE ROW.**
+
+```
+in scope  :  stripe_customer_id is not null  OR  stripe_subscription_id is not null
+preserved :  both null
+```
+
+"Delete every row in `billing`" is the obvious policy and it is **wrong**, because §6 of this
+document grants founding Pro with exactly such a row:
+
+```sql
+insert into public.billing (user_id, plan, subscription_status)
+select id, 'pro', 'founding' from auth.users where email in (…)
+```
+
+That row has no Stripe id, was never created by Stripe, and is the durable fix for audit FLAG-8.
+A blanket delete would revoke it and silently re-expose the email-string grant it replaced.
+
+### 02.2 What must survive — non-negotiable
+
+- **Every `auth.users` row**, and everything hanging off it: `profiles`, `workspaces`,
+  `projects`, `sections`, `tasks`, `subtasks`, `focus_sessions`, `calendar_sources`,
+  `user_templates`, `quit_habits`, `quit_checkins`, `vision_cards`, `mind_maps`,
+  `user_challenges`, `journal_entries`, `wellness_items`, `wellness_logs`, `events`,
+  `upgrade_intents`, `feature_intents`, and the `journal-audio` storage objects.
+- **Manual / founding `billing` rows** — any row with both Stripe ids null.
+- **The migration history.** Nothing here applies, reverses or re-runs a migration.
+
+`billing.user_id` and `checkout_attempts.user_id` both reference `auth.users (id) on delete
+cascade`, and **nothing references either table**. So the cascade runs *towards* these rows and
+never *from* them: deleting them cannot reach application data. That is a property of the schema,
+not a promise — it is why this cleanup is safe at all.
+
+### 02.3 Expected user-facing impact
+
+| Who | Before | After | Why |
+|---|---|---|---|
+| A user Pro **only** via the Sandbox subscription | Pro | **Free** | Intended. The row granting it was test-mode state. |
+| A founding account (`FOUNDING_EMAILS`, currently 2 addresses) | Pro | **Pro** | `resolveEffectivePlan` falls through to the email allow-list, and any seeded `founding` row is preserved anyway. |
+| A user with a manual `billing` row, no Stripe ids | as granted | **unchanged** | Out of scope by the discriminator. |
+| Everyone else | Free | Free | No row to delete. |
+
+Nobody loses a task, a project, a journal entry or an account. The only thing that changes is an
+entitlement that was never paid for in live mode.
+
+> **Downgrade is silent by design.** There is no email, no banner and no "your plan changed"
+> notice — none exists in the product. If the Sandbox subscriber is a real person rather than a
+> test account, tell them out of band before you run it.
+
+### 02.4 The preflight, in order
+
+1. **Read-only inventory.** Run `docs/ISSUE_8_test_billing_inventory.sql` in the Supabase SQL
+   editor. One statement, SELECT only, safe to repeat. It reports which of the two tables exist,
+   counts, every affected row tagged `DELETE` or `PRESERVE`, and three cross-checks. Read
+   section **E** before anything else.
+2. **Account for every row.** Each `DELETE` row must be explicable as Sandbox-era. Each
+   `PRESERVE` row must be a grant you recognise. **If either is not true, stop** — an unexplained
+   Stripe id is the one finding that invalidates the clean-slate assumption.
+3. **Repo preflight.** `npm run preflight:live`. Read-only, no network, no database, no Stripe. It
+   checks the four pre-live migration files, the Vercel function budget, that the enforcing CSP
+   still allows `checkout.stripe.com`, that the published prices are still $5 / $48, and — where
+   the vars happen to be present — that `STRIPE_MODE` agrees with every key and price. It answers
+   **READY FOR LIVE** or **NOT READY FOR LIVE** and says why. It never prints a value.
+4. **Cleanup**, then §1 (migrations), then §2–§6 (Stripe + env + webhook), then §7 (verify).
+
+The cleanup transaction itself is deliberately **not** stored in this repository. It is written
+against the inventory output — the row counts it asserts are the ones actually observed — so a
+version committed today would be stale the moment a row changed, and a stale destructive script in
+a docs folder is an invitation. Write it from the inventory, run it once, in a real terminal.
+
+**The shape it must have**, whoever writes it:
+
+- explicit `begin;` … `rollback;` first, to read the counts, then a second run with `commit;`
+- pre-delete counts asserted against the inventory, and a `raise exception` if they disagree
+- `delete from public.checkout_attempts where …` before `delete from public.billing where …`
+  (no FK forces this; it is the order the data was created in)
+- both deletes carrying the `stripe_customer_id is not null or stripe_subscription_id is not null`
+  predicate **in the statement itself**, never a bare `delete from public.billing`
+- a post-delete verification selecting the same predicate and expecting **zero** rows, plus a
+  count of preserved rows that must be **unchanged**
+- no `truncate`, no `drop`, no `alter`, and no statement touching a table outside the two
+
+### 02.5 Verifying the cleanup
+
+Re-run `docs/ISSUE_8_test_billing_inventory.sql`. It is the same query, so it is directly
+comparable to the "before" you saved. It must now report:
+
+- **B.11** `IN CLEANUP SCOPE — rows carrying a Stripe id` = **0**
+- **B.12** `PRESERVED` = the same number as before
+- **B.13 / B.14** distinct customer and subscription ids = **0**
+- **D.30** `checkout_attempts` rows = **0** (or the table still absent)
+- **C** contains no `[WOULD DELETE]` row
+
+Then, in the app: the Sandbox subscriber's `/settings/plan` reads Free, and a founding account
+still reads Pro.
+
+### 02.6 Detecting a mixed Test/Live state afterwards
+
+Mixed state is the failure this whole section exists to prevent — a live deployment holding
+test-mode rows, or a live key next to a test price. Three independent detectors, and they are
+independent on purpose:
+
+1. **The database.** After cleanup, ANY row in `billing` carrying a Stripe id was created by the
+   live account. Before you have live customers, `B.11 > 0` means something test-mode survived or
+   returned. This is the check that only works because the slate was wiped.
+2. **The deployment.** `stripeModeProblems()` (`api/_lib/config.ts`) cross-checks `STRIPE_MODE`
+   against the secret key prefix, the publishable key prefix and both price-id pairs on every
+   request; a disagreement answers `503 billing_misconfigured` and **refuses to sell** rather than
+   guessing. `npm run preflight:live` runs the same rules ahead of time where the vars are visible.
+3. **The event stream.** `livemodeMatches()` refuses any Stripe object or webhook event whose
+   `livemode` disagrees with the declared mode — `503 livemode_mismatch`, which Stripe retries, so
+   a genuine event queued during a misconfiguration is not lost. §3 explains why this is checked
+   against `STRIPE_MODE` and never inferred, and why `whsec_` is not a mode signal.
+
+**Live price ids and the webhook signing secret cannot be verified from the repo.** A `price_…` id
+is opaque and `whsec_…` does not encode mode, so both are manual gates in the preflight
+(`--live-prices-verified`, `--webhook-verified`). Verify prices in the Stripe dashboard by
+*amount* — a live recurring **$5/month** and a live recurring **$48/year** — and copy all four
+price vars from one clipboard (§3, §8's first rollback row).
+
+### 02.7 Rolling back
+
+**The cleanup itself is not reversible** — deleted rows are gone, which is why it runs inside a
+transaction you have already dry-run with `rollback`. There is nothing to undo in the ordinary
+sense, and nothing that needs undoing: the rows described subscriptions that only ever existed in
+a Sandbox account.
+
+If a deletion turns out to have been wrong, the repair is to re-grant the entitlement directly —
+the §6 insert, with `subscription_status = 'founding'` or another honest label — **not** to
+reconstruct a fake Stripe id. A row naming a subscription that does not exist in the live account
+is worse than the problem it would be papering over.
+
+Everything else rolls back normally: application deployment §8.1, Stripe keys §8.2, webhook
+endpoint §8.3, prices §8.4, and the **emergency stop** — delete `STRIPE_SECRET_KEY` and redeploy,
+which makes checkout `503`, falls the UI back to the fake-door modal, and leaves existing
+subscribers working (§8's last row). Full retreat to test mode is the paragraph under §8's table.
+
+---
+
 ## 0. THE ORDER IS THE RUNBOOK
 
 Every step works if you do it in this order, and fails in a specific, recoverable way if you do
-not. Two orderings actually matter:
+not. Three orderings actually matter:
 
-1. **Apply all three migrations BEFORE setting live keys.** The webhook refuses to write against a
+0. **Clear the Sandbox billing rows BEFORE setting live keys** (§02). After the switch a live-mode
+   webhook will not touch a row created in test mode — `livemodeMatches` refuses it — so a Sandbox
+   row left behind grants Pro indefinitely and nothing corrects it.
+1. **Apply all four migrations BEFORE setting live keys.** The webhook refuses to write against a
    database without the event-ordering columns — it answers `503 billing_schema_outdated` and
    grants nothing. That is deliberate (§1), but it means a checkout completed before the
    migrations land does not upgrade anyone until Stripe's retries succeed. The third file is the
@@ -126,7 +302,10 @@ not. Two orderings actually matter:
 
 | # | Step | Where | Reversible? |
 |---|---|---|---|
-| 1 | Apply the **three** pending migrations, in order | your terminal | see §1 — two are additive, one narrows privileges |
+| 0a | Run the read-only inventory, account for every row | Supabase SQL editor | n/a — SELECT only |
+| 0b | Run `npm run preflight:live` | your terminal | n/a — read-only |
+| 0c | Delete the Sandbox billing rows (§02) | Supabase SQL editor | **no** — dry-run with `rollback` first |
+| 1 | Apply the **four** pending migrations, in order | your terminal | see §1 — two are additive, two narrow privileges |
 | 2 | Create live product + prices | Stripe dashboard | yes |
 | 3 | Set the seven env vars | Vercel | yes |
 | 4 | Redeploy (no build cache) | Vercel | yes |
