@@ -90,8 +90,9 @@ export const MANUAL_GATES = Object.freeze([
     flag: 'migrations-applied',
     title: 'The four pre-live migrations are applied',
     detail:
-      'The OWNER ran `supabase db push` in a real terminal; schema_migrations reaches ' +
-      '20260801170000. An agent must never apply these.',
+      'Confirmed from the RECONCILIATION QUERY (docs/BILLING_SETUP.md §02.1), never from a ' +
+      'document — that box has gone stale twice. schema_migrations must list all four. ' +
+      'An agent must never apply them.',
   },
   {
     flag: 'live-prices-verified',

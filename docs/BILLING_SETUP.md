@@ -133,22 +133,68 @@ Exactly two tables hold Stripe state. Nothing else in the schema does — `profi
 no `plan` column (see the header of `20260706130000_billing.sql`), and `events`,
 `upgrade_intents` and `feature_intents` are signal-only with no entitlement and no Stripe ids.
 
-| Table | Stripe columns | Present in production today? |
-|---|---|---|
-| `public.billing` | `stripe_customer_id`, `stripe_subscription_id` | **yes** |
-| `public.billing` | `last_stripe_event_id`, `last_stripe_event_at` | **no** — added by `20260801140000`, still unapplied |
-| `public.checkout_attempts` | `stripe_session_id`, `stripe_subscription_id` | **no** — created by `20260801150000`, still unapplied |
+| Table | Stripe columns | Present in production? | How that was established |
+|---|---|---|---|
+| `public.billing` | `stripe_customer_id`, `stripe_subscription_id` | **yes** | base table, `20260706130000` |
+| `public.checkout_attempts` | `stripe_session_id`, `stripe_subscription_id` | **yes** | read-only probe, 2026-08-07 — see below |
+| `public.billing` | `last_stripe_event_id`, `last_stripe_event_at` | **report, do not assume** | not observable read-only; the inventory query reports it |
 
-> **So today the cleanup is almost certainly a `billing`-only operation.** If the migrations are
-> applied first, `checkout_attempts` exists and is in scope too; it will be empty unless a checkout
-> has been started since. The inventory query answers this rather than assuming it.
+> **THIS TABLE IS EVIDENCE, NOT RECOLLECTION, AND THAT IS THE CORRECTION.** An earlier revision
+> stated that `checkout_attempts` did not exist and that `20260801140000`/`20260801150000` were
+> unapplied. That came from the pending-migrations box in `CLAUDE.md`, which was stale — it was
+> read as production state and reported as fact without a single query. Repo files cannot tell you
+> what is applied; the applied set lives in the database and nowhere else.
+>
+> **What was actually verified** (2026-08-07, read-only PostgREST GETs against
+> `lplsbfduankkpglyusjp`, using the committed public anon key, returning no rows):
+> a table that does not exist answers `404 PGRST205`, while a table that exists without a grant
+> answers `401 42501 permission denied`. `checkout_attempts` answered **42501**, so it exists.
+> `billing` and `tasks` also answered 42501, which is the documented observable effect of
+> `20260801160000` and `20260801170000` — anon used to read them.
+>
+> **What could NOT be verified this way:** whether `billing.last_stripe_event_id` /
+> `last_stripe_event_at` exist. The table-level grant is refused before column resolution, so a
+> present and an absent column give the identical 42501. Section A of the inventory query answers
+> it from `information_schema`, and the query is written with `to_jsonb` so it runs correctly
+> either way.
+
+**The reconciliation query.** Run this first, on its own, whenever this document and the database
+might disagree. One row, SELECT only, no side effects — it is the shortest thing that settles what
+is actually deployed:
+
+```sql
+select
+  current_database()                                       as database,
+  to_regclass('public.billing')           is not null      as billing_exists,
+  to_regclass('public.checkout_attempts') is not null      as checkout_attempts_exists,
+  exists (select 1 from information_schema.columns
+           where table_schema = 'public' and table_name = 'billing'
+             and column_name = 'last_stripe_event_id')     as has_last_stripe_event_id,
+  exists (select 1 from information_schema.columns
+           where table_schema = 'public' and table_name = 'billing'
+             and column_name = 'last_stripe_event_at')     as has_last_stripe_event_at,
+  (select coalesce(array_agg(version order by version), '{}')
+     from supabase_migrations.schema_migrations
+    where version in ('20260801140000', '20260801150000',
+                      '20260801160000', '20260801170000')) as pre_live_migrations_recorded,
+  (select max(version) from supabase_migrations.schema_migrations)
+                                                           as latest_migration_recorded;
+```
 
 **THE DISCRIMINATOR IS THE PRESENCE OF A STRIPE ID, NOT THE EXISTENCE OF THE ROW.**
 
 ```
-in scope  :  stripe_customer_id is not null  OR  stripe_subscription_id is not null
-preserved :  both null
+in scope  :  stripe_customer_id     is not null
+          OR stripe_subscription_id is not null
+          OR last_stripe_event_id   is not null   -- only if 20260801140000 is applied
+preserved :  none of those set
 ```
+
+`last_stripe_event_id` is in the predicate because it is a Stripe identifier persisted on the row,
+which the issue puts in scope explicitly. A row could in principle carry one without a customer or
+subscription id — a manual grant later touched by a test-mode webhook — and the narrower predicate
+would leave that Stripe state behind. `->>` on a column that does not exist yields NULL, so the
+clause is harmless when `20260801140000` has not landed.
 
 "Delete every row in `billing`" is the obvious policy and it is **wrong**, because §6 of this
 document grants founding Pro with exactly such a row:
@@ -206,7 +252,14 @@ entitlement that was never paid for in live mode.
    still allows `checkout.stripe.com`, that the published prices are still $5 / $48, and — where
    the vars happen to be present — that `STRIPE_MODE` agrees with every key and price. It answers
    **READY FOR LIVE** or **NOT READY FOR LIVE** and says why. It never prints a value.
-4. **Cleanup**, then §1 (migrations), then §2–§6 (Stripe + env + webhook), then §7 (verify).
+4. **Cleanup**, then §1 (migrations — confirm from section A rather than from any document; as of
+   2026-08-07 three of the four are verified applied and the fourth is reported by the query),
+   then §2–§6 (Stripe + env + webhook), then §7 (verify).
+
+> **Read section A of the inventory before section C.** It reports `current_database()`, both
+> tables, both event columns and the recorded `schema_migrations` versions. If it disagrees with
+> anything written in this document, **section A wins** — that is the whole reason it is the first
+> thing the query returns.
 
 The cleanup transaction itself is deliberately **not** stored in this repository. It is written
 against the inventory output — the row counts it asserts are the ones actually observed — so a
@@ -305,7 +358,7 @@ not. Three orderings actually matter:
 | 0a | Run the read-only inventory, account for every row | Supabase SQL editor | n/a — SELECT only |
 | 0b | Run `npm run preflight:live` | your terminal | n/a — read-only |
 | 0c | Delete the Sandbox billing rows (§02) | Supabase SQL editor | **no** — dry-run with `rollback` first |
-| 1 | Apply the **four** pending migrations, in order | your terminal | see §1 — two are additive, two narrow privileges |
+| 1 | Apply the **four** migrations, in order — **confirm what is already applied first** (§02.1: three of the four are verified applied as of 2026-08-07) | your terminal | see §1 — two are additive, two narrow privileges |
 | 2 | Create live product + prices | Stripe dashboard | yes |
 | 3 | Set the seven env vars | Vercel | yes |
 | 4 | Redeploy (no build cache) | Vercel | yes |
