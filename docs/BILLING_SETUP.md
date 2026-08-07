@@ -41,8 +41,9 @@ once reported success.
       `supabase.co` host outright, the E2E and CSP jobs null-route the production
       hostname in `/etc/hosts` before they start, and
       `scripts/assert-local-supabase.mjs` fails the job before any socket opens.
-- [ ] **The three pending billing migrations are still unapplied in production**
-      (§01 tells you how to check without changing anything).
+- [x] **The four billing migrations are applied in production** — verified 2026-08-07 by the
+      §02.1 reconciliation query. *(This box previously read "the three pending billing migrations
+      are still unapplied"; it was stale, and §1 now records the verified state.)*
 
 ---
 
@@ -58,7 +59,8 @@ what the database looked like.
 show server_version;
 
 -- 2. The CURRENT billing ACL. This is what 20260801160000 will replace.
---    Expect the historical broad grants; after the migration, exactly two rows.
+--    20260801160000 IS APPLIED (2026-08-07), so expect exactly two rows now, not
+--    the historical broad grants.
 select coalesce(nullif(a.grantee::regrole::text, '-'), 'PUBLIC') as grantee,
        a.privilege_type
   from pg_class c
@@ -94,11 +96,12 @@ select user_id, plan, subscription_status, current_period_end,
 
 -- 6. Migration history — what the project believes it has applied.
 select version, name from supabase_migrations.schema_migrations order by version;
---    The last row should be 20260801130000. If 20260801140000 or later is
---    already there, STOP: someone has applied part of this work and §1 is not
---    the right starting point.
+--    As of 2026-08-07 the last row is 20260801170000 and all four pre-live
+--    versions are present. If any of them is MISSING, stop and re-read §1 —
+--    that would mean the database went backwards, not that work is pending.
 
--- 7. Does the event-ordering column pair exist yet? (Belt to 6's braces.)
+-- 7. The event-ordering column pair. Both exist as of 2026-08-07; this is the
+--    belt to 6's braces, so run it and expect two rows.
 select column_name from information_schema.columns
  where table_schema = 'public' and table_name = 'billing'
    and column_name like 'last_stripe_event%';
@@ -136,8 +139,12 @@ no `plan` column (see the header of `20260706130000_billing.sql`), and `events`,
 | Table | Stripe columns | Present in production? | How that was established |
 |---|---|---|---|
 | `public.billing` | `stripe_customer_id`, `stripe_subscription_id` | **yes** | base table, `20260706130000` |
-| `public.checkout_attempts` | `stripe_session_id`, `stripe_subscription_id` | **yes** | read-only probe, 2026-08-07 — see below |
-| `public.billing` | `last_stripe_event_id`, `last_stripe_event_at` | **report, do not assume** | not observable read-only; the inventory query reports it |
+| `public.checkout_attempts` | `stripe_session_id`, `stripe_subscription_id` | **yes** | read-only probe **and** reconciliation query, 2026-08-07 |
+| `public.billing` | `last_stripe_event_id`, `last_stripe_event_at` | **yes** | reconciliation query, 2026-08-07 |
+
+**All four pre-live migrations are applied** (`schema_migrations` carries `20260801140000`,
+`20260801150000`, `20260801160000`, `20260801170000`; latest recorded is `20260801170000`). So all
+three Stripe-bearing column sets exist and every one of them is in scope for the inventory.
 
 > **THIS TABLE IS EVIDENCE, NOT RECOLLECTION, AND THAT IS THE CORRECTION.** An earlier revision
 > stated that `checkout_attempts` did not exist and that `20260801140000`/`20260801150000` were
@@ -152,11 +159,14 @@ no `plan` column (see the header of `20260706130000_billing.sql`), and `events`,
 > `billing` and `tasks` also answered 42501, which is the documented observable effect of
 > `20260801160000` and `20260801170000` — anon used to read them.
 >
-> **What could NOT be verified this way:** whether `billing.last_stripe_event_id` /
-> `last_stripe_event_at` exist. The table-level grant is refused before column resolution, so a
-> present and an absent column give the identical 42501. Section A of the inventory query answers
-> it from `information_schema`, and the query is written with `to_jsonb` so it runs correctly
-> either way.
+> **What that probe could NOT reach, and how it was closed:** whether
+> `billing.last_stripe_event_id` / `last_stripe_event_at` exist. The table-level grant is refused
+> before column resolution, so a present and an absent column give the identical 42501, and
+> `GET /rest/v1/` needs `service_role`. It was **not** inferred from "`db push` is sequential" —
+> that is the same reasoning that produced the wrong claim in the first place. The owner ran the
+> reconciliation query below on 2026-08-07 and it returned both columns **true**, alongside all
+> four versions in `schema_migrations`. Section A of the inventory re-checks all of it at run time,
+> so the query still reports rather than assumes.
 
 **The reconciliation query.** Run this first, on its own, whenever this document and the database
 might disagree. One row, SELECT only, no side effects — it is the shortest thing that settles what
@@ -186,15 +196,14 @@ select
 ```
 in scope  :  stripe_customer_id     is not null
           OR stripe_subscription_id is not null
-          OR last_stripe_event_id   is not null   -- only if 20260801140000 is applied
+          OR last_stripe_event_id   is not null
 preserved :  none of those set
 ```
 
 `last_stripe_event_id` is in the predicate because it is a Stripe identifier persisted on the row,
-which the issue puts in scope explicitly. A row could in principle carry one without a customer or
-subscription id — a manual grant later touched by a test-mode webhook — and the narrower predicate
-would leave that Stripe state behind. `->>` on a column that does not exist yields NULL, so the
-clause is harmless when `20260801140000` has not landed.
+which the issue puts in scope explicitly, and because the column is confirmed to exist. A row could
+carry one without a customer or subscription id — a manual grant later touched by a test-mode
+webhook — and the narrower predicate would leave that Stripe state behind.
 
 "Delete every row in `billing`" is the obvious policy and it is **wrong**, because §6 of this
 document grants founding Pro with exactly such a row:
@@ -252,9 +261,9 @@ entitlement that was never paid for in live mode.
    still allows `checkout.stripe.com`, that the published prices are still $5 / $48, and — where
    the vars happen to be present — that `STRIPE_MODE` agrees with every key and price. It answers
    **READY FOR LIVE** or **NOT READY FOR LIVE** and says why. It never prints a value.
-4. **Cleanup**, then §1 (migrations — confirm from section A rather than from any document; as of
-   2026-08-07 three of the four are verified applied and the fourth is reported by the query),
-   then §2–§6 (Stripe + env + webhook), then §7 (verify).
+4. **Cleanup**, then §2–§6 (Stripe + env + webhook), then §7 (verify). §1's migrations are
+   **already applied** — all four, verified in production on 2026-08-07 — so there is nothing to
+   run there; confirm it from section A rather than from this sentence.
 
 > **Read section A of the inventory before section C.** It reports `current_database()`, both
 > tables, both event columns and the recorded `schema_migrations` versions. If it disagrees with
@@ -343,7 +352,8 @@ not. Three orderings actually matter:
 0. **Clear the Sandbox billing rows BEFORE setting live keys** (§02). After the switch a live-mode
    webhook will not touch a row created in test mode — `livemodeMatches` refuses it — so a Sandbox
    row left behind grants Pro indefinitely and nothing corrects it.
-1. **Apply all four migrations BEFORE setting live keys.** The webhook refuses to write against a
+1. **All four migrations must land BEFORE live keys — and they already have** (verified
+   2026-08-07). Kept here because the ordering is the reason, not a chore: the webhook refuses to write against a
    database without the event-ordering columns — it answers `503 billing_schema_outdated` and
    grants nothing. That is deliberate (§1), but it means a checkout completed before the
    migrations land does not upgrade anyone until Stripe's retries succeed. The third file is the
@@ -358,7 +368,7 @@ not. Three orderings actually matter:
 | 0a | Run the read-only inventory, account for every row | Supabase SQL editor | n/a — SELECT only |
 | 0b | Run `npm run preflight:live` | your terminal | n/a — read-only |
 | 0c | Delete the Sandbox billing rows (§02) | Supabase SQL editor | **no** — dry-run with `rollback` first |
-| 1 | Apply the **four** migrations, in order — **confirm what is already applied first** (§02.1: three of the four are verified applied as of 2026-08-07) | your terminal | see §1 — two are additive, two narrow privileges |
+| 1 | ~~Apply the four migrations~~ — **DONE**, all four verified applied 2026-08-07 (§1) | — | see §8.5 to reverse the two privilege ones |
 | 2 | Create live product + prices | Stripe dashboard | yes |
 | 3 | Set the seven env vars | Vercel | yes |
 | 4 | Redeploy (no build cache) | Vercel | yes |
@@ -370,8 +380,20 @@ not. Three orderings actually matter:
 
 ## 1. Apply the migrations — FIRST, before any live key
 
-**FOUR files are pending, and the order is chronological.** `supabase db push` applies them in
-this order by itself; the list is here so you can check what landed, and run them by hand if you
+> ### ✅ ALL FOUR ARE APPLIED — verified in production 2026-08-07
+>
+> The owner ran the §02.1 reconciliation query against `lplsbfduankkpglyusjp`. It returned
+> `billing_exists`, `checkout_attempts_exists`, `has_last_stripe_event_id` and
+> `has_last_stripe_event_at` all **true**, `schema_migrations` carrying all four versions, and
+> `latest_migration_recorded = 20260801170000`.
+>
+> **So this section is now a record of what landed, not a to-do.** Do not run `supabase db push`
+> expecting it to do something. The table below is kept because §1.3 and §1.4 explain privilege
+> changes you still need to understand when diagnosing a `42501`, and because §8.5 covers reversing
+> them.
+
+**The four files, and the order they were applied in.** `supabase db push` applies them in this
+order by itself; the list is here so you can check what landed, and run them by hand if you
 prefer.
 
 | # | File | What it does | Class |
