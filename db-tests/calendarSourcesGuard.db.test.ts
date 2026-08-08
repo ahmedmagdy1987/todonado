@@ -318,6 +318,126 @@ describe('THE RACE — the reason this is a trigger and not a count', () => {
   }, 60_000)
 })
 
+describe('the failure modes at the boundary, and which way they fail', () => {
+  it('an UNCOMMITTED delete does not free a slot', async () => {
+    // The safety-critical direction. If a delete that later rolls back could
+    // free a slot, the cap would be defeated by opening a transaction.
+    for (let n = 1; n <= CAP; n += 1) await insertSource(db, userA, urlFor(n))
+    const deleter = await connectScratch()
+    const inserter = await connectScratch()
+    try {
+      await deleter.query('begin')
+      await inserter.query('begin')
+      await deleter.query(`delete from public.calendar_sources where user_id = $1 and url = $2`, [
+        userA,
+        urlFor(1),
+      ])
+      const raced = insertSourceOn(inserter, userA, urlFor(900))
+      await deleter.query('rollback')
+      const result = await raced
+      await inserter.query('rollback').catch(() => {})
+
+      expect(result.ok).toBe(false)
+      expect(await count(userA)).toBe(CAP)
+    } finally {
+      await deleter.end()
+      await inserter.end()
+    }
+  })
+
+  it('never exceeds the cap when a slot frees mid-statement, whichever way it lands', async () => {
+    /*
+     * THE OUTCOME HERE IS TIMING-DEPENDENT, AND ASSERTING IT WOULD BE FLAKY.
+     * An earlier version of this test did assert it and failed intermittently,
+     * which is how the dependency was found.
+     *
+     * If the INSERT statement starts before the DELETE commits, it waits on the
+     * advisory lock with a snapshot already taken — under READ COMMITTED an
+     * advisory wait does not re-snapshot (only a row lock triggers EvalPlanQual)
+     * — so it still counts the row being deleted and REFUSES. If the commit wins
+     * the race, the insert takes a fresh snapshot and SUCCEEDS. Both are safe;
+     * which one happens depends on scheduling that no test controls.
+     *
+     * So the assertion is the invariant that holds either way: the cap is never
+     * exceeded, and the reported outcome always agrees with the resulting row
+     * count. The user-visible cost of the refusing branch is one spurious
+     * "maximum" and a retry; the sequential delete-then-insert the app actually
+     * performs is unaffected. Removing that false negative would take
+     * SERIALIZABLE or a per-user counter row held FOR UPDATE, both of which cost
+     * more machinery than a rare, safe retry.
+     */
+    for (let n = 1; n <= CAP; n += 1) await insertSource(db, userA, urlFor(n))
+    const deleter = await connectScratch()
+    const inserter = await connectScratch()
+    try {
+      await deleter.query('begin')
+      await inserter.query('begin')
+      await deleter.query(`delete from public.calendar_sources where user_id = $1 and url = $2`, [
+        userA,
+        urlFor(1),
+      ])
+      const raced = insertSourceOn(inserter, userA, urlFor(901))
+      await deleter.query('commit')
+      const result = await raced
+      await inserter.query('commit').catch(() => {})
+
+      const rows = await count(userA)
+      expect(rows, 'the cap is never exceeded either way').toBeLessThanOrEqual(CAP)
+      // 9 rows remain after the delete; the insert either took the freed slot or did not.
+      expect(rows).toBe(result.ok ? CAP : CAP - 1)
+      if (!result.ok) expect(result.code).toBe('23514')
+    } finally {
+      await deleter.end()
+      await inserter.end()
+    }
+  })
+
+  it('holds the cap inside ONE transaction inserting many rows sequentially', async () => {
+    // The advisory lock is re-entrant for the same session, so this must not
+    // self-deadlock, and each insert must see the ones before it.
+    const one = await connectScratch()
+    try {
+      await one.query('begin')
+      const results: string[] = []
+      for (let n = 1; n <= CAP + 1; n += 1) {
+        const r = await insertSourceOn(one, userA, urlFor(n))
+        results.push(r.ok ? 'ok' : r.code)
+        if (!r.ok) break
+      }
+      await one.query('rollback')
+      expect(results.filter((r) => r === 'ok')).toHaveLength(CAP)
+      expect(results.at(-1)).toBe('23514')
+    } finally {
+      await one.end()
+    }
+  })
+
+  it('releases the advisory lock on ROLLBACK, leaving none held', async () => {
+    const one = await connectScratch()
+    try {
+      await one.query('begin')
+      await insertSourceOn(one, userA, urlFor(1))
+      await one.query('rollback')
+    } finally {
+      await one.end()
+    }
+    const { rows } = await db.query<{ n: number }>(
+      `select count(*)::int as n from pg_locks where locktype = 'advisory'`,
+    )
+    expect(rows[0].n).toBe(0)
+  })
+
+  it('still enforces the pre-existing length cap on the url', async () => {
+    // calendar_url_is_safe says nothing about length ON PURPOSE — that is
+    // `calendar_sources_len`, which predates this migration. Asserted here so
+    // the split is visible rather than assumed.
+    const tooLong = `https://cal.example.com/${'a'.repeat(2100)}.ics`
+    const attempt = await insertSource(db, userA, tooLong)
+    expect(attempt.ok).toBe(false)
+    if (!attempt.ok) expect(attempt.code).toBe('23514')
+  })
+})
+
 async function count(userId: string): Promise<number> {
   const { rows } = await db.query<{ n: string }>(
     `select count(*)::int as n from public.calendar_sources where user_id = $1`,

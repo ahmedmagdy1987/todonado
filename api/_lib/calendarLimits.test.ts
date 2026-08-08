@@ -75,6 +75,48 @@ describe('calendarUrlKey — conservative deduplication', () => {
     )
   })
 
+  /*
+   * REGRESSION — webcal:// rows were silently never fetched.
+   *
+   * A null key makes calendar-fetch.ts report `invalid_source` and SKIP the row
+   * before any network work, so it never reached `fetchIcsGuarded` — the only
+   * place `normalizeCalendarUrl` runs. The settings UI has always accepted
+   * `webcal://`, and it is what Apple and Google hand out, so a user could
+   * subscribe, be told "meetings will refresh automatically", and have nothing
+   * ever refresh.
+   */
+  it('accepts webcal:// instead of discarding the row as unfetchable', () => {
+    expect(calendarUrlKey('webcal://p01.calendar.icloud.com/published/2/abc')).not.toBeNull()
+  })
+
+  it('treats webcal:// and https:// as the SAME feed, so it is fetched once', () => {
+    expect(calendarUrlKey('webcal://h.example/f.ics')).toBe(calendarUrlKey('https://h.example/f.ics'))
+    expect(calendarUrlKey('WEBCAL://h.example/f.ics')).toBe(calendarUrlKey('https://h.example/f.ics'))
+  })
+
+  it('still refuses every OTHER non-web scheme', () => {
+    // The fix normalises exactly one scheme; it does not open the gate.
+    for (const raw of [
+      'ftp://h.example/f.ics',
+      'file:///etc/passwd',
+      'data:text/calendar,BEGIN:VCALENDAR',
+      'javascript://h.example/%0aalert(1)',
+      'gopher://h.example/f',
+    ]) {
+      expect(calendarUrlKey(raw), `${raw} must stay unfetchable`).toBeNull()
+    }
+  })
+
+  it('applies the port and credential rules to a webcal URL too', () => {
+    // Normalisation must not become a way to smuggle something past the rest.
+    expect(calendarUrlKey('webcal://u:p@h.example/f.ics')).not.toBe(
+      calendarUrlKey('https://h.example/f.ics'),
+    )
+    expect(calendarUrlKey('webcal://h.example:8443/f.ics')).not.toBe(
+      calendarUrlKey('https://h.example/f.ics'),
+    )
+  })
+
   it('NEVER collapses URLs that could return different content', () => {
     /*
      * The dangerous direction. Over-eager dedup silently drops a real calendar,

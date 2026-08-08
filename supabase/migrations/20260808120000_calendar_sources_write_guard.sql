@@ -30,6 +30,21 @@
 --     `pg_advisory_xact_lock`, so it is released at COMMIT or ROLLBACK by the
 --     engine and cannot leak.
 --
+--     IT ERRS TOWARD REFUSING, AND THERE IS ONE CASE WHERE THAT IS VISIBLE. An
+--     INSERT that starts before a concurrent DELETE commits waits on the lock
+--     with its statement snapshot ALREADY TAKEN — an advisory wait does not
+--     re-snapshot under READ COMMITTED, only a row lock does — so it can still
+--     count the row being deleted and refuse. If the commit wins the race
+--     instead, the insert takes a fresh snapshot and succeeds. Both outcomes are
+--     safe and which one happens is pure scheduling; the cap is never exceeded
+--     either way. The cost of the refusing branch is one spurious "maximum" and
+--     a retry, and the sequential delete-then-insert the app actually performs
+--     is unaffected. Removing the false negative would take SERIALIZABLE or a
+--     per-user counter row held FOR UPDATE, both of which cost more machinery
+--     than a rare, safe retry. Pinned by a test that asserts the INVARIANT
+--     rather than the timing, so it is neither flaky nor "fixed" later by
+--     weakening the lock.
+--
 --  2. URL SHAPE -> CHECK constraints over an IMMUTABLE function.
 --     Declarative, so it holds for any writer that ever exists, not just the
 --     ones that go through a trigger, and it is re-evaluated on UPDATE for free.

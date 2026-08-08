@@ -167,10 +167,21 @@ export function checkMigrationChain(filenames) {
     )
   }
 
-  // Named, never merely tolerated: a green line that hid a pending migration
-  // would defeat the point of checking at all.
-  const acknowledged = later.length > 0 ? `; also present and accounted for: ${later.join(', ')}` : ''
-  return pass('migrations', title, `all four present; nothing unaccounted-for sorts after ${last}${acknowledged}`)
+  /*
+   * Named, never merely tolerated: a green line that hid a pending migration
+   * would defeat the point of checking at all.
+   *
+   * The wording is deliberate. This said "also present and accounted for",
+   * which reads — next to a [PASS] — as "that one is handled too", when the
+   * whole reason for printing it is that it is NOT. This check only ever looks
+   * at FILES IN THE REPO; whether anything is applied is the separate
+   * `--migrations-applied` gate, and it says so out loud.
+   */
+  const acknowledged =
+    later.length > 0
+      ? `; also in the repo, NOT a pre-live requirement, apply status NOT checked here: ${later.join(', ')}`
+      : ''
+  return pass('migrations', title, `all four files present; nothing unaccounted-for sorts after ${last}${acknowledged}`)
 }
 
 /**

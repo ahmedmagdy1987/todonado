@@ -265,7 +265,14 @@ jobs:
       # concurrent transactions BOTH take the last slot and twenty concurrent
       # inserts from empty ALL land. Verified by running exactly that negative
       # control before committing.
-      EXPECTED_DB_TESTS: '167'
+      #
+      # 167 -> 172. The hostile migration review added the boundary cases the
+      # first pass had not probed: an UNCOMMITTED delete must not free a slot,
+      # one transaction inserting past the cap, the lock released on ROLLBACK,
+      # the pre-existing url length cap, and the timing-dependent case where a
+      # slot frees mid-statement — that last one asserts the INVARIANT rather
+      # than the outcome, because asserting the outcome was genuinely flaky.
+      EXPECTED_DB_TESTS: '172'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0

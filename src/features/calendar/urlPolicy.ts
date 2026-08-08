@@ -155,6 +155,15 @@ export function checkCalendarUrl(raw: string): CalendarUrlVerdict {
  *
  * `note` says what the case is FOR, so a future edit that flips an expectation
  * has to argue with a sentence rather than with a boolean.
+ *
+ * ── DO NOT PUT LENGTH CASES HERE ────────────────────────────────────────────
+ *
+ * The two implementations deliberately DISAGREE about length, so a length case
+ * in this table would fail the SQL comparison for the wrong reason.
+ * `checkCalendarUrl` reports `too_long` as a courtesy; `calendar_url_is_safe`
+ * says nothing about length because the database enforces it separately in the
+ * `calendar_sources_len` CHECK, which predates all of this. Length is covered
+ * by a TypeScript-only case below and by an INSERT test in the database suite.
  */
 export const CALENDAR_URL_CASES: readonly {
   url: string
@@ -223,4 +232,35 @@ export const CALENDAR_URL_CASES: readonly {
   { url: 'https://.example.com/a.ics', ok: false, note: 'leading dot' },
   { url: 'https://example.com./a.ics', ok: false, note: 'trailing dot; rejected for simplicity' },
   { url: 'https://example.c/a.ics', ok: false, note: 'one-character TLD' },
+
+  // ── rejected: IP addresses wearing a disguise ─────────────────────────────
+  // Every one of these resolves to loopback or link-local without ever looking
+  // like a dotted quad. They are refused by the "must be a dotted DNS name with
+  // a letter-initial final label" rule rather than by any IP-parsing.
+  { url: 'https://2130706433/a.ics', ok: false, note: 'integer-encoded 127.0.0.1' },
+  { url: 'https://0x7f000001/a.ics', ok: false, note: 'hex-encoded 127.0.0.1' },
+  { url: 'https://0177.0.0.1/a.ics', ok: false, note: 'octal-encoded 127.0.0.1' },
+  { url: 'https://127.1/a.ics', ok: false, note: 'short-form 127.0.0.1' },
+  { url: 'https://[::ffff:127.0.0.1]/a.ics', ok: false, note: 'IPv4-mapped IPv6' },
+  { url: 'https://2852039166/a.ics', ok: false, note: 'integer-encoded 169.254.169.254' },
+  { url: 'https://localhost./a.ics', ok: false, note: 'localhost with a trailing dot' },
+
+  // ── rejected: percent-encoding used to smuggle a host ─────────────────────
+  // A percent sign is not in the label alphabet, so an encoded host cannot
+  // decode into something else after this check has passed.
+  { url: 'https://%6c%6f%63alhost/a.ics', ok: false, note: 'percent-encoded localhost' },
+  { url: 'https://user%40evil.test/a.ics', ok: false, note: 'percent-encoded userinfo separator' },
+  { url: 'https://127.0.0.1%2f.example.com/a.ics', ok: false, note: 'encoded slash inside the host' },
+
+  // ── accepted: the target is the HOST, never the path or query ─────────────
+  {
+    url: 'https://cal.example.com/a.ics?redirect=https://localhost/',
+    ok: true,
+    note: 'a scary-looking query does not make the host internal; redirects are a fetch-time concern',
+  },
+  {
+    url: 'https://cal.example.com/user@example.com/basic.ics',
+    ok: true,
+    note: 'an @ in the PATH is not userinfo, and Google feeds really look like this',
+  },
 ]
