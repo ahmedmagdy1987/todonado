@@ -153,7 +153,21 @@ export function SetupView({
             </div>
           )}
 
-          <Button onClick={start} size="lg" className="w-full" disabled={startSession.isPending}>
+          {/*
+            `loading` as well as `disabled`, because the insert is awaited before
+            the running view appears (see useFocusSessions) and a greyed-out
+            button with no spinner reads as a dead button rather than as work in
+            progress. `disabled` is kept explicitly: it is what makes a second
+            click impossible, and that must not depend on how `loading` happens
+            to be implemented in the Button primitive.
+          */}
+          <Button
+            onClick={start}
+            size="lg"
+            className="w-full"
+            loading={startSession.isPending}
+            disabled={startSession.isPending}
+          >
             <Target className="h-4 w-4" aria-hidden />
             {pomodoro ? `Start pomodoro 1 of ${POMODORO.cyclesBeforeLongBreak}` : `Start ${plannedMinutes}-min sprint`}
           </Button>
