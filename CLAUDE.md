@@ -749,6 +749,30 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
+> ### ⚠️ ONE FILE IS PENDING AS OF 2026-08-08 — `20260808120000_calendar_sources_write_guard`
+>
+> **`supabase/migrations/20260808120000_calendar_sources_write_guard.sql` is committed and NOT
+> applied.** It is the durable half of audit FLAG-5: a 10-row per-user cap on `calendar_sources`
+> enforced by a trigger under `pg_advisory_xact_lock`, structural CHECKs on the URL (scheme,
+> credentials, IP literals, port, dotted host), a shape CHECK, and a partial unique index against
+> exact duplicates. Full rationale in the file header and in
+> `docs/AUDIT_2026-07-31_prelaunch2.md` under FLAG-5.
+>
+> **Risk of applying it: low, and currently zero-impact.** Production `calendar_sources` holds
+> **0 rows** (verified read-only 2026-08-08), so no existing row can fail the new constraints. It
+> adds one function, two CHECKs, one index and one trigger; it alters no column, drops nothing, and
+> widens no privilege — the only GRANT is EXECUTE on its own helper, to `authenticated` and
+> `service_role`, replacing the implicit PUBLIC default that a CHECK needs in order to be
+> evaluable at all.
+>
+> **It is applied from empty twice on every push** by the `database` CI job (37/37) and by the
+> local Supabase stack in the `supabase` job, and `db-tests/calendarSourcesGuard.db.test.ts` runs
+> the real thing on real connections — including the two concurrency cases that were confirmed to
+> FAIL when the advisory lock is removed.
+>
+> The rule below is unchanged and still applies to it: **an agent must NOT run `supabase db push`.**
+> The owner runs it, in a real terminal, when they choose. FLAG-5 stays OPEN until they do.
+>
 > ### ✅ CORRECTED 2026-08-07 — ALL FOUR ARE APPLIED. THIS BOX WAS STALE, AND IT WAS BELIEVED
 >
 > **The heading here said "FOUR MIGRATIONS ARE PENDING" and it was wrong.** A read-only probe found

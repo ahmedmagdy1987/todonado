@@ -45,6 +45,28 @@ export const REQUIRED_MIGRATIONS_BEFORE_LIVE = Object.freeze([
   '20260801170000_application_data_api_grants.sql',
 ])
 
+/**
+ * Migrations that sort AFTER the billing set and have been deliberately
+ * accounted for in `docs/BILLING_SETUP.md` §1.
+ *
+ * ── WHY THIS LIST EXISTS RATHER THAN A LONGER REQUIRED LIST ────────────────
+ *
+ * The "nothing newer" rule catches a migration that landed after the runbook
+ * was written, because applying §1's ordered list verbatim would skip it. That
+ * is a real hazard and the rule stays. But the answer is not to declare every
+ * later migration REQUIRED before live: the FLAG-5 calendar guard is security
+ * hardening, not part of the money path, and whether it ships before or after
+ * the Stripe switch is the owner's call, not this script's.
+ *
+ * So a file here means "the runbook knows about it", not "it must be applied".
+ * `checkMigrationChain` still NAMES every entry in its detail line, because a
+ * pending security migration that a green preflight quietly hid would be worse
+ * than the stale-runbook problem this whole check exists to prevent.
+ */
+export const ACKNOWLEDGED_LATER_MIGRATIONS = Object.freeze([
+  '20260808120000_calendar_sources_write_guard.sql',
+])
+
 /** Hobby-plan ceiling, mirrored from api/_lib/functionBudget.test.ts. */
 export const VERCEL_FUNCTION_LIMIT = 12
 
@@ -133,18 +155,33 @@ export function checkMigrationChain(filenames) {
   }
 
   const last = REQUIRED_MIGRATIONS_BEFORE_LIVE[REQUIRED_MIGRATIONS_BEFORE_LIVE.length - 1]
-  const newer = sql.filter((f) => f > last)
-  if (newer.length > 0) {
+  const later = sql.filter((f) => f > last)
+  const unaccounted = later.filter((f) => !ACKNOWLEDGED_LATER_MIGRATIONS.includes(f))
+  if (unaccounted.length > 0) {
     return fail(
       'migrations',
       title,
-      `${newer.length} migration(s) sort after ${last}: ${newer.join(', ')}. ` +
+      `${unaccounted.length} migration(s) sort after ${last}: ${unaccounted.join(', ')}. ` +
         'docs/BILLING_SETUP.md §1 lists an ordered set that no longer covers everything — ' +
         're-read it before applying anything.',
     )
   }
 
-  return pass('migrations', title, `all four present; nothing sorts after ${last}`)
+  /*
+   * Named, never merely tolerated: a green line that hid a pending migration
+   * would defeat the point of checking at all.
+   *
+   * The wording is deliberate. This said "also present and accounted for",
+   * which reads — next to a [PASS] — as "that one is handled too", when the
+   * whole reason for printing it is that it is NOT. This check only ever looks
+   * at FILES IN THE REPO; whether anything is applied is the separate
+   * `--migrations-applied` gate, and it says so out loud.
+   */
+  const acknowledged =
+    later.length > 0
+      ? `; also in the repo, NOT a pre-live requirement, apply status NOT checked here: ${later.join(', ')}`
+      : ''
+  return pass('migrations', title, `all four files present; nothing unaccounted-for sorts after ${last}${acknowledged}`)
 }
 
 /**

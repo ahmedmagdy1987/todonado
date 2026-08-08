@@ -1,3 +1,5 @@
+import { normalizeCalendarUrl } from './ssrf.js'
+
 /**
  * ABUSE CONTROLS FOR THE CALENDAR PROXY.
  *
@@ -129,6 +131,26 @@ export function countVevents(ics: string): number {
 /**
  * A conservative key for "these two rows point at the same feed".
  *
+ * ── webcal:// MUST BE NORMALISED HERE, AND THAT WAS A REAL BUG ─────────────
+ *
+ * This function decides, before any network work, whether a row is fetchable at
+ * all: `calendar-fetch.ts` reports `invalid_source` and SKIPS any row whose key
+ * is null. It used to reject every scheme that was not literally http/https —
+ * so a `webcal://` row, which the settings UI has always accepted and which is
+ * exactly what Apple and Google hand you, was classified invalid and NEVER
+ * reached `fetchIcsGuarded`. That is the one place `normalizeCalendarUrl` runs,
+ * so the conversion that would have made it work could never happen. The user
+ * saw "Calendar subscribed. Meetings will refresh automatically." and it never
+ * refreshed.
+ *
+ * Reusing `normalizeCalendarUrl` rather than repeating the rewrite is the point:
+ * this function and the fetch path must agree on what a URL IS, and two copies
+ * of that rule is how they stopped agreeing in the first place.
+ *
+ * It also makes the deduplication more correct, not just more permissive:
+ * `webcal://h/f.ics` and `https://h/f.ics` are the same feed, so they now
+ * collapse to ONE outbound request instead of two.
+ *
  * ── WHY IT IS CONSERVATIVE ─────────────────────────────────────────────────
  *
  * Deduplication that is too clever collapses feeds that are genuinely
@@ -149,12 +171,14 @@ export function countVevents(ics: string): number {
  */
 export function calendarUrlKey(raw: string): string | null {
   if (typeof raw !== 'string') return null
+  // Length is judged on what the user stored, before any rewrite.
   const trimmed = raw.trim()
   if (!trimmed || trimmed.length > MAX_URL_LENGTH) return null
 
   let url: URL
   try {
-    url = new URL(trimmed)
+    // The SAME rewrite the fetch path applies. See the header.
+    url = new URL(normalizeCalendarUrl(trimmed))
   } catch {
     return null
   }

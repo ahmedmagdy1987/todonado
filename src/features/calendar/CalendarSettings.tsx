@@ -8,12 +8,23 @@ import { todayISO } from '@/lib/date'
 import { useAuth } from '@/features/auth/auth-context'
 import { usePlan } from '@/features/billing/usePlan'
 import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
+import { MAX_CALENDAR_SOURCES_PER_USER } from '@/lib/config'
 import type { CalendarSource } from '@/types/database'
 import { useCalendarSources } from './api/useCalendarSources'
 import { useCalendarBusy } from './api/useCalendarBusy'
+import { checkCalendarUrl } from './urlPolicy'
 
 /** Cap stored .ics uploads so we don't persist multi-MB blobs per user. */
 const MAX_ICS_BYTES = 1_000_000
+
+/**
+ * Said the same way for a link and for a file, because the cap counts both.
+ * It states the number rather than hiding behind "too many": a person at the
+ * limit needs to know what the limit IS to decide what to remove.
+ */
+const capReachedMessage =
+  `You have ${MAX_CALENDAR_SOURCES_PER_USER} calendars, which is the maximum. ` +
+  'Remove one to add another.'
 
 function hostLabel(url: string): string {
   try {
@@ -148,8 +159,28 @@ export function CalendarSettings() {
 
   function addUrl() {
     const u = url.trim()
-    if (!/^(https?:|webcal:)\/\//i.test(u)) {
-      toast.show('Enter an https:// or webcal:// .ics URL')
+    /*
+     * THE UX HALF OF THE FLAG-5 WRITE GUARD.
+     *
+     * The scheme test this replaces accepted `webcal://user:pass@127.0.0.1:22/`
+     * without comment and left the database to refuse it as a bare 23514, which
+     * surfaces as "new row violates check constraint" — true, and useless.
+     * `checkCalendarUrl` applies the same structural rules the CHECK does and
+     * says which one failed. The database remains the enforcement.
+     */
+    const verdict = checkCalendarUrl(u)
+    if (!verdict.ok) {
+      toast.show(verdict.message)
+      return
+    }
+    if (sources.length >= MAX_CALENDAR_SOURCES_PER_USER) {
+      toast.show(capReachedMessage)
+      return
+    }
+    // Exact duplicates are refused by a partial unique index; catching it here
+    // keeps the message about the calendar rather than about the index.
+    if (sources.some((s) => s.kind === 'url' && s.url === u)) {
+      toast.show('You have already subscribed to that calendar.')
       return
     }
     // NOTHING HAPPENS UNTIL THE PLAN IS KNOWN. `usePlan` fails closed, so for
@@ -184,6 +215,12 @@ export function CalendarSettings() {
     if (!file) return
     if (file.size > MAX_ICS_BYTES) {
       toast.show('That .ics file is too large (max 1 MB)')
+      return
+    }
+    // The cap counts every source, not just subscriptions: an uploaded file
+    // makes no outbound request but still stores up to a megabyte.
+    if (sources.length >= MAX_CALENDAR_SOURCES_PER_USER) {
+      toast.show(capReachedMessage)
       return
     }
     const text = await file.text()

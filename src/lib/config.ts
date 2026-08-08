@@ -95,6 +95,29 @@ export const FREE_MIND_MAPS = 1
 export const FREE_ACTIVE_CHALLENGES = 1
 
 /**
+ * How many calendar sources ONE USER may own, on every plan (audit FLAG-5).
+ *
+ * NOT A PLAN LIMIT, and that is the difference from every cap above it. The
+ * others shape the Free tier; this one is an abuse ceiling, so Pro and Founding
+ * are subject to it too. Every URL source is an outbound request from our
+ * servers on each refresh, and a paying account is exactly the one that can make
+ * them.
+ *
+ * TEN, because that is `MAX_SOURCES_PER_REQUEST` in api/_lib/calendarLimits.ts —
+ * the issue #9 limit on how many sources a single fetch will process. Aligning
+ * the two means nobody can own a calendar that silently never refreshes: a
+ * higher cap would create exactly that, and a lower one would make the request
+ * limit unreachable dead code.
+ *
+ * IT IS NOT ENFORCED HERE. The only writer is the browser, so the real guard is
+ * a trigger in 20260808120000_calendar_sources_write_guard.sql holding an
+ * advisory lock per user. This constant exists so the UI can say "you have ten"
+ * before a round trip; `calendarCaps.test.ts` pins it to both the migration and
+ * the request limit so the three cannot drift.
+ */
+export const MAX_CALENDAR_SOURCES_PER_USER = 10
+
+/**
  * How many days the points score covers. Deliberately the same as
  * `INSIGHTS_SUMMARY_DAYS`, so the chip on Today and the breakdown in Insights
  * describe exactly the same window and cannot disagree.

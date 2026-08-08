@@ -449,6 +449,52 @@ describe('calendar abuse controls', () => {
     expect(fetchIcsGuarded).toHaveBeenCalledTimes(4)
   })
 
+  /*
+   * REGRESSION — a webcal:// subscription was accepted and then never fetched.
+   *
+   * The row was discarded at the dedup step, BEFORE the network, because
+   * `calendarUrlKey` rejected every scheme that was not literally http/https.
+   * So it never reached `fetchIcsGuarded`, which is the only place
+   * `normalizeCalendarUrl` rewrites webcal to https. The settings UI has always
+   * offered webcal (it is what Apple hands you) and told the user their
+   * meetings would refresh automatically.
+   *
+   * This asserts the FETCH happened, not merely that no error was reported —
+   * "no error" was already true of the broken behaviour in the `ics` field.
+   */
+  it('FETCHES a webcal:// subscription instead of discarding it as invalid', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [{ id: 's1', url: 'webcal://p01.calendar.icloud.com/published/2/abc' }],
+      }),
+    )
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+
+    const res = await handler(post({ authorization: 'Bearer good' }))
+    const body = (await res.json()) as { sources: { id: string; ics?: string; error?: string }[] }
+
+    expect(fetchIcsGuarded).toHaveBeenCalledTimes(1)
+    expect(body.sources[0].error).toBeUndefined()
+    expect(body.sources[0].ics).toBeDefined()
+  })
+
+  it('collapses a webcal:// and an https:// row for one feed into ONE request', async () => {
+    getSupabaseAdmin.mockReturnValue(
+      makeAdmin({
+        billingPlan: 'pro',
+        sources: [
+          { id: 'a', url: 'webcal://cal.example/f.ics' },
+          { id: 'b', url: 'https://cal.example/f.ics' },
+        ],
+      }),
+    )
+    fetchIcsGuarded.mockResolvedValue(ONE_EVENT)
+
+    await handler(post({ authorization: 'Bearer good' }))
+    expect(fetchIcsGuarded).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects an over-long URL without ever fetching it', async () => {
     getSupabaseAdmin.mockReturnValue(
       makeAdmin({
