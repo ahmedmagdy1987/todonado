@@ -55,10 +55,15 @@ describe('defaults', () => {
 
 describe('parsePrefs validates every field independently', () => {
   it('accepts a complete, valid object', () => {
+    // Deliberately EXHAUSTIVE: `toEqual` against the whole object means adding a
+    // preference has to be acknowledged here rather than slipping in unnoticed.
+    // `tick` was added with the optional countdown ticking and is listed for
+    // exactly that reason.
     const input = {
       sound: false,
       volume: 0.25,
       tone: 'bell',
+      tick: true,
       digestHidden: true,
       celebrations: false,
       startOn: 'hub',
@@ -182,5 +187,36 @@ describe('the tone catalogue', () => {
 
   it('stays small — these are synthesised, not a sound library', () => {
     expect(CHIME_TONES.length).toBeLessThanOrEqual(5)
+  })
+})
+
+describe('the countdown ticking preference', () => {
+  it('defaults to OFF — continuous audio is never switched on for someone who did not ask', () => {
+    expect(DEFAULT_PREFS.tick).toBe(false)
+  })
+
+  it('an existing user with stored prefs and no `tick` key gets OFF, not on', () => {
+    // This is the upgrade path: everyone already using the app has a stored blob
+    // written before this feature existed.
+    const stored = { sound: true, volume: 0.6, tone: 'soft', digestHidden: false }
+    expect(parsePrefs(stored).tick).toBe(false)
+    // ...and the rest of their settings survive untouched.
+    expect(parsePrefs(stored).volume).toBe(0.6)
+    expect(parsePrefs(stored).sound).toBe(true)
+  })
+
+  it('round-trips once chosen, and a junk value falls back to OFF', () => {
+    expect(parsePrefs({ tick: true }).tick).toBe(true)
+    expect(parsePrefs({ tick: 'yes' }).tick).toBe(false)
+    expect(parsePrefs({ tick: 1 }).tick).toBe(false)
+    expect(parsePrefs({ tick: null }).tick).toBe(false)
+  })
+
+  it('is independent of the end chime and of the master switch', () => {
+    // Three separate decisions; changing one must not move the others.
+    const p = parsePrefs({ tick: true, sound: false, tone: 'bell' })
+    expect(p.tick).toBe(true)
+    expect(p.sound).toBe(false)
+    expect(p.tone).toBe('bell')
   })
 })
