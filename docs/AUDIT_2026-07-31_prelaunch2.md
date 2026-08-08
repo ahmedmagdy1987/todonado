@@ -38,7 +38,7 @@
 > | FLAG-14 | **CLOSED** — active-subscription refusal, Stripe customer reuse, and a checkout idempotency key |
 > | FLAG-15 | **CLOSED** — one timeout and one byte budget per REQUEST rather than per hop; redirect bodies drained |
 > | FLAG-6 | **CLOSED** (2026-08-07, issue #10) — the connection is PINNED to the address that was validated, via a custom `lookup` hook on a hop-scoped `node:https` Agent. No second resolution happens, so there is no TOCTOU window left to race. The undici problem below was real and was routed around rather than solved: `node:http`/`node:https` expose the same hook with no production dependency |
-> | FLAG-5 | **STILL OPEN.** Residual risk stated in full in the `api/_lib/ssrf.ts` header. The durable fix is a per-user cap on `calendar_sources` rows plus write-time URL validation — a migration the owner should schedule deliberately |
+> | FLAG-5 | **CLOSED** (2026-08-08, issue #18) — a durable 10-row per-user cap on `calendar_sources`, enforced by a trigger holding `pg_advisory_xact_lock` because count-then-insert is not race-safe, plus structural write-time URL validation in a CHECK. Migration `20260808120000` applied to production and verified. Fetch-time SSRF remains authoritative: the write-time check never resolves DNS |
 
 ---
 
@@ -337,12 +337,17 @@ read up to 2 MB of the response back.
 **Fix:** validate the URL at WRITE time as well as fetch time, and cap `calendar_sources` rows per
 user. The write-time validation is the one that changes the shape of the problem.
 
-> #### 🟡 FIX WRITTEN, MIGRATION NOT YET APPLIED (2026-08-08)
+> #### ✅ DEPLOYED AND VERIFIED 2026-08-08 — this flag is CLOSED
 >
-> `supabase/migrations/20260808120000_calendar_sources_write_guard.sql` is committed and
-> **deliberately unapplied**. Until the owner runs it, production is unchanged and this flag stays
-> **OPEN**. Production `calendar_sources` currently holds **0 rows**, so applying it can reject
-> nothing that exists.
+> `supabase/migrations/20260808120000_calendar_sources_write_guard.sql` is **applied to
+> production**. PR #19 merged as `c26b2d3`; the migration is recorded once, the ledger is 37/37
+> with zero drift against the repo, and `calendar_sources` held **0 rows** at deployment so
+> nothing existing could be rejected. Issue #18 closed.
+>
+> Verified against the live catalog at deployment: cap `10` read from the deployed function
+> source, trigger enabled, both CHECKs VALIDATED, the partial unique index VALID, no
+> SECURITY DEFINER, `search_path` pinned to `''`, RLS still enabled with the same four
+> owner-only policies, and the table ACL unchanged.
 >
 > **Why it had to be a migration.** The only writer is the browser, through PostgREST, as
 > `authenticated`; `service_role` holds `SELECT` and nothing else on this table. There is no
