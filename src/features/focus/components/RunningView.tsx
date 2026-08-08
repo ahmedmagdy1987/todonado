@@ -17,6 +17,7 @@ import {
   isComplete,
   remainingSeconds,
   resume as resumeTiming,
+  resumeAnchorMs,
   type FocusTiming,
 } from '../timer'
 import { useNow } from '../useNow'
@@ -182,13 +183,62 @@ export function RunningView({
 
   function togglePause() {
     if (paused) {
-      const resumed = resumeTiming(timing, Date.now())
-      patchSession.mutate({
+      const resumeAt = Date.now()
+      const pausedAtMs = timing.pausedAtMs ?? resumeAt
+      const resumed = resumeTiming(timing, resumeAt)
+      /*
+       * RE-ANCHOR SO THE COUNTDOWN CONTINUES FROM WHERE IT FROZE.
+       *
+       * The write below records the pause in WHOLE seconds; the anchor absorbs
+       * the sub-second remainder that would otherwise be counted as focus. The
+       * first frame after Resume is then identical to the last frame before it,
+       * whatever the pause lasted and whatever the round trip costs — and
+       * repeated pausing neither gains nor loses time.
+       *
+       * Display only. A reload still recovers from the database exactly as
+       * before.
+       */
+      const previousAnchor = anchorRef.current
+      anchorRef.current = {
         id: session.id,
-        patch: { paused_at: null, accumulated_paused_seconds: resumed.accumulatedPausedSeconds },
-      })
+        // `timing.startedAtMs` rather than `anchor.startedAtMs`: `anchor` is a
+        // `let`, so inside this closure TypeScript widens it back to nullable.
+        startedAtMs: resumeAnchorMs(timing.startedAtMs, pausedAtMs, resumeAt),
+      }
+      patchSession.mutate(
+        {
+          id: session.id,
+          patch: { paused_at: null, accumulated_paused_seconds: resumed.accumulatedPausedSeconds },
+        },
+        {
+          // The re-anchor above is optimistic, exactly like the cache patch it
+          // accompanies. If the write fails the session goes back to PAUSED, and
+          // an anchor computed for the resumed total would then read a whole
+          // pause too high. Roll both back together or neither.
+          onError: () => {
+            anchorRef.current = previousAnchor
+          },
+        },
+      )
     } else {
-      patchSession.mutate({ id: session.id, patch: { paused_at: new Date().toISOString() } })
+      /*
+       * PAUSE AT THE INSTANT THE DISPLAYED NUMBER WAS COMPUTED FOR — `now`, the
+       * value from `useNow` that produced the clock currently on screen — and
+       * NOT at `Date.now()`.
+       *
+       * `useNow` re-renders once a second, so a click lands up to a second after
+       * the number it appears to be pausing. Stamping the click makes the pause
+       * instant later than the frozen display, and every consumer then has to
+       * choose between showing the stale number and showing the true one — which
+       * is a visible jump either at Pause or at Resume, whichever end pays for
+       * it. Stamping `now` removes the disagreement instead of arbitrating it:
+       * the screen, a reload mid-pause, the resume and `actual_seconds` all
+       * describe the same instant.
+       *
+       * The sub-second gap it hands to the pause is real but bounded and
+       * CONSERVATIVE — it can only ever under-report focus, never inflate it.
+       */
+      patchSession.mutate({ id: session.id, patch: { paused_at: new Date(now).toISOString() } })
     }
   }
 

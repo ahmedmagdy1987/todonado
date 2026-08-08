@@ -46,11 +46,78 @@ export function focusStartAnchorMs(serverStartedAtMs: number, clientNowMs: numbe
   return Math.min(serverStartedAtMs, clientNowMs)
 }
 
-/** Seconds actually focused so far (excludes all paused time). */
+/**
+ * Seconds actually focused so far (excludes all paused time).
+ *
+ * ── THE `Math.max(0, …)` ON THE CURRENT PAUSE IS A BUG FIX, NOT TIDINESS ────
+ *
+ * `now` comes from `useNow`, which STOPS updating the moment the session is
+ * paused — so while paused it holds the value from the last tick, up to a second
+ * BEFORE the click. `paused_at` is stamped at the click. That makes
+ * `now - pausedAt` a small NEGATIVE number, and `Math.floor(-0.3)` is **-1**,
+ * not 0. Subtracting -1 ADDED a second to elapsed, so the display dropped one
+ * second the instant Pause was pressed: 24:45 became 24:44 with no time passing.
+ *
+ * Evaluating a paused session AT `paused_at` — never before it — freezes the
+ * clock on the value it genuinely held when the button was pressed, and holds it
+ * there whether the next read happens a millisecond or a day later. `resume()`
+ * below has always clamped this span at zero; `elapsedSeconds` did not, and that
+ * asymmetry was the bug.
+ *
+ * ONE FLOOR, AT THE END. Flooring the gross time and the pause separately let
+ * their rounding errors compound, so a pause could cost or gain a second purely
+ * from where the two boundaries happened to fall. Subtracting in milliseconds
+ * and flooring once cannot do that.
+ */
 export function elapsedSeconds(t: FocusTiming, nowMs: number): number {
-  const gross = Math.floor((nowMs - t.startedAtMs) / 1000)
-  const currentPause = t.pausedAtMs !== null ? Math.floor((nowMs - t.pausedAtMs) / 1000) : 0
-  return Math.max(0, gross - t.accumulatedPausedSeconds - currentPause)
+  // Reading a paused session AT the pause instant is what makes its value
+  // canonical: `now` before it and `now` long after it both yield the same
+  // answer, so the screen, a reload and the resume all agree.
+  const at = t.pausedAtMs !== null ? Math.max(nowMs, t.pausedAtMs) : nowMs
+  const currentPauseMs = t.pausedAtMs !== null ? at - t.pausedAtMs : 0
+  const focusedMs = at - t.startedAtMs - t.accumulatedPausedSeconds * 1000 - currentPauseMs
+  return Math.max(0, Math.floor(focusedMs / 1000))
+}
+
+/**
+ * The anchor that makes the countdown RESUME on exactly where it froze.
+ *
+ * ── WHY RESUMING NEEDED ITS OWN ARITHMETIC ─────────────────────────────────
+ *
+ * Resuming used to add the pause to `accumulated_paused_seconds` and let
+ * `elapsedSeconds` recompute from the original start. Two independent roundings
+ * then decided the answer — the whole elapsed span and the pause span — so the
+ * display could land a second either side of where it froze. Worse, `useNow` did
+ * not re-sync on resume, so for up to a second the screen showed a value
+ * computed from a STALE `now` against an already-grown accumulated total: the
+ * countdown jumped UP by the length of the pause, then snapped back.
+ *
+ * ── WHY IT SHIFTS BY THE REMAINDER AND NOT TO THE DISPLAYED SECOND ─────────
+ *
+ * The obvious fix is to re-anchor onto the whole second that was on screen. It
+ * is exact for one resume and WRONG over many: each pause would throw away the
+ * sub-second remainder of the work before it, so forty pause/resume cycles of
+ * 3.4s lost sixteen real seconds of focus — silently, into `actual_seconds`.
+ *
+ * `accumulated_paused_seconds` only ever grows by WHOLE seconds (`resume()`
+ * floors), so the pause's remainder is the precise amount that would otherwise
+ * be double-counted as focus. Adding exactly that to the anchor conserves
+ * focused milliseconds across every cycle: the resumed clock reads the frozen
+ * value, advances one second later, and drifts by nothing however often it is
+ * paused.
+ *
+ * The DATABASE is untouched by this. `accumulated_paused_seconds` is still
+ * written in whole seconds and is still what a reload recovers from; this is the
+ * live display, for as long as this session is on screen.
+ */
+export function resumeAnchorMs(
+  startedAtMs: number,
+  pausedAtMs: number,
+  resumeAtMs: number,
+): number {
+  const pausedForMs = Math.max(0, resumeAtMs - pausedAtMs)
+  const wholeSeconds = Math.floor(pausedForMs / 1000)
+  return startedAtMs + (pausedForMs - wholeSeconds * 1000)
 }
 
 export function remainingSeconds(plannedMinutes: number, elapsed: number): number {
