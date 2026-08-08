@@ -749,19 +749,22 @@ service-role client but filters by the JWT-verified caller.
 - Live project ref **`lplsbfduankkpglyusjp`** → API URL `https://lplsbfduankkpglyusjp.supabase.co`.
 
 >
-> ### ⚠️ ONE FILE IS PENDING AS OF 2026-08-08 — `20260808120000_calendar_sources_write_guard`
+> ### ✅ APPLIED 2026-08-08 — `20260808120000_calendar_sources_write_guard`. NOTHING IS PENDING.
 >
-> **`supabase/migrations/20260808120000_calendar_sources_write_guard.sql` is committed and NOT
-> applied.** It is the durable half of audit FLAG-5: a 10-row per-user cap on `calendar_sources`
+> **`supabase/migrations/20260808120000_calendar_sources_write_guard.sql` is applied to production**
+> (PR #19 merged as `c26b2d3`; migration recorded once, ledger 37/37, zero drift against this repo).
+> This box previously said it was pending, and that sentence outlived the deployment by one turn —
+> the same way the four-billing-migrations box went stale twice before it. If you are reading this
+> to decide anything, confirm from `supabase_migrations.schema_migrations`, never from here. It is the durable half of audit FLAG-5: a 10-row per-user cap on `calendar_sources`
 > enforced by a trigger under `pg_advisory_xact_lock`, structural CHECKs on the URL (scheme,
 > credentials, IP literals, port, dotted host), a shape CHECK, and a partial unique index against
 > exact duplicates. Full rationale in the file header and in
 > `docs/AUDIT_2026-07-31_prelaunch2.md` under FLAG-5.
 >
-> **Risk of applying it: low, and currently zero-impact.** Production `calendar_sources` holds
-> **0 rows** (verified read-only 2026-08-08), so no existing row can fail the new constraints. It
-> adds one function, two CHECKs, one index and one trigger; it alters no column, drops nothing, and
-> widens no privilege — the only GRANT is EXECUTE on its own helper, to `authenticated` and
+> **It applied with zero impact.** Production `calendar_sources` held **0 rows** at deployment, so
+> no existing row could fail the new constraints. It added one function plus a trigger function, two
+> CHECKs (both VALIDATED), one index (VALID) and one trigger (enabled); it altered no column, dropped
+> nothing, and widened no TABLE privilege — the only GRANT is EXECUTE on its own helper, to `authenticated` and
 > `service_role`, replacing the implicit PUBLIC default that a CHECK needs in order to be
 > evaluable at all.
 >
@@ -770,8 +773,16 @@ service-role client but filters by the JWT-verified caller.
 > the real thing on real connections — including the two concurrency cases that were confirmed to
 > FAIL when the advisory lock is removed.
 >
-> The rule below is unchanged and still applies to it: **an agent must NOT run `supabase db push`.**
-> The owner runs it, in a real terminal, when they choose. FLAG-5 stays OPEN until they do.
+> **One deviation from the file's own comment is live.** Both new functions carry `anon=X`, though
+> the migration says anon is deliberately absent. `revoke ... from public` removes only PUBLIC's
+> implicit grant; Supabase's `ALTER DEFAULT PRIVILEGES` separately grants EXECUTE on every new
+> public function to anon/authenticated/service_role, and 14 of the 21 pre-existing public
+> functions already carry it. Not exploitable — `calendar_sources_enforce_cap` returns `trigger`
+> so it cannot be called directly, and `calendar_url_is_safe` is an IMMUTABLE string predicate
+> that reads no table. Worth a project-wide decision, not a patch to one migration.
+>
+> The rule below is unchanged: **an agent must NOT run `supabase db push`.** FLAG-5 is CLOSED
+> (issue #18).
 >
 > ### ✅ CORRECTED 2026-08-07 — ALL FOUR ARE APPLIED. THIS BOX WAS STALE, AND IT WAS BELIEVED
 >

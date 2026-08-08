@@ -437,13 +437,12 @@ prefer.
 >
 > `20260808120000_calendar_sources_write_guard.sql` — the durable half of audit FLAG-5: a 10-row
 > per-user cap on `calendar_sources` enforced by a trigger under an advisory lock, structural
-> CHECKs on the URL, a shape CHECK, and a partial unique index. It is **committed and unapplied**.
+> CHECKs on the URL, a shape CHECK, and a partial unique index. It was **applied to production on
+> 2026-08-08** (issue #18 closed); the ledger is 37/37 with zero drift.
 >
 > **It is deliberately not listed as a fifth pre-live migration.** It touches no billing object and
-> is inert with respect to the money path, so whether it ships before or after the Stripe switch is
-> a judgement call, not a prerequisite. Applying it is low risk and currently zero-impact —
-> production `calendar_sources` holds **0 rows** — but it is still the owner's call and its own
-> decision.
+> is inert with respect to the money path, so it was never a Stripe prerequisite — it shipped ahead
+> of the switch on its own merits, as its own decision.
 >
 > It is named here because `npm run preflight:live` refuses to pass with a migration sorting after
 > file 4 that this table does not mention; `ACKNOWLEDGED_LATER_MIGRATIONS` in
