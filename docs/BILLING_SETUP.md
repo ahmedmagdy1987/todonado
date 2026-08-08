@@ -433,6 +433,24 @@ prefer.
 | 3 | `20260801160000_billing_service_role_access.sql` | the SQL privilege contract for `billing` | **privilege-changing** — NOT purely additive, see §1.3 |
 | 4 | `20260801170000_application_data_api_grants.sql` | the SQL privilege contract for every other application table | **privilege-changing** — NOT purely additive, see §1.4 |
 
+> ### One migration sorts AFTER this set, and it is NOT part of it
+>
+> `20260808120000_calendar_sources_write_guard.sql` — the durable half of audit FLAG-5: a 10-row
+> per-user cap on `calendar_sources` enforced by a trigger under an advisory lock, structural
+> CHECKs on the URL, a shape CHECK, and a partial unique index. It is **committed and unapplied**.
+>
+> **It is deliberately not listed as a fifth pre-live migration.** It touches no billing object and
+> is inert with respect to the money path, so whether it ships before or after the Stripe switch is
+> a judgement call, not a prerequisite. Applying it is low risk and currently zero-impact —
+> production `calendar_sources` holds **0 rows** — but it is still the owner's call and its own
+> decision.
+>
+> It is named here because `npm run preflight:live` refuses to pass with a migration sorting after
+> file 4 that this table does not mention; `ACKNOWLEDGED_LATER_MIGRATIONS` in
+> `scripts/preflightLive.js` is the other half of that handshake, and the preflight still PRINTS the
+> filename rather than falling silent about it. Rationale:
+> `docs/AUDIT_2026-07-31_prelaunch2.md` under FLAG-5.
+
 > **Nothing here is behaviour-changing for a user who is not buying anything.**
 > Files 1 and 2 only alter the money path, which is inert until live keys are
 > set. Files 3 and 4 narrow privileges to exactly what the application uses, so a

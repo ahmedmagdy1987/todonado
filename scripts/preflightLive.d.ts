@@ -33,6 +33,7 @@ export interface PreflightSummary {
 }
 
 export declare const REQUIRED_MIGRATIONS_BEFORE_LIVE: readonly string[]
+export declare const ACKNOWLEDGED_LATER_MIGRATIONS: readonly string[]
 export declare const VERCEL_FUNCTION_LIMIT: number
 export declare const REQUIRED_ENDPOINTS: readonly string[]
 export declare const EXPECTED_MONTHLY_USD: number

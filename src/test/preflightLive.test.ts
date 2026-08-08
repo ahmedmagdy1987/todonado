@@ -5,6 +5,7 @@ import {
   EXPECTED_MONTHLY_USD,
   EXPECTED_YEARLY_USD,
   MANUAL_GATES,
+  ACKNOWLEDGED_LATER_MIGRATIONS,
   REQUIRED_MIGRATIONS_BEFORE_LIVE,
   checkFunctionBudget,
   checkMigrationChain,
@@ -52,9 +53,34 @@ function productionCsp(): string {
 }
 
 describe('the go-live preflight, against the real repository', () => {
-  it('finds all four pre-live migrations, with nothing newer', () => {
+  it('finds all four pre-live migrations, with nothing UNACCOUNTED-FOR newer', () => {
     const result = checkMigrationChain(MIGRATIONS)
     expect(result.status, result.detail).toBe('pass')
+  })
+
+  it('still NAMES a later migration instead of quietly tolerating it', () => {
+    /*
+     * The distinction this pins. `ACKNOWLEDGED_LATER_MIGRATIONS` exists so a
+     * deliberately-documented file does not fail the preflight — but a green
+     * line that HID a pending migration would be worse than the stale-runbook
+     * problem the check exists to catch. So every later file must appear in the
+     * detail the owner reads.
+     */
+    const result = checkMigrationChain(MIGRATIONS)
+    for (const known of ACKNOWLEDGED_LATER_MIGRATIONS) {
+      expect(MIGRATIONS, `${known} is acknowledged but not in the repo`).toContain(known)
+      expect(result.detail).toContain(known)
+    }
+  })
+
+  it('still FAILS on a later migration nobody has accounted for', () => {
+    const result = checkMigrationChain([...MIGRATIONS, '29991231000000_surprise.sql'])
+    expect(result.status).toBe('fail')
+    expect(result.detail).toContain('29991231000000_surprise.sql')
+    // The acknowledged one must not be blamed alongside it.
+    for (const known of ACKNOWLEDGED_LATER_MIGRATIONS) {
+      expect(result.detail).not.toContain(`${known}.`)
+    }
   })
 
   it('finds the function budget intact', () => {

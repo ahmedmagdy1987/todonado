@@ -258,7 +258,14 @@ jobs:
       # edit away from a step that runs it against something real. The rule is
       # absolute rather than "unless it is only a comment", since a scanner
       # cannot tell the two apart and neither can a hurried reviewer.
-      EXPECTED_DB_TESTS: '142'
+      #
+      # 142 -> 167. db-tests/calendarSourcesGuard.db.test.ts covers the FLAG-5
+      # write guard, and two of its cases are the whole reason that guard is a
+      # trigger rather than a count: with the advisory lock removed, two
+      # concurrent transactions BOTH take the last slot and twenty concurrent
+      # inserts from empty ALL land. Verified by running exactly that negative
+      # control before committing.
+      EXPECTED_DB_TESTS: '167'
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/setup-node@v4.1.0

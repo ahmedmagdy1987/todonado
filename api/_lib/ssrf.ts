@@ -94,6 +94,19 @@ import type { LookupFunction } from 'node:net'
  * the shape: Pro-gated, 6/min, one budget per request. The durable fix is a
  * per-user cap on `calendar_sources` rows plus write-time URL validation, and
  * it is a migration the owner should schedule deliberately.
+ *
+ * THAT MIGRATION IS NOW WRITTEN, AND IS NOT YET APPLIED:
+ * `supabase/migrations/20260808120000_calendar_sources_write_guard.sql` — a
+ * 10-row per-user cap enforced by a trigger under an advisory lock, plus
+ * structural CHECKs on the URL. Until the owner runs it, everything in the
+ * paragraph above is still the whole story.
+ *
+ * WHAT IT DOES NOT CHANGE, AND THIS FILE STAYS AUTHORITATIVE FOR: the DNS half.
+ * The write-time check is deliberately structural — it never resolves a name,
+ * because a lookup inside a CHECK would make the database itself emit outbound
+ * requests, which is the very primitive being removed. A host like
+ * `metadata.google.internal` is structurally ordinary and passes write time; it
+ * is `resolveAllPublic` + `isPrivateIp` below that refuse it, by address.
  */
 
 /** Hard ceiling on a fetched .ics body (subscribed feeds are legitimately large). */

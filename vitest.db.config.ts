@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -9,6 +10,15 @@ import { defineConfig } from 'vitest/config'
  * parallel would make one suite's contention look like another's deadlock.
  */
 export default defineConfig({
+  /*
+   * The `@` alias, because a database test may legitimately import from src/.
+   * `calendarSourcesGuard.db.test.ts` runs the CLIENT's `CALENDAR_URL_CASES`
+   * table against the SQL function, which is the only way a single truth table
+   * can hold two implementations of one policy to the same answers.
+   */
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   test: {
     include: ['db-tests/**/*.db.test.ts'],
     pool: 'forks',

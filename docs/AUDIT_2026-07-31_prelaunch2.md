@@ -337,6 +337,39 @@ read up to 2 MB of the response back.
 **Fix:** validate the URL at WRITE time as well as fetch time, and cap `calendar_sources` rows per
 user. The write-time validation is the one that changes the shape of the problem.
 
+> #### 🟡 FIX WRITTEN, MIGRATION NOT YET APPLIED (2026-08-08)
+>
+> `supabase/migrations/20260808120000_calendar_sources_write_guard.sql` is committed and
+> **deliberately unapplied**. Until the owner runs it, production is unchanged and this flag stays
+> **OPEN**. Production `calendar_sources` currently holds **0 rows**, so applying it can reject
+> nothing that exists.
+>
+> **Why it had to be a migration.** The only writer is the browser, through PostgREST, as
+> `authenticated`; `service_role` holds `SELECT` and nothing else on this table. There is no
+> server-side write path to put a check in, so a guard anywhere but the database would be advice.
+>
+> | | |
+> |---|---|
+> | **Per-user cap** | **10 rows, every plan.** Not a plan limit — an abuse ceiling, so Pro and Founding are subject to it too. Ten is `MAX_SOURCES_PER_REQUEST` from issue #9, so nobody can own a calendar that silently never refreshes. `calendarCaps.test.ts` pins the client constant, the migration and the request limit to one number. |
+> | **Race safety** | A `before insert or update of user_id` trigger holding `pg_advisory_xact_lock` keyed on the user. `count(*)` then `insert` is not safe under READ COMMITTED, and locking the user's existing rows `for update` is the tempting fix that fails at zero rows — there is nothing to lock. **Both failure modes were reproduced** by removing the lock and watching the two race tests go red. |
+> | **URL policy** | Structural only, in an `IMMUTABLE` function behind a CHECK: scheme in http/https/webcal, no embedded credentials, no IP literal (v4 or v6), port in 80/443, a dotted DNS name, no whitespace or control characters. |
+> | **Duplicates** | A partial unique index on `(user_id, url) where kind = 'url'`. Near-duplicates stay a fetch-time concern for `calendarUrlKey`. |
+> | **Shape** | `kind='url'` now actually requires a url, and `kind='file'` requires `ics_text` — previously neither was true. |
+>
+> **The write-time check never resolves DNS, and must never learn how.** A lookup inside a CHECK
+> would put a network round trip on the write path, make the constraint non-deterministic, and hand
+> every authenticated user a way to make the *database* emit outbound requests — a fresh SSRF
+> primitive introduced by the anti-SSRF fix. So `metadata.google.internal` is structurally ordinary
+> and IS accepted at write time; it is refused at fetch time by `resolveAllPublic` + `isPrivateIp`,
+> which see the address rather than the name.
+>
+> **Fetch-time remains authoritative.** Nothing here replaces FLAG-6's pinning or issue #9's
+> budgets. What changes is that the table can no longer be used as unbounded storage for
+> attacker-chosen targets: the fan-out per request was already 10, and the fan-out per *account* is
+> now 10 as well.
+>
+> Closing criteria: the migration applied to production and verified. Not the merge of the PR.
+
 ### FLAG-6 · Medium · FACT — ~~SSRF guard re-resolves the hostname at connect time~~ **CLOSED**
 
 `api/_lib/ssrf.ts:216`
