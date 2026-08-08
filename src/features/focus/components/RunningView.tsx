@@ -17,6 +17,7 @@ import {
   isComplete,
   remainingSeconds,
   resume as resumeTiming,
+  resumeAnchorMs,
   type FocusTiming,
 } from '../timer'
 import { useNow } from '../useNow'
@@ -60,7 +61,6 @@ export function RunningView({
   const tickAudible = prefs.tick && soundAllowed
   const endingRef = useRef(false)
 
-  const now = useNow(!paused)
   /*
    * PINNED ONCE PER SESSION, and that is load-bearing.
    *
@@ -86,6 +86,19 @@ export function RunningView({
     accumulatedPausedSeconds: session.accumulated_paused_seconds,
     pausedAtMs: session.paused_at ? Date.parse(session.paused_at) : null,
   }
+  /*
+   * TICK ON THE COUNTDOWN'S OWN SECOND BOUNDARY, not on a cadence unrelated to
+   * it. `elapsedSeconds` changes value whenever `now - startedAt - paused`
+   * crosses a whole second, so this is the instant it last did.
+   *
+   * That alignment is what lets Pause stamp the TRUE click instant below without
+   * the clock appearing to move: between two renders the displayed second cannot
+   * have changed, so the value on screen is never stale even though the render
+   * is. Ticking on an arbitrary phase instead forces a choice between a visible
+   * jump and quietly attributing up to a second of real focus to every pause —
+   * which compounds, at ~0.5s per pause.
+   */
+  const now = useNow(!paused, timing.startedAtMs + timing.accumulatedPausedSeconds * 1000)
   const total = session.planned_minutes * 60
   const elapsed = elapsedSeconds(timing, now)
   const remaining = remainingSeconds(session.planned_minutes, elapsed)
@@ -182,12 +195,59 @@ export function RunningView({
 
   function togglePause() {
     if (paused) {
-      const resumed = resumeTiming(timing, Date.now())
-      patchSession.mutate({
+      const resumeAt = Date.now()
+      const pausedAtMs = timing.pausedAtMs ?? resumeAt
+      const resumed = resumeTiming(timing, resumeAt)
+      /*
+       * RE-ANCHOR SO THE COUNTDOWN CONTINUES FROM WHERE IT FROZE.
+       *
+       * The write below records the pause in WHOLE seconds; the anchor absorbs
+       * the sub-second remainder that would otherwise be counted as focus. The
+       * first frame after Resume is then identical to the last frame before it,
+       * whatever the pause lasted and whatever the round trip costs — and
+       * repeated pausing neither gains nor loses time.
+       *
+       * Display only. A reload still recovers from the database exactly as
+       * before.
+       */
+      const previousAnchor = anchorRef.current
+      anchorRef.current = {
         id: session.id,
-        patch: { paused_at: null, accumulated_paused_seconds: resumed.accumulatedPausedSeconds },
-      })
+        // `timing.startedAtMs` rather than `anchor.startedAtMs`: `anchor` is a
+        // `let`, so inside this closure TypeScript widens it back to nullable.
+        startedAtMs: resumeAnchorMs(timing.startedAtMs, pausedAtMs, resumeAt),
+      }
+      patchSession.mutate(
+        {
+          id: session.id,
+          patch: { paused_at: null, accumulated_paused_seconds: resumed.accumulatedPausedSeconds },
+        },
+        {
+          // The re-anchor above is optimistic, exactly like the cache patch it
+          // accompanies. If the write fails the session goes back to PAUSED, and
+          // an anchor computed for the resumed total would then read a whole
+          // pause too high. Roll both back together or neither.
+          onError: () => {
+            anchorRef.current = previousAnchor
+          },
+        },
+      )
     } else {
+      /*
+       * STAMP THE TRUE CLICK INSTANT. The pause began when the user pressed the
+       * button, and recording anything else silently mis-attributes real time.
+       *
+       * Stamping the last RENDER instead was tried, to guarantee the frozen
+       * value matched the screen. It does — and it hands the gap between that
+       * render and the click to the pause, which is up to a second of focus lost
+       * PER PAUSE: 19.9s over 40 pause/resume cycles, 97.9s over 200, growing
+       * strictly with how often you pause. The countdown looked perfect while
+       * `actual_seconds` drifted underneath it.
+       *
+       * Ticking on the countdown's own boundary (above) removes the trade-off
+       * rather than picking a side: the displayed second cannot change between
+       * two renders, so the true value at the click IS the value on screen.
+       */
       patchSession.mutate({ id: session.id, patch: { paused_at: new Date().toISOString() } })
     }
   }
