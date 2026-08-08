@@ -131,9 +131,30 @@ describe('the countdown tick is driven by the render, not by a second clock', ()
     }
   })
 
-  it('useNow owns the only interval, and clears it', () => {
+  it('useNow owns every timer in the feature, and clears each one it creates', () => {
+    // It schedules two ways — a plain cadence for the break clock, and a
+    // boundary-aligned chain for the countdown — but both live here, behind one
+    // effect with one teardown. What matters is that nothing it starts outlives
+    // the effect.
     const source = codeOnly(read('features/focus/useNow.ts'))
-    expect(source.match(/setInterval/g) ?? []).toHaveLength(1)
-    expect(source).toContain('clearInterval')
+    expect(source).toContain('setInterval(')
+    expect(source).toContain('clearInterval(')
+    expect(source).toContain('setTimeout(')
+    expect(source).toContain('clearTimeout(')
+  })
+
+  it('no other module in the feature schedules anything', () => {
+    // A second scheduler would drift from the number on screen — the bug this
+    // whole module is built to prevent.
+    for (const file of [
+      'features/focus/components/RunningView.tsx',
+      'features/focus/timer.ts',
+      'features/focus/ticking.ts',
+      'features/focus/sound.ts',
+    ]) {
+      const source = codeOnly(read(file))
+      expect(source, file).not.toContain('setInterval(')
+      expect(source, file).not.toContain('requestAnimationFrame(')
+    }
   })
 })

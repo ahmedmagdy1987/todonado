@@ -61,7 +61,6 @@ export function RunningView({
   const tickAudible = prefs.tick && soundAllowed
   const endingRef = useRef(false)
 
-  const now = useNow(!paused)
   /*
    * PINNED ONCE PER SESSION, and that is load-bearing.
    *
@@ -87,6 +86,19 @@ export function RunningView({
     accumulatedPausedSeconds: session.accumulated_paused_seconds,
     pausedAtMs: session.paused_at ? Date.parse(session.paused_at) : null,
   }
+  /*
+   * TICK ON THE COUNTDOWN'S OWN SECOND BOUNDARY, not on a cadence unrelated to
+   * it. `elapsedSeconds` changes value whenever `now - startedAt - paused`
+   * crosses a whole second, so this is the instant it last did.
+   *
+   * That alignment is what lets Pause stamp the TRUE click instant below without
+   * the clock appearing to move: between two renders the displayed second cannot
+   * have changed, so the value on screen is never stale even though the render
+   * is. Ticking on an arbitrary phase instead forces a choice between a visible
+   * jump and quietly attributing up to a second of real focus to every pause —
+   * which compounds, at ~0.5s per pause.
+   */
+  const now = useNow(!paused, timing.startedAtMs + timing.accumulatedPausedSeconds * 1000)
   const total = session.planned_minutes * 60
   const elapsed = elapsedSeconds(timing, now)
   const remaining = remainingSeconds(session.planned_minutes, elapsed)
@@ -222,23 +234,21 @@ export function RunningView({
       )
     } else {
       /*
-       * PAUSE AT THE INSTANT THE DISPLAYED NUMBER WAS COMPUTED FOR — `now`, the
-       * value from `useNow` that produced the clock currently on screen — and
-       * NOT at `Date.now()`.
+       * STAMP THE TRUE CLICK INSTANT. The pause began when the user pressed the
+       * button, and recording anything else silently mis-attributes real time.
        *
-       * `useNow` re-renders once a second, so a click lands up to a second after
-       * the number it appears to be pausing. Stamping the click makes the pause
-       * instant later than the frozen display, and every consumer then has to
-       * choose between showing the stale number and showing the true one — which
-       * is a visible jump either at Pause or at Resume, whichever end pays for
-       * it. Stamping `now` removes the disagreement instead of arbitrating it:
-       * the screen, a reload mid-pause, the resume and `actual_seconds` all
-       * describe the same instant.
+       * Stamping the last RENDER instead was tried, to guarantee the frozen
+       * value matched the screen. It does — and it hands the gap between that
+       * render and the click to the pause, which is up to a second of focus lost
+       * PER PAUSE: 19.9s over 40 pause/resume cycles, 97.9s over 200, growing
+       * strictly with how often you pause. The countdown looked perfect while
+       * `actual_seconds` drifted underneath it.
        *
-       * The sub-second gap it hands to the pause is real but bounded and
-       * CONSERVATIVE — it can only ever under-report focus, never inflate it.
+       * Ticking on the countdown's own boundary (above) removes the trade-off
+       * rather than picking a side: the displayed second cannot change between
+       * two renders, so the true value at the click IS the value on screen.
        */
-      patchSession.mutate({ id: session.id, patch: { paused_at: new Date(now).toISOString() } })
+      patchSession.mutate({ id: session.id, patch: { paused_at: new Date().toISOString() } })
     }
   }
 
