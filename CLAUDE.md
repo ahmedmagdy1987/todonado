@@ -2,6 +2,13 @@
 
 > Guidance for Claude (and humans) working in this repo. Read this first, every session.
 
+> **Starting a new or recovered session?** Read **`docs/CURRENT_PROJECT_STATE.md`** first — it is
+> the checkpoint of where the project actually stopped, what is still only manually pending, and
+> what the next session should do in order. Then **verify its dynamic facts against GitHub and
+> Production rather than assuming they are still current**: migration counts, deployment heads,
+> Stripe state and MCP configuration all age, and §7 below records two occasions where a stale
+> state claim in this repo was read and believed.
+
 ---
 
 ## 1. Product thesis
