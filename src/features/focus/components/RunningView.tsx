@@ -11,6 +11,7 @@ import { POMODORO } from '../pomodoro'
 import {
   elapsedSeconds,
   endStatusFor,
+  focusStartAnchorMs,
   formatClock,
   isComplete,
   remainingSeconds,
@@ -54,8 +55,28 @@ export function RunningView({
   const endingRef = useRef(false)
 
   const now = useNow(!paused)
+  /*
+   * PINNED ONCE PER SESSION, and that is load-bearing.
+   *
+   * `focusStartAnchorMs` refuses to count from a moment in the client's future
+   * (see timer.ts). If it were recomputed every render while the server value is
+   * still ahead of the browser clock, the anchor would advance WITH the clock and
+   * the countdown would never move at all. A ref keyed on the session id gives
+   * one anchor per session and survives every re-render in between.
+   */
+  const anchorRef = useRef<{ id: string; startedAtMs: number } | null>(null)
+  // Read into a local so TypeScript narrows it: a ref's `.current` is a mutable
+  // property and is not narrowed by an assignment inside the branch above it.
+  let anchor = anchorRef.current
+  if (anchor === null || anchor.id !== session.id) {
+    anchor = {
+      id: session.id,
+      startedAtMs: focusStartAnchorMs(Date.parse(session.started_at), Date.now()),
+    }
+    anchorRef.current = anchor
+  }
   const timing: FocusTiming = {
-    startedAtMs: Date.parse(session.started_at),
+    startedAtMs: anchor.startedAtMs,
     accumulatedPausedSeconds: session.accumulated_paused_seconds,
     pausedAtMs: session.paused_at ? Date.parse(session.paused_at) : null,
   }

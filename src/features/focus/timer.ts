@@ -12,6 +12,40 @@ export interface FocusTiming {
   pausedAtMs: number | null
 }
 
+/**
+ * The instant to count from, given the server's `started_at` and the client clock.
+ *
+ * ── WHY THIS EXISTS: THE TIMER USED TO SIT STILL AFTER START ────────────────
+ *
+ * `focus_sessions.started_at` is stamped by PostgreSQL (`default now()`). The
+ * countdown is driven by the BROWSER clock. Those are two different clocks, and
+ * nothing keeps them in step.
+ *
+ * When the browser is behind the database — ordinary NTP skew, plus the insert
+ * round trip, since `now()` is evaluated when the row is written rather than
+ * when the button was pressed — `started_at` lands in the client's FUTURE.
+ * `elapsedSeconds` then clamps to 0 (it must: negative elapsed would render a
+ * countdown that goes UP), so the display sits at the full planned duration,
+ * doing visibly nothing, until the client clock catches up.
+ *
+ * Never counting from the future removes that dead period without inventing
+ * progress that did not happen: the worst case is starting from "now" instead of
+ * a moment fractionally in the future.
+ *
+ * THE DATABASE STAYS AUTHORITATIVE. On a reload minutes later the server value
+ * is comfortably in the past, so `min` picks it and recovery is byte-for-byte
+ * what it was. This only ever bites in the seconds right after Start.
+ *
+ * RESOLVE IT ONCE PER SESSION. If the server value is in the future and this is
+ * recomputed on every render, each recompute would move the anchor forward with
+ * the clock and the timer would never advance at all — a worse bug than the one
+ * being fixed. The caller pins it per session id.
+ */
+export function focusStartAnchorMs(serverStartedAtMs: number, clientNowMs: number): number {
+  if (!Number.isFinite(serverStartedAtMs)) return clientNowMs
+  return Math.min(serverStartedAtMs, clientNowMs)
+}
+
 /** Seconds actually focused so far (excludes all paused time). */
 export function elapsedSeconds(t: FocusTiming, nowMs: number): number {
   const gross = Math.floor((nowMs - t.startedAtMs) / 1000)

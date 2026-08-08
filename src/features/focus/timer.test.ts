@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  focusStartAnchorMs,
   elapsedSeconds,
   remainingSeconds,
   isComplete,
@@ -84,5 +85,60 @@ describe('formatClock', () => {
     expect(formatClock(0)).toBe('00:00')
     expect(formatClock(65)).toBe('01:05')
     expect(formatClock(90 * 60)).toBe('90:00')
+  })
+})
+
+describe('focusStartAnchorMs — the countdown must not start in the future', () => {
+  /*
+   * THE BUG THIS PINS. `started_at` comes from PostgreSQL `now()`; the countdown
+   * runs on the browser clock. When the browser is behind the database, the
+   * server instant is in the client's future, `elapsedSeconds` clamps to 0, and
+   * the timer visibly sits at the full duration until the clock catches up.
+   */
+  it('counts from the client instant when the server timestamp is in the future', () => {
+    const clientNow = 1_000_000
+    const serverStarted = clientNow + 3_000 // browser 3s behind the database
+    expect(focusStartAnchorMs(serverStarted, clientNow)).toBe(clientNow)
+  })
+
+  it('the timer moves on the very first tick instead of sitting still', () => {
+    const clientNow = 1_000_000
+    const serverStarted = clientNow + 3_000
+    const anchor = focusStartAnchorMs(serverStarted, clientNow)
+    const timing = { startedAtMs: anchor, accumulatedPausedSeconds: 0, pausedAtMs: null }
+
+    // One second later the display must have advanced. Against the RAW server
+    // value it would still read 0 — that is exactly the reported symptom.
+    expect(elapsedSeconds(timing, clientNow + 1_000)).toBe(1)
+    expect(
+      elapsedSeconds(
+        { startedAtMs: serverStarted, accumulatedPausedSeconds: 0, pausedAtMs: null },
+        clientNow + 1_000,
+      ),
+    ).toBe(0)
+  })
+
+  it('KEEPS the server timestamp once it is in the past, so reload recovery is unchanged', () => {
+    const clientNow = 1_000_000
+    const serverStarted = clientNow - 25 * 60 * 1000 // reopened 25 minutes later
+    expect(focusStartAnchorMs(serverStarted, clientNow)).toBe(serverStarted)
+
+    const timing = { startedAtMs: focusStartAnchorMs(serverStarted, clientNow), accumulatedPausedSeconds: 0, pausedAtMs: null }
+    expect(elapsedSeconds(timing, clientNow)).toBe(25 * 60)
+  })
+
+  it('never invents progress — elapsed at the anchor instant is always 0', () => {
+    for (const skewMs of [-5_000, -1, 0, 1, 5_000]) {
+      const clientNow = 1_000_000
+      const anchor = focusStartAnchorMs(clientNow + skewMs, clientNow)
+      const timing = { startedAtMs: anchor, accumulatedPausedSeconds: 0, pausedAtMs: null }
+      expect(elapsedSeconds(timing, clientNow)).toBe(skewMs < 0 ? Math.floor(-skewMs / 1000) : 0)
+    }
+  })
+
+  it('falls back to the client clock on an unparseable timestamp', () => {
+    // Date.parse of a malformed value is NaN; Math.min(NaN, x) is NaN, which
+    // would render "NaN:NaN" forever.
+    expect(focusStartAnchorMs(Number.NaN, 1_000_000)).toBe(1_000_000)
   })
 })
