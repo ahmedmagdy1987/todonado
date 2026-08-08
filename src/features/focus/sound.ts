@@ -76,6 +76,51 @@ export function playEndTone(): void {
 }
 
 /**
+ * One soft tick, for the optional per-second countdown sound.
+ *
+ * ── WHY IT IS NOT A `TONES` ENTRY ──────────────────────────────────────────
+ *
+ * The chimes play ONCE, at the end. This plays sixteen hundred times in a
+ * 25-minute sprint, so it is tuned for a completely different job: it has to be
+ * audible without ever becoming something you notice. Hence a much lower peak
+ * than any chime (0.035 against 0.10-0.14) and a ~25 ms decay, which reads as a
+ * soft wooden tock rather than a beep. Anything longer starts to hum; anything
+ * louder becomes a metronome you cannot ignore.
+ *
+ * It reuses the SAME shared AudioContext as the chime. A second context would
+ * be a second thing to unlock from a gesture, and browsers cap how many a page
+ * may create.
+ *
+ * SILENT WHEN THE MASTER SWITCH IS OFF, exactly like `playEndTone`. "Sounds off"
+ * has to mean off everywhere, not off in the places somebody remembered.
+ */
+export function playTick(): void {
+  const prefs = getPrefs()
+  if (!prefs.sound || prefs.volume <= 0) return
+  const audio = audioCtx()
+  if (!audio) return
+  try {
+    const start = audio.currentTime
+    const osc = audio.createOscillator()
+    const gain = audio.createGain()
+    osc.connect(gain)
+    gain.connect(audio.destination)
+    osc.type = 'sine'
+    osc.frequency.value = 1_150
+    const peak = 0.035 * Math.min(1, Math.max(0, prefs.volume))
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.exponentialRampToValueAtTime(peak, start + 0.004)
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.025)
+    osc.start(start)
+    // One-shot: the node stops itself and is collected. Nothing accumulates,
+    // which is why the ticking needs no teardown of its own.
+    osc.stop(start + 0.03)
+  } catch {
+    // ignore — sound is a non-critical nicety
+  }
+}
+
+/**
  * Play a specific tone, bypassing the master switch.
  * Used ONLY by the Settings preview, where the point is to hear the thing you
  * are choosing — including while deciding whether to switch sound on.

@@ -33,6 +33,16 @@ export interface AppPrefs {
   /** 0..1. */
   volume: number
   tone: ChimeToneId
+  /**
+   * A soft tick once a second while a Focus timer is running.
+   *
+   * SEPARATE FROM THE END CHIME ON PURPOSE. The chime is one sound at the end;
+   * this is continuous audio for the whole sprint, so it is its own decision and
+   * its own switch. It defaults OFF and stays off for every existing user: a
+   * missing key falls through to the default below, so nobody who never asked
+   * suddenly gets a ticking clock.
+   */
+  tick: boolean
   /** Hide the "Start your day" briefing entirely (distinct from dismissing today's). */
   digestHidden: boolean
   /** In-app milestone celebrations (quit-habit milestones today). */
@@ -52,6 +62,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   sound: true,
   volume: 0.6,
   tone: 'soft',
+  tick: false,
   digestHidden: false,
   celebrations: true,
   startOn: 'today',
@@ -74,6 +85,7 @@ export function parsePrefs(raw: unknown): AppPrefs {
         ? Math.min(1, Math.max(0, r.volume))
         : DEFAULT_PREFS.volume,
     tone: isToneId(r.tone) ? r.tone : DEFAULT_PREFS.tone,
+    tick: typeof r.tick === 'boolean' ? r.tick : DEFAULT_PREFS.tick,
     digestHidden: typeof r.digestHidden === 'boolean' ? r.digestHidden : DEFAULT_PREFS.digestHidden,
     celebrations:
       typeof r.celebrations === 'boolean' ? r.celebrations : DEFAULT_PREFS.celebrations,

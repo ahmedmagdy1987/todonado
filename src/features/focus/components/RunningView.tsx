@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react'
+import { Clock, Pause, Play, Square, Volume2, VolumeX, Zap } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { track } from '@/features/analytics/track'
 import { useWorkspace } from '@/features/workspace/workspace-context'
@@ -8,6 +8,7 @@ import type { FocusSession } from '@/types/database'
 import { CircularTimer } from './CircularTimer'
 import { useFocusMutations } from '../api/useFocusSessions'
 import { POMODORO } from '../pomodoro'
+import { shouldTick } from '../ticking'
 import {
   elapsedSeconds,
   endStatusFor,
@@ -19,8 +20,8 @@ import {
   type FocusTiming,
 } from '../timer'
 import { useNow } from '../useNow'
-import { usePrefs } from '@/features/settings/prefs'
-import { playEndTone } from '../sound'
+import { setPrefs, usePrefs } from '@/features/settings/prefs'
+import { playEndTone, playTick } from '../sound'
 
 /**
  * How a session ENDED, which is not the same thing as its recorded status.
@@ -50,8 +51,13 @@ export function RunningView({
   const [soundOn, setSoundOn] = useState(false)
   // The master switch in Settings wins. Showing "chime on" while Settings has
   // silenced everything would be the button lying about what it does.
-  const soundAllowed = usePrefs().sound
+  const prefs = usePrefs()
+  const soundAllowed = prefs.sound
   const chimeAudible = soundOn && soundAllowed
+  // Persisted, unlike the end chime's per-session toggle: continuous audio is a
+  // standing choice, and re-arming it every sprint would be the annoying half of
+  // the feature. Defaults to false, so nothing changes for anyone who never asks.
+  const tickAudible = prefs.tick && soundAllowed
   const endingRef = useRef(false)
 
   const now = useNow(!paused)
@@ -85,6 +91,43 @@ export function RunningView({
   const remaining = remainingSeconds(session.planned_minutes, elapsed)
   const progress = total > 0 ? elapsed / total : 0
   const complete = isComplete(session.planned_minutes, elapsed)
+
+  /*
+   * THE OPTIONAL COUNTDOWN TICK — driven by the SAME per-second render that
+   * draws the clock, never by a timer of its own.
+   *
+   * That is the whole design. `useNow` already re-renders once a second while
+   * the session runs, so emitting a tick when the displayed second CHANGES
+   * gives, for free, every behaviour the feature needs: pausing stops the
+   * re-renders and therefore the ticks; a backgrounded tab is throttled and
+   * comes back with ONE jump in `elapsed`, so it produces one tick rather than a
+   * burst of the seconds it missed; and there is no scheduler to duplicate,
+   * leak, or tear down. A second `setInterval` here would be a second clock, and
+   * two clocks in one feature is the exact bug the timer module was built to
+   * avoid.
+   *
+   * The key carries the session id so a new sprint starts ticking again rather
+   * than being suppressed by the previous session's last second.
+   */
+  const lastTickRef = useRef<string | null>(null)
+  const tickingNow = shouldTick({
+    enabled: tickAudible,
+    masterSound: soundAllowed,
+    paused,
+    complete,
+    ending: endingRef.current,
+    status: session.status,
+  })
+  useEffect(() => {
+    if (!tickingNow) {
+      lastTickRef.current = null
+      return
+    }
+    const key = `${session.id}:${elapsed}`
+    if (lastTickRef.current === key) return
+    lastTickRef.current = key
+    playTick()
+  }, [tickingNow, elapsed, session.id])
 
   function end(status: 'completed' | 'abandoned', actualSeconds: number, reason: EndReason) {
     if (endingRef.current) return
@@ -161,6 +204,21 @@ export function RunningView({
     if (next) playEndTone()
   }
 
+  /*
+   * A SEPARATE CONTROL, not a second meaning for the speaker.
+   *
+   * The speaker already says one thing precisely — "chime when the timer ends".
+   * Folding a continuous sound into it would make both settings unreadable from
+   * the icon. Two small buttons, two unambiguous labels.
+   */
+  function toggleTick() {
+    const next = !prefs.tick
+    setPrefs({ tick: next })
+    // Inside the click, so the shared AudioContext is unlocked and the first
+    // tick is audible; it also confirms the choice with the sound it enables.
+    if (next) playTick()
+  }
+
   function endEarly() {
     end(endStatusFor(elapsed), elapsed, 'stopped')
   }
@@ -232,6 +290,22 @@ export function RunningView({
           className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
         >
           {chimeAudible ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
+        </button>
+        <button
+          type="button"
+          onClick={toggleTick}
+          title={
+            !soundAllowed
+              ? 'Sounds are switched off in Settings'
+              : tickAudible
+                ? 'Ticking on, tap to silence'
+                : 'Tick softly once a second while the timer runs'
+          }
+          aria-label={tickAudible ? 'Turn countdown ticking off' : 'Turn countdown ticking on'}
+          aria-pressed={tickAudible}
+          className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
+        >
+          <Clock className={`h-4 w-4 ${tickAudible ? 'text-text-primary' : ''}`} aria-hidden />
         </button>
       </div>
 
