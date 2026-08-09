@@ -9,6 +9,7 @@ import { CircularTimer } from './CircularTimer'
 import { useFocusMutations } from '../api/useFocusSessions'
 import { POMODORO } from '../pomodoro'
 import { shouldTick } from '../ticking'
+import { countdownTickControl, endChimeControl } from '../audioControls'
 import { nextTickGate } from '../tickGate'
 import { IDLE_INTERRUPTION, reduceInterruption, type InterruptionState } from '../interruption'
 import {
@@ -65,11 +66,14 @@ export function RunningView({
   // silenced everything would be the button lying about what it does.
   const prefs = usePrefs()
   const soundAllowed = prefs.sound
-  const chimeAudible = soundOn && soundAllowed
   // Persisted, unlike the end chime's per-session toggle: continuous audio is a
   // standing choice, and re-arming it every sprint would be the annoying half of
   // the feature. Defaults to false, so nothing changes for anyone who never asks.
   const tickAudible = prefs.tick && soundAllowed
+  // The two controls' wording and pressed state, from one place so the label,
+  // the tooltip, `aria-pressed` and the highlight cannot disagree.
+  const chime = endChimeControl({ enabled: soundOn, masterSound: soundAllowed })
+  const tick = countdownTickControl({ enabled: prefs.tick, masterSound: soundAllowed })
   const endingRef = useRef(false)
 
   /*
@@ -408,38 +412,59 @@ export function RunningView({
         <Button variant="ghost" onClick={endEarly}>
           <Square className="h-4 w-4" aria-hidden /> End early
         </Button>
-        <button
-          type="button"
+        {/*
+          NAMED, not just iconographic. A speaker beside a clock reads as "all
+          sound" beside "something about time"; the labels are what make it
+          obvious that one is the ending and the other is the running.
+
+          The text is hidden below `sm` because five controls with labels do not
+          fit a 390px row — but `aria-label` and `title` are unconditional, so
+          the narrow layout loses the visible word and nothing else.
+
+          `secondary` when on / `ghost` when off is the existing pair used for a
+          selected-vs-idle control elsewhere in the app: a filled surface rather
+          than a colour, which keeps both of these visually behind Pause, Log
+          interruption and End early.
+        */}
+        {/*
+          `aria-pressed` and the selected surface both come from `pressed`, which
+          is THE PREFERENCE THIS BUTTON TOGGLES and never the audibility. The
+          master switch lives on another screen and this button cannot change it,
+          so folding it in would make the button report a state it does not own,
+          and report the same state before and after a press. See audioControls.ts.
+
+          `audible` carries the other half: the speaker shows a crossed-out icon
+          and the pair dim when the master switch has silenced them, so "on but
+          muted elsewhere" still looks different from "on".
+        */}
+        <Button
+          variant={chime.pressed ? 'secondary' : 'ghost'}
+          size="sm"
           onClick={toggleSound}
-          title={
-            !soundAllowed
-              ? 'Sounds are switched off in Settings'
-              : chimeAudible
-                ? 'End chime on, tap to mute'
-                : 'Play a soft chime when the timer ends'
-          }
-          aria-label={chimeAudible ? 'Turn end chime off' : 'Turn end chime on'}
-          aria-pressed={chimeAudible}
-          className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
+          title={chime.title}
+          aria-label={chime.ariaLabel}
+          aria-pressed={chime.pressed}
+          className={chime.mutedByMaster ? 'opacity-60' : undefined}
         >
-          {chimeAudible ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
-        </button>
-        <button
-          type="button"
+          {chime.audible ? (
+            <Volume2 className="h-4 w-4" aria-hidden />
+          ) : (
+            <VolumeX className="h-4 w-4" aria-hidden />
+          )}
+          <span className="hidden sm:inline">{chime.label}</span>
+        </Button>
+        <Button
+          variant={tick.pressed ? 'secondary' : 'ghost'}
+          size="sm"
           onClick={toggleTick}
-          title={
-            !soundAllowed
-              ? 'Sounds are switched off in Settings'
-              : tickAudible
-                ? 'Ticking on, tap to silence'
-                : 'Tick softly once a second while the timer runs'
-          }
-          aria-label={tickAudible ? 'Turn countdown ticking off' : 'Turn countdown ticking on'}
-          aria-pressed={tickAudible}
-          className="focus-ring rounded-lg p-2 text-text-muted transition-colors hover:text-text-primary"
+          title={tick.title}
+          aria-label={tick.ariaLabel}
+          aria-pressed={tick.pressed}
+          className={tick.mutedByMaster ? 'opacity-60' : undefined}
         >
-          <Clock className={`h-4 w-4 ${tickAudible ? 'text-text-primary' : ''}`} aria-hidden />
-        </button>
+          <Clock className="h-4 w-4" aria-hidden />
+          <span className="hidden sm:inline">{tick.label}</span>
+        </Button>
       </div>
 
       {audioUnavailable && (
