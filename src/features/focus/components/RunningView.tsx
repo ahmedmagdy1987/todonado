@@ -426,6 +426,17 @@ export function RunningView({
           than a colour, which keeps both of these visually behind Pause, Log
           interruption and End early.
         */}
+        {/*
+          `aria-pressed` and the selected surface both come from `pressed`, which
+          is THE PREFERENCE THIS BUTTON TOGGLES and never the audibility. The
+          master switch lives on another screen and this button cannot change it,
+          so folding it in would make the button report a state it does not own,
+          and report the same state before and after a press. See audioControls.ts.
+
+          `audible` carries the other half: the speaker shows a crossed-out icon
+          and the pair dim when the master switch has silenced them, so "on but
+          muted elsewhere" still looks different from "on".
+        */}
         <Button
           variant={chime.pressed ? 'secondary' : 'ghost'}
           size="sm"
@@ -433,8 +444,9 @@ export function RunningView({
           title={chime.title}
           aria-label={chime.ariaLabel}
           aria-pressed={chime.pressed}
+          className={chime.mutedByMaster ? 'opacity-60' : undefined}
         >
-          {chime.pressed ? (
+          {chime.audible ? (
             <Volume2 className="h-4 w-4" aria-hidden />
           ) : (
             <VolumeX className="h-4 w-4" aria-hidden />
@@ -448,6 +460,7 @@ export function RunningView({
           title={tick.title}
           aria-label={tick.ariaLabel}
           aria-pressed={tick.pressed}
+          className={tick.mutedByMaster ? 'opacity-60' : undefined}
         >
           <Clock className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">{tick.label}</span>
