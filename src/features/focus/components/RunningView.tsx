@@ -9,6 +9,8 @@ import { CircularTimer } from './CircularTimer'
 import { useFocusMutations } from '../api/useFocusSessions'
 import { POMODORO } from '../pomodoro'
 import { shouldTick } from '../ticking'
+import { nextTickGate } from '../tickGate'
+import { IDLE_INTERRUPTION, reduceInterruption, type InterruptionState } from '../interruption'
 import {
   elapsedSeconds,
   endStatusFor,
@@ -22,7 +24,13 @@ import {
 } from '../timer'
 import { useNow } from '../useNow'
 import { setPrefs, usePrefs } from '@/features/settings/prefs'
-import { playEndTone, playTick } from '../sound'
+import {
+  installAudioUnlock,
+  playEndTone,
+  playInterruptionTone,
+  playTick,
+  unlockAudio,
+} from '../sound'
 
 /**
  * How a session ENDED, which is not the same thing as its recorded status.
@@ -50,6 +58,9 @@ export function RunningView({
   const task = session.task_id ? (tasks.find((t) => t.id === session.task_id) ?? null) : null
   const paused = session.paused_at !== null
   const [soundOn, setSoundOn] = useState(false)
+  // Set only when the browser refuses to give us an AudioContext at all, so the
+  // failure is stated rather than swallowed.
+  const [audioUnavailable, setAudioUnavailable] = useState(false)
   // The master switch in Settings wins. Showing "chime on" while Settings has
   // silenced everything would be the button lying about what it does.
   const prefs = usePrefs()
@@ -132,15 +143,34 @@ export function RunningView({
     status: session.status,
   })
   useEffect(() => {
-    if (!tickingNow) {
-      lastTickRef.current = null
-      return
-    }
-    const key = `${session.id}:${elapsed}`
-    if (lastTickRef.current === key) return
-    lastTickRef.current = key
-    playTick()
+    const gate = nextTickGate(lastTickRef.current, {
+      allowed: tickingNow,
+      sessionId: session.id,
+      elapsed,
+    })
+    lastTickRef.current = gate.key
+    if (gate.emit) playTick()
   }, [tickingNow, elapsed, session.id])
+
+  /*
+   * UNLOCK AUDIO ON THE NEXT GESTURE, because ticking is a PERSISTED preference
+   * and the session survives a reload.
+   *
+   * The path this exists for: the preference is already on from a previous
+   * sprint, the tab is reloaded mid-session, and the timer starts ticking with
+   * no click having happened on this page. The shared context is then created
+   * inside a timer callback, the autoplay policy starts it suspended, its clock
+   * never runs, and every tick of the sprint is scheduled against a frozen
+   * `currentTime`. Silent, with nothing to see in the console.
+   *
+   * One listener, fired at most once, removed as soon as the context is running.
+   * It is NOT a clock and adds no cadence — `useNow` remains the only timing
+   * source in this component.
+   */
+  useEffect(() => {
+    if (!tickAudible) return
+    return installAudioUnlock()
+  }, [tickAudible])
 
   function end(status: 'completed' | 'abandoned', actualSeconds: number, reason: EndReason) {
     if (endingRef.current) return
@@ -252,8 +282,34 @@ export function RunningView({
     }
   }
 
+  /*
+   * The confirmation sound means RECORDED, never "button pressed" — so it is
+   * emitted from `onSuccess` and from nowhere else. `interruption.ts` holds the
+   * rule (and the reason the unlock has to happen here, in the click, while the
+   * page still has user activation to spend).
+   */
+  const interruptionRef = useRef<InterruptionState>(IDLE_INTERRUPTION)
+
   function logInterruption() {
-    patchSession.mutate({ id: session.id, patch: { interruptions: session.interruptions + 1 } })
+    const click = reduceInterruption(interruptionRef.current, 'click')
+    interruptionRef.current = click.state
+    if (!click.log) return
+    if (click.unlock) unlockAudio()
+    patchSession.mutate(
+      { id: session.id, patch: { interruptions: session.interruptions + 1 } },
+      {
+        onSuccess: () => {
+          const settled = reduceInterruption(interruptionRef.current, 'success')
+          interruptionRef.current = settled.state
+          if (settled.confirm) playInterruptionTone()
+        },
+        // The mutation's own onError still rolls the optimistic patch back; this
+        // only reopens the gate so the user can try again. No sound.
+        onError: () => {
+          interruptionRef.current = reduceInterruption(interruptionRef.current, 'error').state
+        },
+      },
+    )
   }
 
   function toggleSound() {
@@ -272,11 +328,28 @@ export function RunningView({
    * the icon. Two small buttons, two unambiguous labels.
    */
   function toggleTick() {
-    const next = !prefs.tick
-    setPrefs({ tick: next })
-    // Inside the click, so the shared AudioContext is unlocked and the first
-    // tick is audible; it also confirms the choice with the sound it enables.
-    if (next) playTick()
+    if (prefs.tick) {
+      setPrefs({ tick: false })
+      return
+    }
+    /*
+     * UNLOCK FIRST, INSIDE THE CLICK. This is the one moment the browser will
+     * let us start an AudioContext, and everything after it — the preview below
+     * and every gesture-less per-second tick for the rest of the sprint — runs
+     * on the context started here.
+     *
+     * If the browser will not give us one at all, the control does NOT switch
+     * on. Leaving it lit while nothing can ever play is precisely the failure
+     * that took two rounds of retuning to notice.
+     */
+    if (unlockAudio() === 'unavailable') {
+      setAudioUnavailable(true)
+      return
+    }
+    setAudioUnavailable(false)
+    setPrefs({ tick: true })
+    // A preview, so enabling it is confirmed by the sound it enables.
+    playTick()
   }
 
   function endEarly() {
@@ -368,6 +441,13 @@ export function RunningView({
           <Clock className={`h-4 w-4 ${tickAudible ? 'text-text-primary' : ''}`} aria-hidden />
         </button>
       </div>
+
+      {audioUnavailable && (
+        <p role="status" className="text-center text-xs text-warning">
+          This browser blocked audio, so ticking stayed off. Check the site&apos;s sound permission
+          and try again.
+        </p>
+      )}
 
       <p className="text-center text-xs text-text-muted">Everything else can wait.</p>
     </div>
