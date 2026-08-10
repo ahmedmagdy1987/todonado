@@ -82,7 +82,7 @@ export function AutoPlanDemo() {
           </button>
           <p className="ml-auto font-mono text-xs text-text-muted" aria-live="polite">
             {settled
-              ? `${plan.picks.length} planned · ${plan.skipped} left in backlog`
+              ? `${plan.picks.length} planned · ${plan.skipped} left for later`
               : `${AUTOPLAN_BACKLOG.length} tasks · ${formatMinutes(backlogMinutes)} of work`}
           </p>
         </div>
@@ -149,7 +149,7 @@ export function AutoPlanDemo() {
 
         {settled && (
           <p className="animate-fade-in text-xs leading-relaxed text-text-muted">
-            Picked by priority, then due date, then effort, and stopped at{' '}
+            Picked by priority, then due date, then how long each one takes, and stopped at{' '}
             <span className="font-mono text-text-primary">
               {formatMinutes(plan.totalMinutes)}
             </span>{' '}

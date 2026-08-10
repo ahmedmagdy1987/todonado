@@ -1,7 +1,7 @@
 {
   "name": "Todonado",
   "short_name": "Todonado",
-  "description": "Your daily command center: capture everything, plan a realistic day, execute with focus, recover intelligently.",
+  "description": "Your daily command center. Plan a day that actually fits the time you have, then focus and finish it.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

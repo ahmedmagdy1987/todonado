@@ -192,7 +192,7 @@ test('landing: the week board is on the page and runs the real planner', async (
 
   await board.click()
   // The real planWeek placed work and reported what did not fit.
-  await expect(page.getByText(/\d+ planned · \d+ left in backlog/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/\d+ planned · \d+ left for later/)).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText(/earliest day with room/i)).toBeVisible()
 
   // It is honest that this one is paid.
@@ -283,8 +283,8 @@ test('pricing: the tiers match the real gates, and "not built" means not built',
   // FREE must claim the daily loop — these were previously sold as Pro.
   // `.first()` throughout: these phrases correctly appear more than once (the
   // Free bullet list AND the "what you get with Pro" prose that contrasts them).
-  await expect(main.getByText(/The effort-aware capacity meter/i).first()).toBeVisible()
-  await expect(main.getByText(/Overbooking guard/i).first()).toBeVisible()
+  await expect(main.getByText(/capacity meter that shows what actually fits/i).first()).toBeVisible()
+  await expect(main.getByText(/warning before you overbook/i).first()).toBeVisible()
   await expect(main.getByText(/Focus mode with Pomodoro/i).first()).toBeVisible()
 
   // PRO must claim only what is actually gated.
@@ -343,7 +343,7 @@ test('landing: OG tags and the zero-database guarantee still hold', async ({ pag
   await page.goto('/welcome')
   await mountLazySections(page)
   await page.getByRole('button', { name: 'Plan my week' }).click()
-  await expect(page.getByText(/\d+ planned · \d+ left in backlog/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/\d+ planned · \d+ left for later/)).toBeVisible({ timeout: 15_000 })
 
   expect(dbCalls, `the landing hit the database:\n${dbCalls.join('\n')}`).toEqual([])
 })

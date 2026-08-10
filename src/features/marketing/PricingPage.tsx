@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { UpgradeIntentModal } from './components/UpgradeIntentModal'
-import { PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
+import { ALL_IN_ONE_CATEGORIES, PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
 import { PRO_PRICE_COPY, usd } from './pricing'
 
 /**
@@ -37,7 +37,7 @@ const NOT_BUILT: { what: string; why: string }[] = [
     // list at all: white, pink and brown noise are generated on the device, so
     // there was never a file to license. What is still missing is the recorded
     // half, and saying so precisely is the point of this list.
-    what: 'Recorded ambience, and guided meditation',
+    what: 'Recorded nature sounds, and guided meditation',
     why: 'Rain, thunder and ocean are recordings, and the meditation sessions have to be spoken and recorded. None of that is licensed yet, and we would rather ship silence than something we do not have the rights to. The generated noise tracks work today.',
   },
   {
@@ -46,9 +46,15 @@ const NOT_BUILT: { what: string; why: string }[] = [
   },
   {
     what: 'Shared workspaces & team capacity',
-    why: 'The data model is collaboration-ready, but none of the sharing UI exists. That is the Team plan below.',
+    why: 'The groundwork is done, but the screens for sharing and inviting people are not built yet. That is the Team plan above.',
   },
 ]
+
+/** Small numbers read as words in a sentence. Counted, never typed: this line
+ *  said "five" while the list below it had three entries. */
+function countWord(n: number): string {
+  return ['no', 'one', 'two', 'three', 'four', 'five'][n] ?? String(n)
+}
 
 /**
  * The headline amount and its period.
@@ -159,11 +165,11 @@ export function PricingPage() {
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-4 pt-16 text-center sm:px-6">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-            Simple pricing for an honest day
+            Simple, honest pricing
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-text-muted">
-            The day is free: the capacity meter, the overbooking guard, auto-planning, focus and
-            roll-over included. Pro adds the week ahead and the record of how your days actually
+            Planning your day is free: the capacity meter, the overbooking warning, “Plan my day”,
+            focus and roll-over included. Pro adds the week ahead and the record of how your days actually
             went.
           </p>
           {/* The same all-in-one framing as the landing, in the same terms:
@@ -171,16 +177,14 @@ export function PricingPage() {
               is deliberately identical to OnePlaceStrip's — two surfaces saying
               slightly different things is how a claim stops being checkable. */}
           <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
-            {['A day planner', 'A focus & pomodoro timer', 'A habit & quit tracker', 'A breathing coach'].map(
-              (c) => (
-                <li
-                  key={c}
-                  className="rounded-full border border-white/10 bg-surface-2/50 px-3 py-1 text-xs text-text-muted"
-                >
-                  {c}
-                </li>
-              ),
-            )}
+            {ALL_IN_ONE_CATEGORIES.map((c) => (
+              <li
+                key={c}
+                className="rounded-full border border-white/10 bg-surface-2/50 px-3 py-1 text-xs text-text-muted"
+              >
+                {c}
+              </li>
+            ))}
           </ul>
           <p className="mt-3 text-xs text-text-muted/80">
             One app instead of several. One price, not one per category.
@@ -210,16 +214,17 @@ export function PricingPage() {
           <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
             <h2 className="font-display text-2xl font-bold">What you get with Pro</h2>
             <p className="mt-4 text-text-muted">
-              Free is not a trial. The capacity meter, the overbooking guard,{' '}
+              Free is not a trial. The capacity meter, the overbooking warning,{' '}
               <strong className="text-text-primary">Plan my day</strong>, focus sessions with
-              Pomodoro, roll-over and recurring tasks are all free, permanently. That is the daily
-              loop, complete.
+              Pomodoro, roll-over and recurring tasks are all free, permanently. That is everything you need to
+              plan and finish a day.
             </p>
             <p className="mt-4 text-text-muted">
-              <strong className="text-text-primary">Pro</strong> is what comes after a good day: the
-              whole week on one board with its own capacity per day, a briefing that arrives already
-              planned, live calendar sync, and Insights that show planned-vs-actual and how accurate
-              your estimates are getting. The day is free; the week and the retrospective are paid.
+              <strong className="text-text-primary">Pro</strong> adds what comes next: the whole week
+              on one board, each day with its own capacity meter, a morning briefing with your day
+              already planned, live calendar sync, and Insights that compare what you planned with
+              what you actually did. Planning your day is free. The week ahead, and the look back,
+              are paid.
             </p>
           </div>
         </section>
@@ -231,8 +236,12 @@ export function PricingPage() {
             <h2 className="font-display text-xl font-bold">What isn&rsquo;t built yet</h2>
           </div>
           <p className="mb-6 text-sm text-text-muted">
-            Everything else on this page works today. These five don&rsquo;t, and here&rsquo;s the
-            actual reason for each, rather than &ldquo;coming soon&rdquo;.
+            {/* COUNTED FROM THE LIST, not typed. It said "five" while the list
+                below had three entries, so the first thing a reader did was
+                count and find the page wrong. */}
+            Everything else on this page works today. These {countWord(NOT_BUILT.length)}{' '}
+            don&rsquo;t, and here&rsquo;s the actual reason for each, rather than
+            &ldquo;coming soon&rdquo;.
           </p>
           <ul className="space-y-4">
             {NOT_BUILT.map((item) => (
@@ -253,7 +262,7 @@ export function PricingPage() {
               to="/welcome"
               className="focus-ring ml-3 rounded px-1 text-sm text-text-muted hover:text-text-primary"
             >
-              Back to overview
+              Back to home
             </Link>
           </div>
         </section>

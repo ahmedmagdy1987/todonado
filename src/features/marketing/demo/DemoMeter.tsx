@@ -18,11 +18,19 @@ const PCT_TONE: Record<CapacityStatus, string> = {
   over: 'text-danger',
 }
 
+/**
+ * PLAIN ENGLISH, NOT PRODUCT VOCABULARY.
+ *
+ * The empty state used to read "An empty day. Add work and watch the headroom
+ * shrink." — "headroom" is a word from inside the codebase (`capacity.ts` calls
+ * it that) and it had leaked onto the page a visitor sees first. Every line here
+ * now says what is true in words someone would actually use out loud.
+ */
 const MESSAGE: Record<CapacityStatus, string> = {
-  empty: 'An empty day. Add work and watch the headroom shrink.',
-  ok: 'Comfortable. There is still real room here.',
-  near: 'Nearly full. Protect your focus and add only what truly matters.',
-  over: 'This day does not fit. Something has to move to tomorrow.',
+  empty: 'Nothing planned yet. Add a task to see how much of your day is left.',
+  ok: 'Comfortable. You still have room for more.',
+  near: 'Nearly full. Add only what really matters today.',
+  over: 'This won’t all fit today. Something has to move to tomorrow.',
 }
 
 interface DemoMeterProps {

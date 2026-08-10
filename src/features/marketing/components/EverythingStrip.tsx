@@ -42,13 +42,13 @@ interface Item {
  */
 const ITEMS: Item[] = [
   { icon: Play, label: 'Get to work', blurb: 'One tap to start' },
-  { icon: Timer, label: 'Focus & pomodoro', blurb: '25/5, breaks included' },
-  { icon: LayoutList, label: 'Templates', blurb: 'Ready-made, effort-tagged lists' },
+  { icon: Timer, label: 'Focus & pomodoro', blurb: '25 minutes on, 5 off' },
+  { icon: LayoutList, label: 'Templates', blurb: 'Ready-made lists with time estimates' },
   { icon: ClipboardCheck, label: 'Checklists', blurb: 'Repeat lists, no dates' },
   { icon: CalendarRange, label: 'Week planning', blurb: 'Seven days at once' },
-  { icon: CalendarClock, label: 'Calendar-aware', blurb: 'Meetings shrink capacity' },
+  { icon: CalendarClock, label: 'Calendar', blurb: 'Meetings take time off your day' },
   { icon: Sprout, label: 'Quit tracker', blurb: 'Days since you stopped' },
-  { icon: Compass, label: 'Vision', blurb: 'The goals behind it' },
+  { icon: Compass, label: 'Vision', blurb: 'The goals behind your work' },
   { icon: BarChart3, label: 'Insights', blurb: 'Planned versus actual' },
   { icon: Flame, label: 'Streaks', blurb: 'Gentle, never shaming' },
   { icon: HeartPulse, label: 'Focus & Calm', blurb: 'Breathwork and tracking' },
@@ -60,7 +60,7 @@ const ITEMS: Item[] = [
   // present, anon reads `[]`, anon writes `42501`), so all three are claimable.
   { icon: Network, label: 'Mind maps', blurb: 'Think it out first' },
   { icon: NotebookPen, label: 'Journal', blurb: 'How today went' },
-  { icon: Flag, label: 'Challenges', blurb: 'A short, structured push' },
+  { icon: Flag, label: 'Challenges', blurb: 'Try something for seven days' },
 ]
 
 export function EverythingStrip() {

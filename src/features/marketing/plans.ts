@@ -60,25 +60,48 @@ export interface Plan {
   features: string[]
 }
 
+/**
+ * The all-in-one claim, in category terms. ONE array, used by both surfaces.
+ *
+ * The landing strip and the pricing page each carried their own copy of this
+ * list, with a comment on each saying they were "deliberately identical"
+ * because "two surfaces saying slightly different things is how a claim stops
+ * being checkable". They had drifted anyway: the landing listed six categories
+ * and the pricing page four, so the same promise was two different sizes
+ * depending on which page you read. A comment cannot hold an invariant that a
+ * shared constant can.
+ *
+ * NO BRAND NAMES AND NO "REPLACES N APPS" — a number invites arithmetic nobody
+ * wins, and naming competitors makes the page about them.
+ */
+export const ALL_IN_ONE_CATEGORIES = [
+  'A day planner',
+  'A focus & pomodoro timer',
+  'A habit & quit tracker',
+  'A breathing coach',
+  'A journal',
+  'A mind-map canvas',
+] as const
+
 export const PLANS: Plan[] = [
   {
     id: 'free',
     name: 'Free',
-    tagline: 'The whole daily loop: plan, focus, recover.',
+    tagline: 'Everything you need to plan and finish a day.',
     priceMonthly: 0,
     priceNote: 'Free forever',
     cta: 'Start free',
     // ORDER MATTERS: PricingTeaser shows only the first BULLET_LIMIT of these,
     // so the strongest true lines lead.
     features: [
-      'The effort-aware capacity meter: the whole idea, free',
-      'Overbooking guard, one-tap roll-over & recovery',
-      '“Plan my day”: one press fills today without going over',
+      'A capacity meter that shows what actually fits in your day',
+      'A warning before you overbook, and one tap to move unfinished work to tomorrow',
+      '“Plan my day”: one tap fills today without going over',
       'Focus mode with Pomodoro, and one-tap “Get to work”',
-      'Unlimited capture: projects, sections, subtasks, priorities',
+      'Unlimited tasks: projects, sections, subtasks, priorities',
       'Recurring tasks (daily / weekly / monthly / yearly)',
-      'A catalog of effort-tagged templates & checklists',
-      'Daily briefing: what carried over and what’s free today',
+      'Ready-made templates and checklists, each with time estimates',
+      'Daily briefing: what carried over and how much time you have left',
       // Templated from the constants so the copy can never drift from behaviour.
       // EVERY capped surface, not a selection of them. Mind maps and challenges
       // were both missing here while the app capped them at one each, so a Free
@@ -88,13 +111,14 @@ export const PLANS: Plan[] = [
       'Breathwork, and a supplement & medication log',
       `Completed history for the last ${FREE_HISTORY_DAYS} days`,
       'Calendar import (.ics file)',
-      'Dark, installable PWA',
+      // Was "Dark, installable PWA". Three jargon words for one ordinary fact.
+      'Works on your phone and laptop, no app store',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    tagline: 'The week ahead, and what your days are telling you.',
+    tagline: 'See the week ahead, and how your days really go.',
     priceMonthly: PRO_MONTHLY_USD,
     priceNote: 'per month',
     yearly: PRO_YEARLY,
@@ -112,10 +136,10 @@ export const PLANS: Plan[] = [
      */
     features: [
       'Week planning: 7 days of capacity, drag between days + “Plan my week”',
-      'Insights: planned-vs-actual, estimation accuracy, focus & weekly trends',
-      'Smart daily briefing: a ready-made plan, an estimation nudge & priority alerts',
+      'Insights: planned time vs. real time, estimate accuracy, and focus trends',
+      'Smart daily briefing: your day already planned, with priority and estimate reminders',
       'Unlimited history: every completed task, kept forever',
-      'Live calendar sync (URL): paste a link once, meetings stay fresh daily',
+      'Live calendar sync: paste your calendar link once and meetings update daily',
       'Unlimited personal templates & checklists',
       'Unlimited quit habits, vision goals, mind maps and challenges',
       'Voice notes in the daily journal',
