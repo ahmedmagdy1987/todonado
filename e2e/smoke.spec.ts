@@ -362,11 +362,11 @@ test('landing: the three demo widgets are interactive and touch a database NEVER
   const planBtn = page.getByRole('button', { name: 'Plan my day' })
   await planBtn.scrollIntoViewIfNeeded()
   await planBtn.click()
-  await expect(page.getByText(/5 planned · 3 left in backlog/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/5 planned · 3 left for later/)).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText(/never overcommits your day/i)).toBeVisible()
 
   // --- W3: the focus ring runs and reaches the calm completion state ------
-  const startBtn = page.getByRole('button', { name: 'Start a sprint' })
+  const startBtn = page.getByRole('button', { name: 'Start the timer' })
   await startBtn.scrollIntoViewIfNeeded()
   await startBtn.click()
   // 25-second sped-up sprint → the completion badge.

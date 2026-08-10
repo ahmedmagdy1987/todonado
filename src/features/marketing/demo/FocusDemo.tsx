@@ -74,7 +74,9 @@ export function FocusDemo() {
       <CardContent className="flex flex-col items-center gap-6 p-5 sm:p-6">
         <div className="flex w-full items-center gap-2">
           <Badge variant={done ? 'brand' : 'outline'}>
-            {done ? 'Session complete' : 'Deep work'}
+            {/* "Focusing" is what the real running timer says, and it needs no
+                glossary. "Deep work" is methodology vocabulary. */}
+            {done ? 'Session complete' : 'Focusing'}
           </Badge>
           <button
             type="button"
@@ -104,21 +106,21 @@ export function FocusDemo() {
             {done ? <Check className="h-10 w-10" aria-hidden /> : formatDemoClock(Math.ceil(remaining))}
           </span>
           <span className="mt-1 text-xs text-text-muted">
-            {done ? 'Nothing lost' : 'Write the launch email'}
+            {done ? 'Time added to the task' : 'Write the launch email'}
           </span>
         </CircularTimer>
 
         <p className="min-h-[2.5rem] max-w-xs text-center text-sm text-text-muted" aria-live="polite">
-          {phase === 'idle' && 'One task, one timer, no tabs. Press start (this demo runs in seconds, not minutes).'}
-          {phase === 'running' && 'The real thing survives a refresh, a pause, and a closed laptop.'}
-          {done && 'That’s the whole ritual. The session is logged and the task carries its focus time.'}
+          {phase === 'idle' && 'One task, one timer. Press start. This demo runs in seconds, not minutes.'}
+          {phase === 'running' && 'In the real app, the time still counts if you pause, reload, or close your laptop.'}
+          {done && 'That’s it. The session is saved, and the time counts toward the task.'}
         </p>
 
         <div className="flex items-center gap-3">
           {phase === 'idle' ? (
             <Button size="lg" onClick={start}>
               <Play className="h-4 w-4" aria-hidden />
-              Start a sprint
+              Start the timer
             </Button>
           ) : (
             <Button size="md" variant="secondary" onClick={reset}>

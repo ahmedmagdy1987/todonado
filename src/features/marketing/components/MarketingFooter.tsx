@@ -44,8 +44,8 @@ export function MarketingFooter() {
               <Logo />
             </Link>
             <p className="max-w-xs text-sm text-text-muted">
-              Plan a realistic day, every day. Capture everything, commit to what fits, and execute
-              with focus.
+              Plan a realistic day, every day. Write everything down, commit to what fits, and
+              stay focused.
             </p>
           </div>
 

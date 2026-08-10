@@ -30,16 +30,25 @@ export interface DemoTask {
 /**
  * Plausible, boring work items for the meter demo. Deliberately generic: no
  * invented customers, metrics, or testimonials.
+ *
+ * ── THEY MUST READ AS ONE ORDINARY WORKDAY ─────────────────────────────────
+ *
+ * This list used to include "Refactor the export helper" and "Update the
+ * changelog". Todonado is a general productivity product, and a stranger who
+ * does not write software reads those as someone else's tool. The examples on a
+ * public page are an implicit statement about who it is for, so every one of
+ * them is now work that a teacher, an accountant, a manager or a freelancer
+ * would recognise on their own list.
  */
 const METER_TITLES = [
-  'Review the design draft',
+  'Review the project proposal',
   'Reply to customer emails',
   'Write the weekly update',
-  'Fix the reported bug',
-  'Prep tomorrow’s meeting',
-  'Refactor the export helper',
+  'Prepare for the team meeting',
+  'Review the monthly budget',
   'Call the supplier back',
-  'Update the changelog',
+  'Update the presentation',
+  'Plan next week’s priorities',
 ] as const
 
 /** Build the next demo task for a list, cycling the title pool. */
@@ -90,9 +99,13 @@ export function dropLargest(list: DemoTask[]): DemoTask[] {
  * full" — which is the exact moment the product is about.
  */
 export const HERO_STEPS: readonly DemoTask[] = [
-  { id: 'hero-1', title: 'Deep work: pricing spec', effort: 90 },
-  { id: 'hero-2', title: 'Team sync', effort: 60 },
-  { id: 'hero-3', title: 'Review two pull requests', effort: 45 },
+  // The MINUTES are load-bearing (90/60/45/60/75 lands the meter on 92%, amber);
+  // the titles are not, and they changed for the reason above. "Review two pull
+  // requests" is the clearest example of the old problem: it is the first thing
+  // a visitor reads on the page, and it only means anything to programmers.
+  { id: 'hero-1', title: 'Write the project proposal', effort: 90 },
+  { id: 'hero-2', title: 'Team meeting', effort: 60 },
+  { id: 'hero-3', title: 'Review the budget', effort: 45 },
   { id: 'hero-4', title: 'Draft the launch email', effort: 60 },
   { id: 'hero-5', title: 'Customer calls', effort: 75 },
 ] as const

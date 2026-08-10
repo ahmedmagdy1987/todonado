@@ -14,17 +14,17 @@ const BLOCKS: AboutBlock[] = [
   {
     icon: Gauge,
     heading: 'What it is',
-    body: 'Most to-do apps are bottomless lists. Todonado is different: you tag each task with the effort it takes, and a live capacity meter shows what your day can realistically hold. You commit to a plan you can actually finish, and recover gracefully when things slip.',
+    body: 'Most to-do apps are endless lists. Todonado is different: you give each task a time estimate, and a live capacity meter shows what your day can realistically hold. You commit to a plan you can actually finish, and whatever slips moves to tomorrow.',
   },
   {
     icon: Users,
     heading: 'Who it is for',
-    body: 'Solo knowledge workers, founders, freelancers, and students who lose the day to an ever-growing list and want a calmer, more honest way to plan it.',
+    body: 'Freelancers, founders, students, and anyone working on their own who loses the day to an ever-growing list and wants a calmer, more honest way to plan it.',
   },
   {
     icon: Compass,
     heading: 'Our mission',
-    body: 'To help you plan a realistic day, every day. We would rather you finish a focused, honest plan than stare at an endless list. Capture everything, decide what fits today, and protect that decision.',
+    body: 'To help you plan a realistic day, every day. We would rather you finish an honest plan than stare at an endless list. Write everything down, decide what fits today, and protect that decision.',
   },
 ]
 
@@ -64,7 +64,7 @@ export function AboutPage() {
             </Link>
             <Link to="/welcome">
               <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Back to overview
+                Back to home
               </Button>
             </Link>
           </div>

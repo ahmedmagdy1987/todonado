@@ -77,8 +77,8 @@ export function CapacityDemo() {
               {formatMinutes(summary.overMinutes)} more than the day holds.
             </p>
             <p className="mt-1 text-xs text-text-muted">
-              A to-do list would let you find this out at 6pm. Todonado says it now, and offers the
-              smallest fix.
+              A to-do list would let you find this out at 6pm. Todonado tells you now, while there is
+              still time to change it.
             </p>
             <Button
               size="sm"
@@ -118,7 +118,11 @@ export function CapacityDemo() {
           </ul>
         ) : (
           <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-text-muted">
-            Tap a chip above to start filling the day.
+            {/* "Tap a chip above to start filling the day." named a UI
+                component nobody outside the codebase calls a chip, and asked
+                the reader to picture "filling a day". The buttons are lengths;
+                say so. */}
+            Tap a time above to add your first task.
           </p>
         )}
       </CardContent>

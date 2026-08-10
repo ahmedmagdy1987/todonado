@@ -15,22 +15,22 @@ interface Step {
 const STEPS: Step[] = [
   {
     n: 1,
-    title: 'Capture with effort',
-    body: 'One tap tags a task with the minutes it really takes.',
+    title: 'Add the task and the time',
+    body: 'One tap adds how many minutes it will really take.',
     img: '/shots/capture-desktop.png',
-    alt: 'Capturing a task in Todonado with one-tap effort chips and a suggested estimate',
+    alt: 'Adding a task in Todonado with one-tap time estimates',
   },
   {
     n: 2,
     title: 'See what fits',
-    body: 'The meter sums your day against your real hours, before you commit.',
+    body: 'It adds up your tasks and shows what fits in your real hours, before you commit.',
     img: '/shots/today-desktop.png',
-    alt: 'The Todonado Today screen with an effort-aware capacity meter at 63% planned',
+    alt: 'The Todonado Today screen showing the capacity meter at 63% planned',
   },
   {
     n: 3,
     title: 'Focus & finish',
-    body: 'A refresh-proof timer bound to one task. Anything unfinished rolls over.',
+    body: 'A timer locked to one task that keeps running if you close the page. Anything you don’t finish moves to tomorrow.',
     img: '/shots/focus-desktop.png',
     alt: 'A Todonado focus session running a distraction-free timer on one task',
   },
@@ -60,7 +60,7 @@ export function HowItWorks() {
           How Todonado works
         </h2>
         <p className="mt-3 text-text-muted">
-          The same three moves, in the real app. Unedited screens, no mockups.
+          Three steps, shown in the real app. Real screenshots, nothing staged.
         </p>
       </div>
 
@@ -101,8 +101,8 @@ export function HowItWorks() {
         <div className="max-w-sm text-center sm:text-left">
           <h3 className="font-display text-xl font-semibold">Your command center, in your pocket</h3>
           <p className="mt-3 text-text-muted">
-            Add it to your home screen and it runs like a native app. No app store. Plan on your
-            laptop, execute on your phone.
+            Add it to your home screen and it opens like any other app. No app store. Plan on your
+            laptop, work from your phone.
           </p>
         </div>
       </div>

@@ -19,15 +19,28 @@ import { DayColumn } from './DayColumn'
  * They see exactly what the feature does, with made-up content, and can decide.
  */
 
+/*
+ * THE SAME SAMPLE-TASK RULE AS THE LANDING PAGE, AND FOR THE SAME REASON.
+ *
+ * This board is made-up content shown to a Free user to sell a paid feature, so
+ * it is a marketing demo that happens to live inside the app. It used to carry
+ * the identical strings the landing page did — "Review two pull requests",
+ * "Deep work: pricing spec", "Update the changelog", "Plan next sprint" — which
+ * narrow a general productivity product to a software team, and would have gone
+ * on saying so after the public page stopped.
+ *
+ * Minutes are untouched: they drive the seven capacity meters that are the whole
+ * point of the preview.
+ */
 const SAMPLE: { day: number; title: string; minutes: number }[] = [
   { day: 0, title: 'Draft the launch email', minutes: 60 },
-  { day: 0, title: 'Review two pull requests', minutes: 45 },
+  { day: 0, title: 'Review the budget', minutes: 45 },
   { day: 1, title: 'Customer calls', minutes: 90 },
-  { day: 1, title: 'Update the changelog', minutes: 30 },
-  { day: 2, title: 'Deep work: pricing spec', minutes: 120 },
-  { day: 3, title: 'Team retro prep', minutes: 45 },
+  { day: 1, title: 'Update the presentation', minutes: 30 },
+  { day: 2, title: 'Write the project proposal', minutes: 120 },
+  { day: 3, title: 'Prepare for the team meeting', minutes: 45 },
   { day: 4, title: 'Invoice run', minutes: 30 },
-  { day: 4, title: 'Plan next sprint', minutes: 60 },
+  { day: 4, title: 'Plan next quarter', minutes: 60 },
   { day: 6, title: 'Weekly review', minutes: 45 },
 ]
 

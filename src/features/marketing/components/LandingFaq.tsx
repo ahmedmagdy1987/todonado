@@ -15,23 +15,23 @@ interface Qa {
 const FAQ: Qa[] = [
   {
     q: 'Is Todonado free?',
-    a: 'Most of it, permanently. The effort-aware capacity meter, the overbooking guard, “Plan my day”, roll-over and recovery, focus mode with Pomodoro, recurring tasks, the template and checklist catalog, breathwork and the quit tracker are all free: that is the complete daily loop, not a trial. Pro adds the week ahead and the retrospective, and you can upgrade anytime from your plan settings.',
+    a: 'Most of it, permanently. The capacity meter and its overbooking warning, “Plan my day”, unfinished work rolling to tomorrow, focus mode with Pomodoro, repeating tasks, the templates and checklists, breathwork and the quit tracker are all free. That is a complete day, not a trial. Pro adds the week ahead and a look back at how your days really went, and you can upgrade anytime from your plan settings.',
   },
   {
     q: 'What do I get with Pro?',
-    a: 'The week and the retrospective. Week planning puts seven days on one board, each with its own capacity, plus a one-tap “Plan my week”. Insights show planned-vs-actual effort and how accurate your estimates are getting. Pro also keeps your completed history forever instead of the last 14 days, syncs a calendar URL so meetings stay fresh, and turns the daily briefing into a plan that arrives already made.',
+    a: 'The week ahead, and a look back at how your days really went. Week planning shows seven days at once, each with its own capacity, plus a one-tap “Plan my week”. Insights compare the time you planned with the time you actually spent, and show how accurate your estimates are getting. Pro also keeps your finished tasks forever instead of the last 14 days, keeps a linked calendar up to date so your meetings always show, and gives you a morning briefing with the day already planned.',
   },
   {
     q: 'What isn’t built yet?',
-    a: 'Two things, and both are on their way. Recorded ambience and guided meditation: rain, thunder, ocean and the spoken sessions all need audio we have not licensed yet. Referral discount codes: billing has to go live first, and until then the share link already works. Sleep sounds itself works now, because white, pink and brown noise are generated on your device rather than downloaded. Everything else on this page you can use right now.',
+    a: 'Two things, and both are on their way. Recorded nature sounds and guided meditation: rain, thunder, ocean and the spoken sessions all need audio we have not licensed yet. Referral discount codes: billing has to go live first, and until then the share link already works. Sleep sounds itself works now, because white, pink and brown noise are generated on your device rather than downloaded. Everything else on this page you can use right now.',
   },
   {
     q: 'Does it work on my phone?',
-    a: 'Yes. Todonado is a dark, mobile-first web app you can add to your home screen and run like a native app, no app store. Plan on a laptop, execute on your phone; it’s the same account either way.',
+    a: 'Yes. Todonado runs in your browser, and you can add it to your home screen so it opens like any other app. There is nothing to download from an app store. Plan on your laptop, work from your phone. Same account either way.',
   },
   {
     q: 'Is my data private?',
-    a: 'Your tasks are yours. Every row is protected by database row-level security, so only you can read your own data. You can export everything, or permanently delete your account and its data, from Settings at any time.',
+    a: 'Your tasks are yours. Your data is locked to your account inside the database, so no one else can read it. You can export everything, or permanently delete your account and its data, from Settings at any time.',
   },
 ]
 

@@ -30,7 +30,7 @@ export const WELLNESS_CONCEPTS: WellnessConcept[] = [
     key: 'meditation',
     title: 'Guided meditation',
     description:
-      'Short guided sessions to start the morning or wind down at night. The player is built; the sessions aren’t recorded yet.',
+      'Short guided sessions to start the morning or wind down at night. Nobody has recorded the sessions yet.',
     icon: Flower2,
   },
 ]

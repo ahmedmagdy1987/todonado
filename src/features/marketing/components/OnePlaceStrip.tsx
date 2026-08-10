@@ -3,6 +3,7 @@ import { ArrowRight, BarChart3, Sprout, Sun, Timer, Wind, type LucideIcon } from
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { Reveal } from '../demo/Reveal'
+import { ALL_IN_ONE_CATEGORIES } from '../plans'
 import { SECTION_RHYTHM } from '../sectionRhythm'
 
 interface Surface {
@@ -43,21 +44,17 @@ interface Surface {
  * `e2e/marketing.spec.ts` enforces both, and enforces that every category here
  * is one a signed-up user can actually open.
  */
-const CATEGORIES = [
-  'A day planner',
-  'A focus & pomodoro timer',
-  'A habit & quit tracker',
-  'A breathing coach',
-  'A journal',
-  'A mind-map canvas',
-] as const
+// ONE array, shared with the pricing page. The two lists had drifted to six
+// entries here and four there while both files carried a comment insisting they
+// were identical. See ALL_IN_ONE_CATEGORIES in plans.ts.
+const CATEGORIES = ALL_IN_ONE_CATEGORIES
 
 const SURFACES: Surface[] = [
   {
     name: 'Plan',
     icon: Sun,
     line: 'Commit to a day that actually fits.',
-    items: ['Effort-aware capacity meter', 'Plan my day', 'Week board (Pro)', 'Templates & checklists'],
+    items: ['A capacity meter that counts minutes', 'Plan my day', 'Week board (Pro)', 'Templates & checklists'],
     to: '/',
     cta: 'Open Today',
   },
@@ -65,7 +62,12 @@ const SURFACES: Surface[] = [
     name: 'Focus',
     icon: Timer,
     line: 'Start, and stay started.',
-    items: ['Get to work', 'Refresh-proof focus timer', 'Pomodoro 25/5', 'Interruption tally'],
+    items: [
+      'Get to work',
+      'A timer that keeps going if you close the page',
+      'Pomodoro: 25 minutes on, 5 off',
+      'Count your interruptions',
+    ],
     to: '/work',
     cta: 'Get to work',
   },
@@ -73,7 +75,12 @@ const SURFACES: Surface[] = [
     name: 'Habits',
     icon: Sprout,
     line: 'The things you keep doing, and the ones you stop.',
-    items: ['Quit tracker with day zero', 'Supplement & medication log', 'Planning streak', 'Points'],
+    items: [
+      'Quit tracker with a clean streak',
+      'Supplement & medication log',
+      'Planning streak',
+      'Points',
+    ],
     to: '/wellness/quit',
     cta: 'Open the quit tracker',
   },
@@ -131,8 +138,8 @@ export function OnePlaceStrip() {
             One place for your day
           </h2>
           <p className="mt-3 text-text-muted">
-            Plan it, focus on it, keep the habits around it, come back down, and see what it
-            actually cost. Every one of these is live. Open any of them.
+            Plan it, focus on it, build the habits around it, wind down, and see where the time
+            actually went. Every one of these is live. Open any of them.
           </p>
 
           {/* The all-in-one claim, as CATEGORIES. No brand names and no

@@ -260,7 +260,7 @@ export function LoginPage() {
             Welcome to <span className="text-gradient-brand">Todonado</span>
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            Your daily command center. Capture, plan, focus, recover.
+            Your daily command center. Plan a day that actually fits.
           </p>
         </div>
 
@@ -464,7 +464,7 @@ export function LoginPage() {
 
             <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">
               <Sparkles className="h-3 w-3 text-brand" aria-hidden />
-              Plan a realistic day. Execute with focus.
+              Plan a realistic day. Then stay focused.
             </p>
           </CardContent>
         </Card>

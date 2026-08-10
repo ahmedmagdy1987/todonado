@@ -185,8 +185,7 @@ export function LandingPage() {
                 className="hero-rise mt-6 max-w-md text-base leading-relaxed text-text-muted sm:text-lg"
                 style={{ '--rise-delay': '330ms' } as CSSProperties}
               >
-                Every task carries the minutes it costs. The meter tells you the truth before the
-                day does.
+                Every task gets a time estimate, so you can see if your day fits before it starts.
               </p>
               <div
                 className="hero-rise mt-9 flex flex-col gap-3 sm:flex-row"
@@ -206,7 +205,12 @@ export function LandingPage() {
                 className="hero-rise mt-4 text-xs text-text-muted"
                 style={{ '--rise-delay': '520ms' } as CSSProperties}
               >
-                Free to start · no credit card · dark, installable PWA.
+                {/* CUSTOMER BENEFIT, NOT IMPLEMENTATION. This used to read
+                    "dark, installable PWA" — three pieces of product jargon in
+                    a row, on the one line that has to reassure a stranger. What
+                    a visitor actually wants to know is whether it costs
+                    anything and whether it works on their phone. */}
+                Free to start · no credit card · works on your phone and laptop.
               </p>
             </div>
 
@@ -238,8 +242,7 @@ export function LandingPage() {
           eyebrow="Capacity"
           line={
             <>
-              Fill a day until it{' '}
-              <span className="text-warning">stops fitting</span>.
+              See what actually <span className="text-warning">fits</span> in your day.
             </>
           }
         >
@@ -253,7 +256,7 @@ export function LandingPage() {
           flip
           line={
             <>
-              One press. A day that{' '}
+              One tap. A day that{' '}
               <span className="text-gradient-brand">actually fits</span>.
             </>
           }
@@ -267,7 +270,7 @@ export function LandingPage() {
           eyebrow="Focus"
           line={
             <>
-              Then <span className="text-success">protect it</span>.
+              Then <span className="text-success">protect your focus</span>.
             </>
           }
         >
@@ -283,7 +286,7 @@ export function LandingPage() {
           flip
           line={
             <>
-              Seven days that <span className="text-gradient-brand">each still fit</span>.
+              Seven days that <span className="text-gradient-brand">all fit</span>.
             </>
           }
         >
@@ -349,7 +352,7 @@ export function LandingPage() {
                   Stop planning days that don&rsquo;t fit.
                 </h2>
                 <p className="mx-auto mt-4 max-w-md text-text-muted">
-                  Commit to what&rsquo;s realistic, execute with focus, recover without guilt.
+                  Commit to what fits, focus on it, and pick up whatever slips.
                 </p>
                 <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                   <Button size="lg" onClick={startFree} className="cta-sheen">

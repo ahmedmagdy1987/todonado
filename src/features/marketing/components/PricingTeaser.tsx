@@ -32,7 +32,7 @@ export function PricingTeaser({ onStartFree, ctaLabel }: PricingTeaserProps) {
     <section className={cn(SECTION_RHYTHM, 'max-w-5xl')} aria-labelledby="pricing-teaser">
       <Reveal className="mx-auto max-w-2xl text-center">
         <h2 id="pricing-teaser" className="font-display text-2xl font-bold sm:text-3xl">
-          Free to start. Pro when the day matters.
+          Free for every day. Pro when you want the whole week.
         </h2>
         <p className="mt-3 text-text-muted">{PRICING_DISCLAIMER}</p>
       </Reveal>

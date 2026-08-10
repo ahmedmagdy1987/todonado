@@ -49,15 +49,28 @@ function demoBacklogTask(
  * day. The real planner picks 345 of it (96% of capacity) and leaves three
  * tasks behind — which is the whole point of the widget.
  */
+/*
+ * ONLY THE TITLES CHANGED, AND THAT IS DELIBERATE.
+ *
+ * Every priority, estimate and due date below is exactly what it was, because
+ * `e2e/smoke.spec.ts` asserts the planner's real output ("5 planned · 3 left in
+ * backlog") against this fixture. Renaming a task is a copy change; renumbering
+ * one silently changes what the demo proves.
+ *
+ * The old titles read as a software team's sprint board — "Refactor the auth
+ * guard", "Ship the pricing page fix", "Tidy the design tokens". Todonado is
+ * for anyone with more to do than fits in a day, and the examples on the public
+ * page should not quietly narrow that to programmers.
+ */
 export const AUTOPLAN_BACKLOG: readonly Task[] = [
-  demoBacklogTask('ap-1', 'Ship the pricing page fix', 3, 60, '2026-06-15'),
-  demoBacklogTask('ap-2', 'Prep the investor update', 3, 90, '2026-06-16'),
-  demoBacklogTask('ap-3', 'Reply to the support backlog', 2, 45, '2026-06-15'),
-  demoBacklogTask('ap-4', 'Record the demo video', 2, 120, null),
-  demoBacklogTask('ap-5', 'Refactor the auth guard', 1, 90, null),
-  demoBacklogTask('ap-6', 'Update the onboarding copy', 1, 30, null),
-  demoBacklogTask('ap-7', 'Plan the Q3 roadmap', 0, 120, null),
-  demoBacklogTask('ap-8', 'Tidy the design tokens', 0, 45, null),
+  demoBacklogTask('ap-1', 'Finish the client proposal', 3, 60, '2026-06-15'),
+  demoBacklogTask('ap-2', 'Prepare the quarterly report', 3, 90, '2026-06-16'),
+  demoBacklogTask('ap-3', 'Reply to customer emails', 2, 45, '2026-06-15'),
+  demoBacklogTask('ap-4', 'Record the training video', 2, 120, null),
+  demoBacklogTask('ap-5', 'Review the new contracts', 1, 90, null),
+  demoBacklogTask('ap-6', 'Update the welcome guide', 1, 30, null),
+  demoBacklogTask('ap-7', 'Plan next quarter', 0, 120, null),
+  demoBacklogTask('ap-8', 'Organize the shared folder', 0, 45, null),
 ] as const
 
 /**

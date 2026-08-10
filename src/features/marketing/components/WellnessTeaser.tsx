@@ -48,6 +48,11 @@ const LIVE_MODULES: LiveModule[] = [
   },
 ]
 
+/** Small numbers read better as words in a sentence than as digits. */
+function countWord(n: number): string {
+  return ['no', 'One', 'Two', 'Three', 'Four', 'Five'][n] ?? String(n)
+}
+
 export function WellnessTeaser() {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -80,8 +85,23 @@ export function WellnessTeaser() {
             A calmer side to your day
           </h2>
           <p className="mt-3 text-text-muted">
-            Two of these are built and free to use right now. Two aren&rsquo;t. Tell us if
-            you&rsquo;d actually use them and we&rsquo;ll let you know when they land.
+            {/*
+              THE COUNT IS COMPUTED, NOT TYPED, because the typed one was wrong.
+              This read "Two of these are built... Two aren't" while the page
+              rendered THREE live modules and ONE unbuilt concept, so anyone who
+              counted the cards caught the page contradicting itself.
+              `e2e/marketing.spec.ts` had already pinned the truth from the other
+              side: it asserts exactly one "Coming soon" badge on the landing.
+
+              Deliberate wording: that same spec fails if the strings "not built
+              yet" or "isn't built" appear within 90 characters of a shipped
+              feature name, and Breathwork is the very next word on the page.
+              Saying what the last one still NEEDS is both truer and safer than
+              saying what it is not.
+            */}
+            {countWord(LIVE_MODULES.length)} of these are free to use right now. The last one
+            still needs recording. Tell us if you&rsquo;d use it and we&rsquo;ll email you when
+            it&rsquo;s ready.
           </p>
         </Reveal>
 

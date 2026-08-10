@@ -161,8 +161,8 @@ export function WeekBoardDemo() {
           </button>
           <p className="ml-auto font-mono text-xs text-text-muted" aria-live="polite">
             {settled
-              ? `${plan.taskCount} planned · ${plan.skipped} left in backlog`
-              : `${WEEK_BACKLOG.length} tasks · ${formatMinutes(backlogMinutes)} to place`}
+              ? `${plan.taskCount} planned · ${plan.skipped} left for later`
+              : `${WEEK_BACKLOG.length} tasks · ${formatMinutes(backlogMinutes)} to schedule`}
           </p>
         </div>
 
@@ -170,7 +170,7 @@ export function WeekBoardDemo() {
           <p className="animate-fade-in text-xs leading-relaxed text-text-muted">
             Each task went to the <span className="text-text-primary">earliest day with room</span>,
             packed around the work already there, and never after its own due date. Nothing was
-            forced onto a full day; {plan.skipped === 0 ? 'everything fit' : 'what did not fit stayed in the backlog'}.
+            forced onto a full day; {plan.skipped === 0 ? 'everything fit' : 'what didn’t fit is still waiting'}.
           </p>
         )}
       </CardContent>
