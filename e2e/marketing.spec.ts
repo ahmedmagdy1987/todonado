@@ -77,14 +77,16 @@ const SHIPPED = [
  * tier the page already sells.
  *
  * 'Sleep sounds' USED TO BE THE FIRST ENTRY. It is now in SHIPPED above, and
- * what replaced it is deliberately narrower: 'Recorded ambience' — the rain,
- * thunder and ocean recordings nobody has licensed. The noise tracks that
- * shipped are generated on the device, so they were never waiting on a file.
- * Naming the half that is still missing is the difference between an honest
- * list and a stale one.
+ * what replaced it is deliberately narrower: the rain, thunder and ocean
+ * recordings nobody has licensed. The noise tracks that shipped are generated
+ * on the device, so they were never waiting on a file. Naming the half that is
+ * still missing is the difference between an honest list and a stale one.
+ *
+ * It was called 'Recorded ambience' until the copy pass: "ambience" as a noun
+ * for audio tracks is industry vocabulary, and this list is read by visitors.
  */
 const NOT_BUILT = [
-  'Recorded ambience',
+  'Recorded nature sounds',
   'Guided meditation',
   'Referral',
   'Team',
@@ -214,8 +216,10 @@ test('landing: no shipped feature is ever labelled unbuilt', async ({ page }) =>
   expect(count, 'only guided meditation is still unlicensed').toBe(1)
 
   // And each shipped feature is present WITHOUT being called unbuilt. The
-  // wellness teaser's "Two of these are built" copy is the only place the word
-  // pairing can legitimately appear, so this checks proximity per feature.
+  // wellness teaser's intro is the only place the word pairing can legitimately
+  // appear, so this checks proximity per feature. (That intro deliberately says
+  // what the last module still NEEDS rather than what it is not, precisely so it
+  // cannot trip this guard.)
   for (const feature of SHIPPED) {
     const idx = body.toLowerCase().indexOf(feature.toLowerCase())
     if (idx === -1) continue // not every shipped feature is named on the landing
@@ -280,7 +284,7 @@ test('pricing: the tiers match the real gates, and "not built" means not built',
   const main = page.locator('main')
   const text = (await main.textContent()) ?? ''
 
-  // FREE must claim the daily loop — these were previously sold as Pro.
+  // FREE must claim the whole day — these were previously sold as Pro.
   // `.first()` throughout: these phrases correctly appear more than once (the
   // Free bullet list AND the "what you get with Pro" prose that contrasts them).
   await expect(main.getByText(/capacity meter that shows what actually fits/i).first()).toBeVisible()

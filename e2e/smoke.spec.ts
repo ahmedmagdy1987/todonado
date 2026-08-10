@@ -366,7 +366,7 @@ test('landing: the three demo widgets are interactive and touch a database NEVER
   await expect(page.getByText(/never overcommits your day/i)).toBeVisible()
 
   // --- W3: the focus ring runs and reaches the calm completion state ------
-  const startBtn = page.getByRole('button', { name: 'Start a sprint' })
+  const startBtn = page.getByRole('button', { name: 'Start the timer' })
   await startBtn.scrollIntoViewIfNeeded()
   await startBtn.click()
   // 25-second sped-up sprint → the completion badge.
