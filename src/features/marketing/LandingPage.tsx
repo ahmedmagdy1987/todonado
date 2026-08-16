@@ -19,9 +19,6 @@ import { SECTION_RHYTHM } from './sectionRhythm'
  * the viewport, so the landing chunk stays lean and the hero — which IS
  * interactive on first paint — never competes with them for bandwidth.
  */
-const CapacityDemo = lazy(() =>
-  import('./demo/CapacityDemo').then((m) => ({ default: m.CapacityDemo })),
-)
 const AutoPlanDemo = lazy(() =>
   import('./demo/AutoPlanDemo').then((m) => ({ default: m.AutoPlanDemo })),
 )
@@ -40,26 +37,11 @@ const WeekBoardDemo = lazy(() =>
 const ProblemSection = lazy(() =>
   import('./components/ProblemSection').then((m) => ({ default: m.ProblemSection })),
 )
-const GoalsSystems = lazy(() =>
-  import('./components/GoalsSystems').then((m) => ({ default: m.GoalsSystems })),
-)
 const SystemLoop = lazy(() =>
   import('./components/SystemLoop').then((m) => ({ default: m.SystemLoop })),
 )
-const IdentitySection = lazy(() =>
-  import('./components/IdentitySection').then((m) => ({ default: m.IdentitySection })),
-)
-const ResearchMoment = lazy(() =>
-  import('./components/ResearchMoment').then((m) => ({ default: m.ResearchMoment })),
-)
-const HowItWorks = lazy(() =>
-  import('./components/HowItWorks').then((m) => ({ default: m.HowItWorks })),
-)
 const OnePlaceStrip = lazy(() =>
   import('./components/OnePlaceStrip').then((m) => ({ default: m.OnePlaceStrip })),
-)
-const WellnessTeaser = lazy(() =>
-  import('./components/WellnessTeaser').then((m) => ({ default: m.WellnessTeaser })),
 )
 const LandingFaq = lazy(() =>
   import('./components/LandingFaq').then((m) => ({ default: m.LandingFaq })),
@@ -314,13 +296,17 @@ export function LandingPage() {
         </Chapter>
 
         {/* ================================================================ */}
-        {/*  CHAPTER 2 - THE FINITE DAY                        tone: measure  */}
+        {/*  CHAPTER 2 - MAKE THE DAY REAL                     tone: measure  */}
         {/*                                                                   */}
-        {/*  The problem and its answer are ONE chapter now. They were two    */}
-        {/*  full sections with identical spacing, which spaced a question    */}
-        {/*  and its reply exactly like two unrelated arguments. The scene    */}
-        {/*  turns analytical here: a calibration grid and a cool lift, for   */}
-        {/*  the part of the page that is about counting minutes.             */}
+        {/*  ONE PLANNING STORY, NOT THREE PLANNING DEMOS.                    */}
+        {/*                                                                   */}
+        {/*  This was the page's worst redundancy and it took an audit to see */}
+        {/*  it: capacity was proved THREE times over. The hero meter fills   */}
+        {/*  live to 92%, the problem section runs the real computeCapacity   */}
+        {/*  over ten tasks, and then an interactive capacity widget invited  */}
+        {/*  the reader to do it a third time. The widget went. What is left  */}
+        {/*  is one evolving arc: the day does not fit, one tap makes it fit,  */}
+        {/*  and the same rule then holds for seven days at once.             */}
         {/* ================================================================ */}
         <Chapter tone="measure" id="why-days-slip">
           <LazySection minHeight={900}>
@@ -331,56 +317,39 @@ export function LandingPage() {
 
           <Beat>
             <Showcase
-              eyebrow="Capacity"
+              eyebrow="The plan"
               line={
                 <>
-                  So give the day a <span className="text-warning">limit</span>.
-                </>
-              }
-            >
-              <LazyWidget component={CapacityDemo} minHeight={360} label="the capacity demo" />
-            </Showcase>
-          </Beat>
-        </Chapter>
-
-        {/* ================================================================ */}
-        {/*  CHAPTER 3 - FROM A GOAL TO AN HOUR                tone: measure  */}
-        {/*                                                                   */}
-        {/*  The Clear quotation and the planner it describes, together. The  */}
-        {/*  quote existed to set up exactly this widget and sat a full       */}
-        {/*  screen away from it.                                             */}
-        {/* ================================================================ */}
-        <Chapter tone="measure">
-          <LazySection minHeight={640}>
-            <Suspense fallback={null}>
-              <GoalsSystems />
-            </Suspense>
-          </LazySection>
-
-          <Beat>
-            <Showcase
-              eyebrow="From intention to plan"
-              flip
-              line={
-                <>
-                  A goal is not a plan until it has{' '}
-                  <span className="text-gradient-brand">a time</span>.
+                  So give the day a limit, and let it{' '}
+                  <span className="text-gradient-brand">fill itself</span>.
                 </>
               }
             >
               <LazyWidget component={AutoPlanDemo} minHeight={640} label="the auto-plan demo" />
             </Showcase>
           </Beat>
+
+          <Beat>
+            <Showcase
+              eyebrow="The week"
+              full
+              line={
+                <>
+                  Then seven days that <span className="text-gradient-brand">all fit</span>.
+                </>
+              }
+            >
+              <LazyWidget component={WeekBoardDemo} minHeight={420} label="the week board demo" />
+            </Showcase>
+          </Beat>
         </Chapter>
 
         {/* ================================================================ */}
-        {/*  CHAPTER 4 - EXECUTION                               tone: focus  */}
+        {/*  CHAPTER 3 - DO THE WORK, RECOVER WHEN LIFE HAPPENS  tone: focus  */}
         {/*                                                                   */}
-        {/*  Doing the work, and surviving the day it goes wrong. The scene   */}
-        {/*  is the darkest on the page so the product UI is the brightest    */}
-        {/*  thing in it, which is the entire argument of these two beats.    */}
-        {/*  The thread stays HERE, where the causal link is strongest: you   */}
-        {/*  protect the time, and then the day slips anyway.                 */}
+        {/*  One causal story rather than two features: you protect the time,  */}
+        {/*  and then the day slips anyway. The scene is the darkest on the   */}
+        {/*  page so the product UI is the brightest thing in it.             */}
         {/* ================================================================ */}
         <Chapter tone="focus">
           <Showcase
@@ -413,67 +382,27 @@ export function LandingPage() {
         </Chapter>
 
         {/* ================================================================ */}
-        {/*  CHAPTER 5 - THE WEEK, AND THE REAL THING            tone: focus  */}
+        {/*  CHAPTER 4 - YOUR SYSTEM LEARNS                     tone: system  */}
         {/*                                                                   */}
-        {/*  The flagship paid feature at full width, then the unedited       */}
-        {/*  captures. Both are "look at the product", so they are one        */}
-        {/*  chapter rather than two.                                         */}
-        {/* ================================================================ */}
-        <Chapter tone="focus">
-          <Showcase
-            eyebrow="The week"
-            full
-            line={
-              <>
-                Seven days that <span className="text-gradient-brand">all fit</span>.
-              </>
-            }
-          >
-            <LazyWidget component={WeekBoardDemo} minHeight={420} label="the week board demo" />
-          </Showcase>
-
-          <Beat>
-            <LazySection minHeight={900}>
-              <Suspense fallback={null}>
-                <HowItWorks />
-              </Suspense>
-            </LazySection>
-          </Beat>
-        </Chapter>
-
-        {/* ================================================================ */}
-        {/*  CHAPTER 6 - THE LOOP                               tone: system  */}
+        {/*  The intellectual centrepiece, and now the only home for the two  */}
+        {/*  supporting ideas that each used to own a chapter. The James      */}
+        {/*  Clear line is an epigraph at the top; the planning-fallacy        */}
+        {/*  finding is a footnote at the bottom. Both belong to this         */}
+        {/*  argument, and neither is big enough to be an argument.           */}
         {/*                                                                   */}
-        {/*  The research is the SETUP for the loop, not a separate stop for  */}
-        {/*  credibility: people underestimate their own work, so a system    */}
-        {/*  that measures what things actually took is answering a           */}
-        {/*  documented problem. The scene opens out and the brand light      */}
-        {/*  returns, because this is where the page argues that the parts    */}
-        {/*  belong together. The one mid-page CTA closes the chapter, which  */}
-        {/*  is where the case finishes; everything after it is reassurance.  */}
+        {/*  The one mid-page CTA closes it, because this is where the case   */}
+        {/*  finishes. Everything after is reassurance.                        */}
         {/* ================================================================ */}
         <Chapter tone="system">
-          <LazySection minHeight={360}>
+          <LazySection minHeight={900}>
             <Suspense fallback={null}>
-              <ResearchMoment />
+              <SystemLoop />
             </Suspense>
           </LazySection>
 
           <Beat>
-            <LazySection minHeight={900}>
-              <Suspense fallback={null}>
-                <SystemLoop />
-              </Suspense>
-            </LazySection>
-          </Beat>
-
-          <Beat>
             <div className="mx-auto w-full max-w-3xl px-4 text-center sm:px-6">
               <Reveal>
-                {/* No "takes about a minute" here, deliberately. It is the
-                    conventional line for this slot and it is a number nobody
-                    has measured, on a page whose whole discipline is not
-                    shipping claims it cannot back. */}
                 <p className="font-display text-lg font-semibold sm:text-xl">
                   That is the whole system. Now put your own day through it.
                 </p>
@@ -490,12 +419,19 @@ export function LandingPage() {
         </Chapter>
 
         {/* ================================================================ */}
-        {/*  CHAPTER 7 - EVERYTHING TOGETHER                    tone: system  */}
+        {/*  CHAPTER 5 - MORE THAN A PLANNER                    tone: system  */}
         {/*                                                                   */}
-        {/*  Breadth, as evidence for a claim already made. The two blocks    */}
-        {/*  used to carry their OWN surface tints and their own top and      */}
-        {/*  bottom rules, which is how a page ends up with a treatment per   */}
-        {/*  section; the chapter scene owns that now and they are plain.     */}
+        {/*  BREADTH IN ONE STOP, NOT TWO.                                    */}
+        {/*                                                                   */}
+        {/*  The wellness teaser was the second breadth argument in a row:    */}
+        {/*  three module cards and an interest card, 575px on a phone, for a */}
+        {/*  story this strip already tells. The strip names Calm among its   */}
+        {/*  five surfaces and links straight into breathwork, so removing    */}
+        {/*  the teaser costs the page no claim and no destination — it only  */}
+        {/*  stops making the same point twice. The component still exists;   */}
+        {/*  it is the homepage that no longer needs a landing page for a     */}
+        {/*  secondary module. The anonymous fake-door for guided meditation  */}
+        {/*  goes with it; the signed-in /wellness hub still carries it.      */}
         {/* ================================================================ */}
         <Chapter tone="system">
           <LazySection minHeight={560}>
@@ -503,48 +439,32 @@ export function LandingPage() {
               <OnePlaceStrip />
             </Suspense>
           </LazySection>
-
-          <Beat>
-            <LazySection minHeight={420}>
-              <Suspense fallback={null}>
-                <WellnessTeaser />
-              </Suspense>
-            </LazySection>
-          </Beat>
         </Chapter>
 
         {/* ================================================================ */}
-        {/*  CHAPTER 8 - WHAT IT ADDS UP TO                      tone: close  */}
+        {/*  CHAPTER 6 - COMMIT                                  tone: close  */}
         {/*                                                                   */}
-        {/*  The emotional close, held to what the software actually records. */}
-        {/*  Decoration steps back from here to the end of the page.          */}
+        {/*  PURELY COMMERCIAL: price, three objections, the ask.             */}
+        {/*                                                                   */}
+        {/*  The identity beat ("become the person who plans their day") led  */}
+        {/*  this chapter and cost 737px. Its four proofs are the planning    */}
+        {/*  streak, recorded focus time, completed history and the clean     */}
+        {/*  streak — which is chapters 2, 3 and 4 restated as motivation     */}
+        {/*  after the argument has already been made and won. A close that   */}
+        {/*  re-argues is a close that delays. The component is kept, and so  */}
+        {/*  is the test that guards its copy; it is off the homepage.        */}
         {/* ================================================================ */}
         <Chapter tone="close">
           <LazySection minHeight={700}>
             <Suspense fallback={null}>
-              <IdentitySection />
-            </Suspense>
-          </LazySection>
-        </Chapter>
-
-        {/* ================================================================ */}
-        {/*  CHAPTER 9 - THE DECISION                            tone: close  */}
-        {/*                                                                   */}
-        {/*  Objections, price, one ask. Three separate sections before,      */}
-        {/*  which is three chapter-sized gaps to travel for what is a single */}
-        {/*  beat of the reader's attention: deciding.                        */}
-        {/* ================================================================ */}
-        <Chapter tone="close">
-          <LazySection minHeight={420}>
-            <Suspense fallback={null}>
-              <LandingFaq />
+              <PricingTeaser onStartFree={startFree} ctaLabel={ctaLabel} />
             </Suspense>
           </LazySection>
 
           <Beat>
-            <LazySection minHeight={700}>
+            <LazySection minHeight={420}>
               <Suspense fallback={null}>
-                <PricingTeaser onStartFree={startFree} ctaLabel={ctaLabel} />
+                <LandingFaq />
               </Suspense>
             </LazySection>
           </Beat>
@@ -569,8 +489,7 @@ export function LandingPage() {
                       planned badly, which is a heavy note to end on. A closing
                       CTA that then asks for a life overhaul earns a "not
                       today". Asking for ONE honest day is both the smallest
-                      possible commitment and exactly what the product does, so
-                      the ask and the promise are the same size.
+                      possible commitment and exactly what the product does.
                     */}
                     <h2 className="font-display text-2xl font-bold sm:text-4xl">
                       Start with today.
@@ -579,13 +498,6 @@ export function LandingPage() {
                       Not the whole year. Not a new system for your life. One day, planned honestly,
                       that you can actually finish. Then do it again tomorrow.
                     </p>
-                    {/*
-                      ONE ACTION. The close used to carry a "Compare plans" link
-                      beside it, which was a third label for /pricing and it sat
-                      directly BELOW the pricing section the reader had just
-                      scrolled through. An ending that offers a choice is not an
-                      ending.
-                    */}
                     <div className="mt-8 flex justify-center">
                       <Button size="lg" onClick={startFree} className="cta-sheen">
                         {ctaLabel}

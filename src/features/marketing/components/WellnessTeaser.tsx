@@ -81,10 +81,12 @@ export function WellnessTeaser() {
     <section aria-labelledby="focus-calm">
       <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal className="mx-auto max-w-2xl text-center">
-          <h2 id="focus-calm" className="font-display text-2xl font-bold sm:text-3xl">
+          {/* h3, not h2: this is a beat inside the ecosystem chapter now
+              rather than a chapter of its own, and the outline should say so. */}
+          <h3 id="focus-calm" className="font-display text-lg font-semibold sm:text-xl">
             A calmer side to your day
-          </h2>
-          <p className="mt-3 text-text-muted">
+          </h3>
+          <p className="mt-2 text-sm text-text-muted">
             {/*
               THE COUNT IS COMPUTED, NOT TYPED, because the typed one was wrong.
               This read "Two of these are built... Two aren't" while the page

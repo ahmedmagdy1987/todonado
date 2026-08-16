@@ -138,8 +138,8 @@ export function IdentitySection() {
         ))}
       </ul>
 
-      <Reveal className="mx-auto mt-8 max-w-2xl text-center sm:mt-12">
-        <p className="text-base leading-relaxed text-text-primary/90 sm:text-lg">
+      <Reveal className="mx-auto mt-8 max-w-2xl text-center">
+        <p className="text-sm leading-relaxed text-text-primary/90 sm:text-base">
           Streaks here are counted gently and never used against you. A missed day is a missed day,
           not a verdict, and nothing you have already done is ever taken away to punish it.
         </p>

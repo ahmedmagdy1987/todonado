@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Check, Info, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, Info, Sparkles } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
@@ -9,6 +9,7 @@ import { MarketingFooter } from './components/MarketingFooter'
 import { UpgradeIntentModal } from './components/UpgradeIntentModal'
 import { ALL_IN_ONE_CATEGORIES, PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
 import { PRO_PRICE_COPY, usd } from './pricing'
+import { FAQ } from './faq'
 
 /**
  * NOT BUILT — and each line says WHY.
@@ -264,6 +265,42 @@ export function PricingPage() {
             >
               Back to home
             </Link>
+          </div>
+        </section>
+
+        {/*
+          THE CANONICAL FAQ.
+
+          It used to live only on the homepage, where five open questions cost
+          real length this far down a long page, and where two of the answers
+          were the only copy on the public site that carried them. Moving the
+          full set here — rather than deleting two of them — is what made
+          trimming the homepage to three a compression instead of a deletion.
+          Both surfaces render from `./faq.ts`, so they cannot drift apart.
+
+          `#faq` is the anchor the homepage links to.
+        */}
+        <section
+          id="faq"
+          className="mx-auto max-w-3xl scroll-mt-24 px-4 pb-16 sm:px-6"
+          aria-labelledby="pricing-faq-heading"
+        >
+          <h2 id="pricing-faq-heading" className="font-display text-xl font-bold">
+            Questions, answered
+          </h2>
+          <div className="mt-6 divide-y divide-white/5 border-y border-white/5">
+            {FAQ.map((item) => (
+              <details key={item.q} className="group">
+                <summary className="focus-ring flex min-h-[56px] cursor-pointer list-none items-center gap-3 py-4 text-left font-display text-base font-semibold text-text-primary marker:content-['']">
+                  <span className="flex-1">{item.q}</span>
+                  <ChevronDown
+                    aria-hidden
+                    className="h-4 w-4 shrink-0 text-text-muted transition-transform duration-200 group-open:rotate-180"
+                  />
+                </summary>
+                <p className="pb-5 pr-7 text-sm leading-relaxed text-text-muted">{item.a}</p>
+              </details>
+            ))}
           </div>
         </section>
       </main>
