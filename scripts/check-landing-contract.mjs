@@ -131,6 +131,14 @@ try {
   const seeAll = faqRegion.getByRole('link', { name: /See all pricing questions/i })
   ;(await seeAll.count()) === 1 ? ok('links to the full pricing FAQ') : fail('links to the full pricing FAQ')
 
+  // EXACTLY ONE fake door. e2e/marketing.spec.ts pins this at 1, and it is what
+  // makes removing the wellness teaser a CI failure rather than a saving: the
+  // guided-meditation card is the landing's only ANONYMOUS demand capture, and a
+  // signed-in surface cannot measure interest from people who never sign up.
+  const comingSoon = await page.getByText('Coming soon', { exact: true }).count()
+  if (comingSoon === 1) ok('exactly one fake door on the landing')
+  else fail('exactly one fake door on the landing', `found ${comingSoon}`)
+
   const h1 = await page.getByRole('heading', { level: 1 }).count()
   h1 === 1 ? ok('exactly one h1') : fail('exactly one h1', `found ${h1}`)
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-16T17:10:38.236Z",
+  "generatedAt": "2026-08-16T17:14:41.510Z",
   "viewports": {
     "390": {
       "docHeight": 11801,
@@ -206,7 +206,7 @@
         {
           "chapter": 1,
           "label": "pointer-events-none absolute inset-x-0 top-0 h",
-          "height": 745
+          "height": 746
         },
         {
           "chapter": 1,
@@ -473,7 +473,7 @@
       ]
     },
     "1440": {
-      "docHeight": 9752,
+      "docHeight": 9728,
       "viewportH": 900,
       "chapters": [
         {
@@ -498,7 +498,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 1632
+          "height": 1608
         }
       ],
       "chapterCount": 6,
@@ -610,7 +610,7 @@
         {
           "chapter": 6,
           "label": "chapter__scene",
-          "height": 1632
+          "height": 1608
         },
         {
           "chapter": 6,
@@ -625,7 +625,7 @@
         {
           "chapter": 6,
           "label": "Start with today.",
-          "height": 370
+          "height": 346
         }
       ]
     }
