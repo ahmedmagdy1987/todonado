@@ -432,6 +432,42 @@ export function LandingPage() {
           </Suspense>
         </LazySection>
 
+        {/*
+          THE ONE MID-PAGE CTA.
+
+          Between the hero and the breadth strip there was no primary action at
+          all, which on a phone is something like thirteen thousand pixels of
+          argument with nothing to act on. It goes HERE, at the end of the
+          system section, because that is where the case finishes: everything
+          after it is reassurance about breadth, price and objections.
+
+          Deliberately a single control on a plain rule rather than another
+          panel. The page already closes on a full CTA card, and two of those
+          would make the second one look like a retry.
+        */}
+        <section className="mx-auto w-full max-w-3xl px-4 pb-4 text-center sm:px-6">
+          <Reveal>
+            <div className="border-t border-white/5 pt-12">
+              {/* No "takes about a minute" here, deliberately. It is the
+                  conventional line for this slot and it is a number nobody has
+                  measured, on a page whose whole discipline is not shipping
+                  claims it cannot back. */}
+              <p className="font-display text-lg font-semibold sm:text-xl">
+                That is the whole system. Now put your own day through it.
+              </p>
+              <div className="mt-5 flex justify-center">
+                <Button size="lg" onClick={startFree} className="cta-sheen">
+                  {ctaLabel}
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+              <p className="mt-3 text-xs text-text-muted">
+                Free to start · no credit card
+              </p>
+            </div>
+          </Reveal>
+        </section>
+
         {/* The breadth, stated as a fact and linked to the real surfaces. It
             follows the loop rather than preceding it, so "one place" arrives as
             evidence for a claim already made rather than as a feature wall. */}
