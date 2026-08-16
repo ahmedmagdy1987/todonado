@@ -34,7 +34,18 @@ its source and its verdict.
 **Page numbers are deliberately not shown.** Pagination varies by edition; the chapter attribution
 is stable. A citation that is wrong in paperback is worse than one that is less precise.
 
-### 1.2 SHIPPED — Stephen R. Covey
+### 1.2 VERIFIED, THEN CUT — Stephen R. Covey
+
+> **Status changed in the executive cut (2026-08-16).** This quotation is fully verified and was
+> live on the page. It was removed on **editorial** grounds, not sourcing grounds.
+>
+> Two attributed quotations on one page starts to make the page sound like it is quoting its way to
+> authority rather than showing a product, and the second one has to be better than the silence it
+> replaces. This one was not: the week board already argues "decide what does not get a slot" by
+> making every day's capacity visible, so the quotation restated the section's own point in someone
+> else's voice. Cutting it also makes the surviving Clear quotation land harder.
+>
+> **Everything below is still accurate.** Restoring it is a paste, not a research job.
 
 | | |
 | --- | --- |
@@ -213,8 +224,12 @@ Every product claim on the page is verified against the code, not against docume
 
 ## 5. What a future session must not do
 
-- Do not add an attributed quotation without a primary source. `QuoteBand` makes the citation a
-  **required prop** specifically so this cannot be skipped.
+- Do not add an attributed quotation without a primary source. There is exactly **one** on the page
+  and that is a deliberate ceiling, not an accident of what happened to get verified. A second one
+  has to beat the silence it replaces, and the Covey line above is the worked example of a
+  perfectly-sourced quotation that did not.
+  *(A `QuoteBand` component used to enforce the citation as a required prop. It was deleted with
+  its only caller in the executive cut rather than left as dead code; the rule lives here.)*
 - Do not convert an effect size into "N times more likely". That is the single most common way the
   research on this page's subject gets misquoted.
 - Do not reinstate the "23 minutes 15 seconds" figure or the "42% more likely" figure. Both are
