@@ -43,6 +43,9 @@ const SystemLoop = lazy(() =>
 const OnePlaceStrip = lazy(() =>
   import('./components/OnePlaceStrip').then((m) => ({ default: m.OnePlaceStrip })),
 )
+const WellnessTeaser = lazy(() =>
+  import('./components/WellnessTeaser').then((m) => ({ default: m.WellnessTeaser })),
+)
 const LandingFaq = lazy(() =>
   import('./components/LandingFaq').then((m) => ({ default: m.LandingFaq })),
 )
@@ -421,17 +424,20 @@ export function LandingPage() {
         {/* ================================================================ */}
         {/*  CHAPTER 5 - MORE THAN A PLANNER                    tone: system  */}
         {/*                                                                   */}
-        {/*  BREADTH IN ONE STOP, NOT TWO.                                    */}
+        {/*  BREADTH IN ONE STOP. CALM IS FOLDED IN, NOT DROPPED.             */}
         {/*                                                                   */}
-        {/*  The wellness teaser was the second breadth argument in a row:    */}
-        {/*  three module cards and an interest card, 575px on a phone, for a */}
-        {/*  story this strip already tells. The strip names Calm among its   */}
-        {/*  five surfaces and links straight into breathwork, so removing    */}
-        {/*  the teaser costs the page no claim and no destination — it only  */}
-        {/*  stops making the same point twice. The component still exists;   */}
-        {/*  it is the homepage that no longer needs a landing page for a     */}
-        {/*  secondary module. The anonymous fake-door for guided meditation  */}
-        {/*  goes with it; the signed-in /wellness hub still carries it.      */}
+        {/*  The calm modules had a chapter of their own, which is a mini     */}
+        {/*  landing page for a secondary story. They are a beat inside the   */}
+        {/*  ecosystem now: a row of links and one card.                      */}
+        {/*                                                                   */}
+        {/*  REMOVING THEM ALTOGETHER WAS TRIED AND REVERSED, FOR ONE REASON. */}
+        {/*  The guided-meditation card is the landing's only ANONYMOUS       */}
+        {/*  demand capture: it writes a `feature_intents` row for a visitor  */}
+        {/*  who has not signed up. The signed-in /wellness hub carries the   */}
+        {/*  same card, but a signed-in surface cannot measure interest from  */}
+        {/*  people who never sign up, which is the entire question a fake    */}
+        {/*  door exists to answer. `e2e/marketing.spec.ts` pins the count at */}
+        {/*  exactly one for that reason, and the guard was right.            */}
         {/* ================================================================ */}
         <Chapter tone="system">
           <LazySection minHeight={560}>
@@ -439,6 +445,14 @@ export function LandingPage() {
               <OnePlaceStrip />
             </Suspense>
           </LazySection>
+
+          <Beat>
+            <LazySection minHeight={320}>
+              <Suspense fallback={null}>
+                <WellnessTeaser />
+              </Suspense>
+            </LazySection>
+          </Beat>
         </Chapter>
 
         {/* ================================================================ */}

@@ -30,7 +30,7 @@ export const FAQ: Qa[] = [
   },
   {
     q: 'Can I cancel?',
-    a: 'Any time, from your plan settings, in a couple of clicks. You keep Pro until the end of the period you already paid for, and then the account simply becomes a free one — nothing is deleted and nothing is locked. Your finished tasks past the free 14-day window are hidden rather than removed, so upgrading again brings them straight back.',
+    a: 'Any time, from your plan settings, in a couple of clicks. You keep Pro until the end of the period you already paid for, and then the account simply becomes a free one. Nothing is deleted and nothing is locked. Your finished tasks past the free 14-day window are hidden rather than removed, so upgrading again brings them straight back.',
   },
   {
     q: 'What isn’t built yet?',

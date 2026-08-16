@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-08-16T16:45:40.657Z",
+  "generatedAt": "2026-08-16T17:08:14.922Z",
   "viewports": {
     "390": {
-      "docHeight": 12605,
+      "docHeight": 11801,
       "viewportH": 844,
       "chapters": [
         {
@@ -19,7 +19,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 1667
+          "height": 1721
         },
         {
           "tone": "chapter relative",
@@ -27,7 +27,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 2981
+          "height": 2122
         }
       ],
       "chapterCount": 6,
@@ -39,7 +39,7 @@
         "Start free"
       ],
       "overflowPx": 0,
-      "h2Count": 11,
+      "h2Count": 10,
       "blocks": [
         {
           "chapter": 1,
@@ -49,7 +49,7 @@
         {
           "chapter": 1,
           "label": "pointer-events-none absolute inset-x-0 top-0 h",
-          "height": 623
+          "height": 622
         },
         {
           "chapter": 1,
@@ -109,12 +109,12 @@
         {
           "chapter": 4,
           "label": "chapter__scene",
-          "height": 1667
+          "height": 1721
         },
         {
           "chapter": 4,
           "label": "The number you write downcomes back to you.",
-          "height": 1355
+          "height": 1409
         },
         {
           "chapter": 4,
@@ -139,12 +139,7 @@
         {
           "chapter": 6,
           "label": "chapter__scene",
-          "height": 2981
-        },
-        {
-          "chapter": 6,
-          "label": "Become the person whoplans their dayprotects t",
-          "height": 737
+          "height": 2122
         },
         {
           "chapter": 6,
@@ -154,7 +149,7 @@
         {
           "chapter": 6,
           "label": "Questions, answered",
-          "height": 338
+          "height": 264
         },
         {
           "chapter": 6,
@@ -164,7 +159,7 @@
       ]
     },
     "768": {
-      "docHeight": 11269,
+      "docHeight": 10564,
       "viewportH": 1024,
       "chapters": [
         {
@@ -181,7 +176,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 1505
+          "height": 1582
         },
         {
           "tone": "chapter relative",
@@ -189,7 +184,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 2374
+          "height": 1592
         }
       ],
       "chapterCount": 6,
@@ -201,7 +196,7 @@
         "Start free"
       ],
       "overflowPx": 0,
-      "h2Count": 11,
+      "h2Count": 10,
       "blocks": [
         {
           "chapter": 1,
@@ -211,7 +206,7 @@
         {
           "chapter": 1,
           "label": "pointer-events-none absolute inset-x-0 top-0 h",
-          "height": 754
+          "height": 746
         },
         {
           "chapter": 1,
@@ -271,12 +266,12 @@
         {
           "chapter": 4,
           "label": "chapter__scene",
-          "height": 1505
+          "height": 1582
         },
         {
           "chapter": 4,
           "label": "The number you write downcomes back to you.",
-          "height": 1221
+          "height": 1298
         },
         {
           "chapter": 4,
@@ -301,12 +296,7 @@
         {
           "chapter": 6,
           "label": "chapter__scene",
-          "height": 2374
-        },
-        {
-          "chapter": 6,
-          "label": "Become the person whoplans their dayprotects t",
-          "height": 660
+          "height": 1592
         },
         {
           "chapter": 6,
@@ -316,7 +306,7 @@
         {
           "chapter": 6,
           "label": "Questions, answered",
-          "height": 350
+          "height": 276
         },
         {
           "chapter": 6,
@@ -326,7 +316,7 @@
       ]
     },
     "1280": {
-      "docHeight": 10357,
+      "docHeight": 9752,
       "viewportH": 900,
       "chapters": [
         {
@@ -343,7 +333,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 1415
+          "height": 1492
         },
         {
           "tone": "chapter relative",
@@ -351,7 +341,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 2313
+          "height": 1632
         }
       ],
       "chapterCount": 6,
@@ -363,7 +353,7 @@
         "Start free"
       ],
       "overflowPx": 0,
-      "h2Count": 11,
+      "h2Count": 10,
       "blocks": [
         {
           "chapter": 1,
@@ -373,7 +363,7 @@
         {
           "chapter": 1,
           "label": "pointer-events-none absolute inset-x-0 top-0 h",
-          "height": 664
+          "height": 657
         },
         {
           "chapter": 1,
@@ -433,12 +423,12 @@
         {
           "chapter": 4,
           "label": "chapter__scene",
-          "height": 1415
+          "height": 1492
         },
         {
           "chapter": 4,
           "label": "The number you write downcomes back to you.",
-          "height": 1059
+          "height": 1136
         },
         {
           "chapter": 4,
@@ -463,12 +453,7 @@
         {
           "chapter": 6,
           "label": "chapter__scene",
-          "height": 2313
-        },
-        {
-          "chapter": 6,
-          "label": "Become the person whoplans their dayprotects t",
-          "height": 551
+          "height": 1632
         },
         {
           "chapter": 6,
@@ -478,7 +463,7 @@
         {
           "chapter": 6,
           "label": "Questions, answered",
-          "height": 350
+          "height": 276
         },
         {
           "chapter": 6,
@@ -488,7 +473,7 @@
       ]
     },
     "1440": {
-      "docHeight": 10357,
+      "docHeight": 9752,
       "viewportH": 900,
       "chapters": [
         {
@@ -505,7 +490,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 1415
+          "height": 1492
         },
         {
           "tone": "chapter relative",
@@ -513,7 +498,7 @@
         },
         {
           "tone": "chapter relative",
-          "height": 2313
+          "height": 1632
         }
       ],
       "chapterCount": 6,
@@ -525,7 +510,7 @@
         "Start free"
       ],
       "overflowPx": 0,
-      "h2Count": 11,
+      "h2Count": 10,
       "blocks": [
         {
           "chapter": 1,
@@ -535,7 +520,7 @@
         {
           "chapter": 1,
           "label": "pointer-events-none absolute inset-x-0 top-0 h",
-          "height": 660
+          "height": 656
         },
         {
           "chapter": 1,
@@ -595,12 +580,12 @@
         {
           "chapter": 4,
           "label": "chapter__scene",
-          "height": 1415
+          "height": 1492
         },
         {
           "chapter": 4,
           "label": "The number you write downcomes back to you.",
-          "height": 1059
+          "height": 1136
         },
         {
           "chapter": 4,
@@ -625,12 +610,7 @@
         {
           "chapter": 6,
           "label": "chapter__scene",
-          "height": 2313
-        },
-        {
-          "chapter": 6,
-          "label": "Become the person whoplans their dayprotects t",
-          "height": 551
+          "height": 1632
         },
         {
           "chapter": 6,
@@ -640,7 +620,7 @@
         {
           "chapter": 6,
           "label": "Questions, answered",
-          "height": 350
+          "height": 276
         },
         {
           "chapter": 6,
