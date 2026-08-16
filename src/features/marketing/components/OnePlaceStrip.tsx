@@ -132,7 +132,8 @@ export function OnePlaceStrip() {
   }
 
   return (
-    <section className="border-y border-white/5 bg-surface/20" aria-labelledby="one-place">
+    // Background removed: the enclosing chapter's scene provides it.
+    <section aria-labelledby="one-place">
       <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal className="mx-auto max-w-2xl text-center">
           <h2 id="one-place" className="font-display text-2xl font-bold sm:text-3xl">
@@ -152,8 +153,8 @@ export function OnePlaceStrip() {
               "not switched on yet" page stopped being what a new account met.
               The bar is what a visitor can DO, not whether the code is
               merged. */}
-          <p className="mt-6 text-sm font-medium text-text-primary">One app instead of several</p>
-          <ul className="mt-3 flex flex-wrap justify-center gap-2">
+          <p className="mt-5 text-sm font-medium text-text-primary">One app instead of several</p>
+          <ul className="mt-2.5 flex flex-wrap justify-center gap-1.5 sm:gap-2">
             {CATEGORIES.map((c) => (
               <li
                 key={c}
@@ -169,56 +170,69 @@ export function OnePlaceStrip() {
         </Reveal>
 
         {/*
-          Tightened rather than reduced.
+          ONE ELEGANT REPRESENTATION, NOT A FIFTH CARD GRID.
 
-          This section now sits directly after the loop, so two consecutive
-          screens were making a breadth argument and the second one was three
-          full phone-screens of scrolling. Nothing was removed: every group,
-          every shipped item and every real destination is still here, and the
-          e2e guard still finds all five headings and all five buttons. The
-          padding, the icon and the bullet rhythm are simply smaller on a phone,
-          where a five-card column is the whole cost.
+          This was five bordered cards, each with a bulleted list and a link,
+          and it was the tallest block on the page: 1,864px on a phone, most of
+          three screens, to say "these five things live together". Card chrome
+          was doing none of the work. The border, the fill, the hover lift and
+          the internal padding existed only to separate five items that a
+          hairline already separates.
+
+          It is now five RULED ROWS. Every group, every shipped item and every
+          real destination survives; the bullets become one muted run of text
+          per row, which is how you would actually say it out loud. On a phone a
+          row is about 90px instead of about 260px.
+
+          Deliberately NOT a bento grid. A bento would be another decorative
+          container system on a page that has just spent four chapters removing
+          them, and it would make the five groups look like five products rather
+          than five parts of one.
         */}
-        {/* Two across on a phone, like every other card grid on the page. Five
-            full-width cards made this the tallest block on the landing once the
-            "everything else" list moved inside it. */}
-        <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <ul className="mx-auto mt-8 max-w-4xl border-t border-white/5 sm:mt-10">
           {SURFACES.map(({ icon: Icon, name, line, items, to, cta }, i) => (
-            <li key={name}>
-              <Reveal delay={i * 60} direction="scale" className="h-full">
-                <div className="lift-card flex h-full flex-col rounded-2xl border border-white/5 bg-surface/60 p-4 hover:border-brand/25 sm:p-5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand sm:h-10 sm:w-10">
-                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
-                    </span>
-                    <h3 className="font-display text-base font-semibold">{name}</h3>
+            <li key={name} className="border-b border-white/5">
+              <Reveal delay={Math.min(i, 5) * 50}>
+                <div className="flex items-start gap-3 py-4 sm:gap-4 sm:py-5">
+                  <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h3 className="font-display text-base font-semibold">{name}</h3>
+                      <p className="text-xs text-text-muted sm:text-sm">{line}</p>
+                    </div>
+
+                    {/* The items, as one line rather than four bullets. Still a
+                        list in the markup, so a screen reader still hears four
+                        distinct things and the count is not lost. */}
+                    <ul className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted/90">
+                      {items.map((item, n) => (
+                        <li key={item}>
+                          {item}
+                          {n < items.length - 1 && (
+                            <span aria-hidden className="ml-2 text-white/15">
+                              &middot;
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="mt-2 text-xs leading-relaxed text-text-muted">{line}</p>
 
-                  <ul className="mt-2.5 space-y-1">
-                    {items.map((item) => (
-                      <li key={item} className="flex items-start gap-1.5 text-xs text-text-muted">
-                        <span
-                          aria-hidden
-                          className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand"
-                        />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* `min-h-[44px]`: these five were 28px tall, which is under
-                      the touch floor the rest of the app holds itself to. The
-                      landing was never covered by the ergonomics sweep because
-                      that suite signs in first, so nothing had ever measured
-                      them. The label is unchanged; only the box grew. */}
+                  {/* `min-h-[44px]`: this was 28px tall before, under the touch
+                      floor the rest of the app holds itself to. The landing was
+                      never covered by the ergonomics sweep because that suite
+                      signs in first, so nothing had ever measured it. */}
                   <button
                     type="button"
                     onClick={() => open(to)}
-                    className="focus-ring mt-auto inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg pt-3 text-xs font-medium text-accent underline-offset-4 hover:underline"
+                    className="focus-ring inline-flex min-h-[44px] shrink-0 items-center gap-1 self-center rounded-lg text-xs font-medium text-accent underline-offset-4 hover:underline"
                   >
-                    {cta}
-                    <ArrowRight className="h-3 w-3" aria-hidden />
+                    <span className="hidden sm:inline">{cta}</span>
+                    <span className="sr-only sm:hidden">{cta}</span>
+                    <ArrowRight className="h-4 w-4" aria-hidden />
                   </button>
                 </div>
               </Reveal>

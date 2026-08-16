@@ -10,6 +10,7 @@ import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { HeroMeterDemo } from './demo/HeroMeterDemo'
 import { LazySection, LazyWidget, Reveal } from './demo/Reveal'
+import { Beat, Chapter } from './components/Chapter'
 import { useInView } from './demo/useReveal'
 import { SECTION_RHYTHM } from './sectionRhythm'
 
@@ -109,7 +110,11 @@ function Showcase({ eyebrow, line, children, flip = false, full = false }: Showc
   const heading = (
     <>
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
-      <h2 className="mt-4 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
+      {/* One step smaller on a phone ONLY. Five showcase headlines at the
+          desktop display size is about 200px of heading on mobile, and at 390px
+          a 3xl line wraps to three lines where a 2xl wraps to two. Desktop
+          scale is unchanged. */}
+      <h2 className="mt-3 font-display text-2xl font-bold leading-[1.15] tracking-tight md:text-3xl lg:mt-4 lg:text-5xl lg:leading-[1.1]">
         {line}
       </h2>
     </>
@@ -119,7 +124,7 @@ function Showcase({ eyebrow, line, children, flip = false, full = false }: Showc
     return (
       <section className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal className="mx-auto max-w-2xl text-center">{heading}</Reveal>
-        <Reveal direction="scale" delay={80} className="mt-10 sm:mt-12">
+        <Reveal direction="scale" delay={80} className="mt-6 lg:mt-12">
           {children}
         </Reveal>
       </section>
@@ -128,7 +133,7 @@ function Showcase({ eyebrow, line, children, flip = false, full = false }: Showc
 
   return (
     <section className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
-      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+      <div className="grid items-center gap-6 lg:grid-cols-2 lg:gap-16">
         <Reveal direction={flip ? 'right' : 'left'} className={cn(flip && 'lg:order-2')}>
           {heading}
         </Reveal>
@@ -170,10 +175,20 @@ export function LandingPage() {
       <MarketingHeader />
 
       <main className="relative z-10 flex-1">
-        {/* ---------------------------------------------------------------- */}
-        {/* 1. HERO — the signature meter, live and moving, above the fold.  */}
-        {/* ---------------------------------------------------------------- */}
-        <section className="relative flex min-h-[calc(100svh_-_4rem)] flex-col justify-center overflow-hidden">
+        {/* ================================================================ */}
+        {/*  CHAPTER 1 — ORIGIN                                 tone: origin  */}
+        {/*                                                                   */}
+        {/*  The signature meter, live and moving, above the fold. `origin`   */}
+        {/*  adds NOTHING to the scene: the page-wide aurora and the vortex    */}
+        {/*  are already at full strength here, and every later chapter is    */}
+        {/*  defined by how it modulates this. `flush` because the hero sizes  */}
+        {/*  itself to the viewport and must not also pay chapter padding.    */}
+        {/* ================================================================ */}
+        <Chapter
+          tone="origin"
+          flush
+          className="flex min-h-[calc(100svh_-_4rem)] flex-col justify-center overflow-hidden"
+        >
           {/* Ambient brand glow. Decorative, GPU-composited, motion-gated. */}
           <div
             aria-hidden
@@ -296,287 +311,297 @@ export function LandingPage() {
               </div>
             </div>
           </div>
-        </section>
+        </Chapter>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* 2. THE PROBLEM. The page used to go straight from the hero to a   */}
-        {/*    solution, so a visitor met the answer before the question and  */}
-        {/*    could read four demos still thinking "a list with a timer".    */}
-        {/*    It is also the hero's secondary CTA target.                    */}
-        {/* ---------------------------------------------------------------- */}
-        <div id="why-days-slip" className="scroll-mt-20">
+        {/* ================================================================ */}
+        {/*  CHAPTER 2 - THE FINITE DAY                        tone: measure  */}
+        {/*                                                                   */}
+        {/*  The problem and its answer are ONE chapter now. They were two    */}
+        {/*  full sections with identical spacing, which spaced a question    */}
+        {/*  and its reply exactly like two unrelated arguments. The scene    */}
+        {/*  turns analytical here: a calibration grid and a cool lift, for   */}
+        {/*  the part of the page that is about counting minutes.             */}
+        {/* ================================================================ */}
+        <Chapter tone="measure" id="why-days-slip">
           <LazySection minHeight={900}>
             <Suspense fallback={null}>
               <ProblemSection />
             </Suspense>
           </LazySection>
-        </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* 3. THE ANSWER, in four live widgets. Each runs the product's real */}
-        {/*    logic; the thread between them says they are one system.       */}
-        {/* ---------------------------------------------------------------- */}
-        <Showcase
-          eyebrow="Capacity"
-          line={
-            <>
-              So give the day a <span className="text-warning">limit</span>.
-            </>
-          }
-        >
-          <LazyWidget component={CapacityDemo} minHeight={360} label="the capacity demo" />
-        </Showcase>
+          <Beat>
+            <Showcase
+              eyebrow="Capacity"
+              line={
+                <>
+                  So give the day a <span className="text-warning">limit</span>.
+                </>
+              }
+            >
+              <LazyWidget component={CapacityDemo} minHeight={360} label="the capacity demo" />
+            </Showcase>
+          </Beat>
+        </Chapter>
 
-        <SectionThread />
+        {/* ================================================================ */}
+        {/*  CHAPTER 3 - FROM A GOAL TO AN HOUR                tone: measure  */}
+        {/*                                                                   */}
+        {/*  The Clear quotation and the planner it describes, together. The  */}
+        {/*  quote existed to set up exactly this widget and sat a full       */}
+        {/*  screen away from it.                                             */}
+        {/* ================================================================ */}
+        <Chapter tone="measure">
+          <LazySection minHeight={640}>
+            <Suspense fallback={null}>
+              <GoalsSystems />
+            </Suspense>
+          </LazySection>
 
-        {/* The one motivational beat with an attributed quotation behind it,
-            placed so the idea and the feature that implements it are adjacent
-            rather than a screen apart. */}
-        <LazySection minHeight={640}>
-          <Suspense fallback={null}>
-            <GoalsSystems />
-          </Suspense>
-        </LazySection>
+          <Beat>
+            <Showcase
+              eyebrow="From intention to plan"
+              flip
+              line={
+                <>
+                  A goal is not a plan until it has{' '}
+                  <span className="text-gradient-brand">a time</span>.
+                </>
+              }
+            >
+              <LazyWidget component={AutoPlanDemo} minHeight={640} label="the auto-plan demo" />
+            </Showcase>
+          </Beat>
+        </Chapter>
 
-        <Showcase
-          eyebrow="From intention to plan"
-          flip
-          line={
-            <>
-              A goal is not a plan until it has{' '}
-              <span className="text-gradient-brand">a time</span>.
-            </>
-          }
-        >
-          <LazyWidget component={AutoPlanDemo} minHeight={640} label="the auto-plan demo" />
-        </Showcase>
+        {/* ================================================================ */}
+        {/*  CHAPTER 4 - EXECUTION                               tone: focus  */}
+        {/*                                                                   */}
+        {/*  Doing the work, and surviving the day it goes wrong. The scene   */}
+        {/*  is the darkest on the page so the product UI is the brightest    */}
+        {/*  thing in it, which is the entire argument of these two beats.    */}
+        {/*  The thread stays HERE, where the causal link is strongest: you   */}
+        {/*  protect the time, and then the day slips anyway.                 */}
+        {/* ================================================================ */}
+        <Chapter tone="focus">
+          <Showcase
+            eyebrow="Focus"
+            line={
+              <>
+                Then <span className="text-success">protect the time</span> you set aside.
+              </>
+            }
+          >
+            <LazyWidget component={FocusDemo} minHeight={450} label="the focus demo" />
+          </Showcase>
 
-        <SectionThread />
+          <SectionThread />
 
-        <Showcase
-          eyebrow="Focus"
-          line={
-            <>
-              Then <span className="text-success">protect the time</span> you set aside.
-            </>
-          }
-        >
-          <LazyWidget component={FocusDemo} minHeight={450} label="the focus demo" />
-        </Showcase>
+          <Beat first>
+            <Showcase
+              eyebrow="Recovery"
+              flip
+              line={
+                <>
+                  Bad days happen.{' '}
+                  <span className="text-accent">They should not compound.</span>
+                </>
+              }
+            >
+              <LazyWidget component={RecoveryDemo} minHeight={620} label="the recovery demo" />
+            </Showcase>
+          </Beat>
+        </Chapter>
 
-        <SectionThread />
+        {/* ================================================================ */}
+        {/*  CHAPTER 5 - THE WEEK, AND THE REAL THING            tone: focus  */}
+        {/*                                                                   */}
+        {/*  The flagship paid feature at full width, then the unedited       */}
+        {/*  captures. Both are "look at the product", so they are one        */}
+        {/*  chapter rather than two.                                         */}
+        {/* ================================================================ */}
+        <Chapter tone="focus">
+          <Showcase
+            eyebrow="The week"
+            full
+            line={
+              <>
+                Seven days that <span className="text-gradient-brand">all fit</span>.
+              </>
+            }
+          >
+            <LazyWidget component={WeekBoardDemo} minHeight={420} label="the week board demo" />
+          </Showcase>
 
-        {/* RECOVERY. A founding principle of this product that appeared on no
-            public surface at all, which left the story implying the plan always
-            holds. It never does, and the reader knows it. */}
-        <Showcase
-          eyebrow="Recovery"
-          flip
-          line={
-            <>
-              Bad days happen.{' '}
-              <span className="text-accent">They should not compound.</span>
-            </>
-          }
-        >
-          <LazyWidget component={RecoveryDemo} minHeight={620} label="the recovery demo" />
-        </Showcase>
+          <Beat>
+            <LazySection minHeight={900}>
+              <Suspense fallback={null}>
+                <HowItWorks />
+              </Suspense>
+            </LazySection>
+          </Beat>
+        </Chapter>
 
-        <SectionThread />
+        {/* ================================================================ */}
+        {/*  CHAPTER 6 - THE LOOP                               tone: system  */}
+        {/*                                                                   */}
+        {/*  The research is the SETUP for the loop, not a separate stop for  */}
+        {/*  credibility: people underestimate their own work, so a system    */}
+        {/*  that measures what things actually took is answering a           */}
+        {/*  documented problem. The scene opens out and the brand light      */}
+        {/*  returns, because this is where the page argues that the parts    */}
+        {/*  belong together. The one mid-page CTA closes the chapter, which  */}
+        {/*  is where the case finishes; everything after it is reassurance.  */}
+        {/* ================================================================ */}
+        <Chapter tone="system">
+          <LazySection minHeight={360}>
+            <Suspense fallback={null}>
+              <ResearchMoment />
+            </Suspense>
+          </LazySection>
 
-        {/*
-          THE COVEY QUOTATION WAS CUT HERE, AND IT WAS VERIFIED.
+          <Beat>
+            <LazySection minHeight={900}>
+              <Suspense fallback={null}>
+                <SystemLoop />
+              </Suspense>
+            </LazySection>
+          </Beat>
 
-          "The key is not to prioritize what's on your schedule, but to schedule
-          your priorities" is genuinely Covey, genuinely from 7 Habits p.161,
-          and genuinely about weekly planning, which is why it sat above this
-          section. It was removed anyway, on editorial grounds.
-
-          Two attributed quotations on one page starts to make the page sound
-          like it is quoting its way to authority rather than showing a product,
-          and the second one has to be better than the silence it replaces. This
-          one was not: the week board already argues "decide what does not get a
-          slot" by making every day's capacity visible, so the quote restated
-          the section's own point in someone else's voice. Cutting it also makes
-          the one remaining quotation land harder.
-
-          The verification survives in docs/HOMEPAGE_V2_CLAIMS.md, so putting it
-          back is a paste, not a research job.
-        */}
-
-        {/* Week planning is the flagship paid feature and was invisible to anyone
-            who hadn't signed up. This runs the REAL planWeek, same as the app. */}
-        <Showcase
-          eyebrow="The week"
-          full
-          line={
-            <>
-              Seven days that <span className="text-gradient-brand">all fit</span>.
-            </>
-          }
-        >
-          <LazyWidget component={WeekBoardDemo} minHeight={420} label="the week board demo" />
-        </Showcase>
-
-        {/* Real product screenshots — no mockups. */}
-        <LazySection minHeight={1400}>
-          <Suspense fallback={null}>
-            <HowItWorks />
-          </Suspense>
-        </LazySection>
-
-        {/* The one research moment, and it sits here because it is the SETUP
-            for the loop below rather than a fact dropped in for credibility:
-            people underestimate their own work, so a system that measures what
-            things actually took is answering a real and well-documented
-            problem rather than an invented one. */}
-        <LazySection minHeight={360}>
-          <Suspense fallback={null}>
-            <ResearchMoment />
-          </Suspense>
-        </LazySection>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* 4. THE SYSTEM. Only now, once every piece has been shown working, */}
-        {/*    does the page explain why they belong in one product. It does  */}
-        {/*    it by following one number around the loop rather than by      */}
-        {/*    claiming "all in one", which is the sentence every visitor has  */}
-        {/*    already learned to skip.                                       */}
-        {/* ---------------------------------------------------------------- */}
-        <LazySection minHeight={900}>
-          <Suspense fallback={null}>
-            <SystemLoop />
-          </Suspense>
-        </LazySection>
-
-        {/*
-          THE ONE MID-PAGE CTA.
-
-          Between the hero and the breadth strip there was no primary action at
-          all, which on a phone is something like thirteen thousand pixels of
-          argument with nothing to act on. It goes HERE, at the end of the
-          system section, because that is where the case finishes: everything
-          after it is reassurance about breadth, price and objections.
-
-          Deliberately a single control on a plain rule rather than another
-          panel. The page already closes on a full CTA card, and two of those
-          would make the second one look like a retry.
-        */}
-        <section className="mx-auto w-full max-w-3xl px-4 pb-4 text-center sm:px-6">
-          <Reveal>
-            <div className="border-t border-white/5 pt-12">
-              {/* No "takes about a minute" here, deliberately. It is the
-                  conventional line for this slot and it is a number nobody has
-                  measured, on a page whose whole discipline is not shipping
-                  claims it cannot back. */}
-              <p className="font-display text-lg font-semibold sm:text-xl">
-                That is the whole system. Now put your own day through it.
-              </p>
-              <div className="mt-5 flex justify-center">
-                <Button size="lg" onClick={startFree} className="cta-sheen">
-                  {ctaLabel}
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Button>
-              </div>
-              <p className="mt-3 text-xs text-text-muted">
-                Free to start · no credit card
-              </p>
-            </div>
-          </Reveal>
-        </section>
-
-        {/* The breadth, stated as a fact and linked to the real surfaces. It
-            follows the loop rather than preceding it, so "one place" arrives as
-            evidence for a claim already made rather than as a feature wall. */}
-        <LazySection minHeight={560}>
-          <Suspense fallback={null}>
-            <OnePlaceStrip />
-          </Suspense>
-        </LazySection>
-
-        {/* Focus & Calm: shipped modules link into the app; the one that
-            isn't usable yet keeps the insert-only feature_intents fake door. */}
-        <LazySection minHeight={560}>
-          <Suspense fallback={null}>
-            <WellnessTeaser />
-          </Suspense>
-        </LazySection>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* 5. WHAT IT ADDS UP TO. The emotional close, held to what the      */}
-        {/*    software actually records.                                     */}
-        {/* ---------------------------------------------------------------- */}
-        <LazySection minHeight={760}>
-          <Suspense fallback={null}>
-            <IdentitySection />
-          </Suspense>
-        </LazySection>
-
-        {/* Honest answers. */}
-        <LazySection minHeight={640}>
-          <Suspense fallback={null}>
-            <LandingFaq />
-          </Suspense>
-        </LazySection>
-
-        {/* 4. Pricing teaser + final CTA. */}
-        <LazySection minHeight={760}>
-          <Suspense fallback={null}>
-            <PricingTeaser onStartFree={startFree} ctaLabel={ctaLabel} />
-          </Suspense>
-        </LazySection>
-
-        <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-          <Reveal>
-            <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-surface px-6 py-16 text-center shadow-elevation-lg">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background:
-                    'radial-gradient(60% 80% at 50% 0%, rgba(108,92,231,0.20) 0%, transparent 70%)',
-                }}
-              />
-              <div className="relative">
-                {/*
-                  THE CLOSE LOWERS THE BAR ON PURPOSE.
-
-                  Everything above this point argues that most days are planned
-                  badly, which is a heavy note to end on. A closing CTA that
-                  then asks for a life overhaul earns a "not today". Asking for
-                  ONE honest day is both the smallest possible commitment and
-                  exactly what the product does, so the ask and the promise are
-                  the same size.
-                */}
-                <h2 className="font-display text-2xl font-bold sm:text-4xl">
-                  Start with today.
-                </h2>
-                <p className="mx-auto mt-4 max-w-lg text-text-muted">
-                  Not the whole year. Not a new system for your life. One day, planned honestly,
-                  that you can actually finish. Then do it again tomorrow.
+          <Beat>
+            <div className="mx-auto w-full max-w-3xl px-4 text-center sm:px-6">
+              <Reveal>
+                {/* No "takes about a minute" here, deliberately. It is the
+                    conventional line for this slot and it is a number nobody
+                    has measured, on a page whose whole discipline is not
+                    shipping claims it cannot back. */}
+                <p className="font-display text-lg font-semibold sm:text-xl">
+                  That is the whole system. Now put your own day through it.
                 </p>
-                {/*
-                  ONE ACTION. The close used to carry a "Compare plans" link
-                  beside it, which was a third label for /pricing (after "See
-                  what Pro includes" and "Compare all plans") and it sat
-                  directly BELOW the pricing section the reader had just
-                  scrolled through. An ending that offers a choice is not an
-                  ending; this is the conclusion of the story, so it asks for
-                  exactly one thing.
-                */}
-                <div className="mt-8 flex justify-center">
+                <div className="mt-5 flex justify-center">
                   <Button size="lg" onClick={startFree} className="cta-sheen">
                     {ctaLabel}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Button>
                 </div>
-                <p className="mt-4 text-xs text-text-muted">
-                  Free to start · no credit card · works on your phone and laptop
-                </p>
-              </div>
+                <p className="mt-3 text-xs text-text-muted">Free to start · no credit card</p>
+              </Reveal>
             </div>
-          </Reveal>
-        </section>
+          </Beat>
+        </Chapter>
+
+        {/* ================================================================ */}
+        {/*  CHAPTER 7 - EVERYTHING TOGETHER                    tone: system  */}
+        {/*                                                                   */}
+        {/*  Breadth, as evidence for a claim already made. The two blocks    */}
+        {/*  used to carry their OWN surface tints and their own top and      */}
+        {/*  bottom rules, which is how a page ends up with a treatment per   */}
+        {/*  section; the chapter scene owns that now and they are plain.     */}
+        {/* ================================================================ */}
+        <Chapter tone="system">
+          <LazySection minHeight={560}>
+            <Suspense fallback={null}>
+              <OnePlaceStrip />
+            </Suspense>
+          </LazySection>
+
+          <Beat>
+            <LazySection minHeight={420}>
+              <Suspense fallback={null}>
+                <WellnessTeaser />
+              </Suspense>
+            </LazySection>
+          </Beat>
+        </Chapter>
+
+        {/* ================================================================ */}
+        {/*  CHAPTER 8 - WHAT IT ADDS UP TO                      tone: close  */}
+        {/*                                                                   */}
+        {/*  The emotional close, held to what the software actually records. */}
+        {/*  Decoration steps back from here to the end of the page.          */}
+        {/* ================================================================ */}
+        <Chapter tone="close">
+          <LazySection minHeight={700}>
+            <Suspense fallback={null}>
+              <IdentitySection />
+            </Suspense>
+          </LazySection>
+        </Chapter>
+
+        {/* ================================================================ */}
+        {/*  CHAPTER 9 - THE DECISION                            tone: close  */}
+        {/*                                                                   */}
+        {/*  Objections, price, one ask. Three separate sections before,      */}
+        {/*  which is three chapter-sized gaps to travel for what is a single */}
+        {/*  beat of the reader's attention: deciding.                        */}
+        {/* ================================================================ */}
+        <Chapter tone="close">
+          <LazySection minHeight={420}>
+            <Suspense fallback={null}>
+              <LandingFaq />
+            </Suspense>
+          </LazySection>
+
+          <Beat>
+            <LazySection minHeight={700}>
+              <Suspense fallback={null}>
+                <PricingTeaser onStartFree={startFree} ctaLabel={ctaLabel} />
+              </Suspense>
+            </LazySection>
+          </Beat>
+
+          <Beat>
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <Reveal>
+                <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-surface px-6 py-14 text-center shadow-elevation-lg sm:py-16">
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background:
+                        'radial-gradient(60% 80% at 50% 0%, rgba(108,92,231,0.20) 0%, transparent 70%)',
+                    }}
+                  />
+                  <div className="relative">
+                    {/*
+                      THE CLOSE LOWERS THE BAR ON PURPOSE.
+
+                      Everything above this point argues that most days are
+                      planned badly, which is a heavy note to end on. A closing
+                      CTA that then asks for a life overhaul earns a "not
+                      today". Asking for ONE honest day is both the smallest
+                      possible commitment and exactly what the product does, so
+                      the ask and the promise are the same size.
+                    */}
+                    <h2 className="font-display text-2xl font-bold sm:text-4xl">
+                      Start with today.
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-lg text-text-muted">
+                      Not the whole year. Not a new system for your life. One day, planned honestly,
+                      that you can actually finish. Then do it again tomorrow.
+                    </p>
+                    {/*
+                      ONE ACTION. The close used to carry a "Compare plans" link
+                      beside it, which was a third label for /pricing and it sat
+                      directly BELOW the pricing section the reader had just
+                      scrolled through. An ending that offers a choice is not an
+                      ending.
+                    */}
+                    <div className="mt-8 flex justify-center">
+                      <Button size="lg" onClick={startFree} className="cta-sheen">
+                        {ctaLabel}
+                        <ArrowRight className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </div>
+                    <p className="mt-4 text-xs text-text-muted">
+                      Free to start · no credit card · works on your phone and laptop
+                    </p>
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+          </Beat>
+        </Chapter>
+
       </main>
 
       <div className="relative z-10">

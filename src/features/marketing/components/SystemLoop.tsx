@@ -106,21 +106,21 @@ const STATIONS: Station[] = [
 
 export function SystemLoop() {
   return (
-    <section
-      className="relative border-y border-white/5 bg-surface/20"
-      aria-labelledby="system-loop"
-    >
+    // No border-y and no surface tint of its own any more: the chapter scene
+    // owns the background now. A section painting its own treatment on top of
+    // a chapter tone is exactly how a page ends up with eighteen backgrounds.
+    <section className="relative" aria-labelledby="system-loop">
       <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal className="mx-auto max-w-3xl text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">One system</p>
           <h2
             id="system-loop"
-            className="mt-4 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl"
+            className="mt-3 font-display text-2xl font-bold leading-[1.15] tracking-tight md:text-3xl lg:mt-4 lg:text-5xl lg:leading-[1.1]"
           >
             The number you write down
             <span className="block text-gradient-brand">comes back to you.</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-text-muted sm:mt-6 sm:text-lg">
             Planning, focus and review are usually three separate tools, so nothing you learn on
             Friday ever reaches the estimate you type on Monday. Here it is one circuit.
           </p>
@@ -131,7 +131,7 @@ export function SystemLoop() {
             their own setup from the shape, which is both fairer than naming a
             product and more durable, since it cannot be made wrong by somebody
             else's release notes. */}
-        <Reveal className="mt-12">
+        <Reveal className="mt-8 sm:mt-12">
           <p className="text-center font-mono text-xs uppercase tracking-[0.18em] text-text-muted">
             What most setups look like
           </p>
@@ -173,7 +173,7 @@ export function SystemLoop() {
           content and the markup are identical, so nothing is hidden from a
           screen reader or a crawler on either side of the breakpoint.
         */}
-        <ol className="mt-12 grid gap-3 lg:mt-14 lg:grid-cols-5 lg:gap-4">
+        <ol className="mt-8 grid gap-2.5 sm:gap-3 lg:mt-14 lg:grid-cols-5 lg:gap-4">
           {STATIONS.map(({ n, icon: Icon, name, what, passes }, i) => (
             <li key={n} className="relative">
               <Reveal delay={i * 70} direction="scale" className="h-full">
@@ -242,7 +242,7 @@ export function SystemLoop() {
           </div>
         </Reveal>
 
-        <Reveal className="mx-auto mt-12 max-w-2xl text-center">
+        <Reveal className="mx-auto mt-8 max-w-2xl text-center sm:mt-12">
           <p className="text-base leading-relaxed text-text-muted sm:text-lg">
             A timer in one app cannot fix an estimate living in another. That is the difference
             between a stack of tools and a system, and it is the reason these things share one

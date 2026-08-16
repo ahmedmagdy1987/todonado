@@ -84,7 +84,7 @@ export function IdentitySection() {
 
         <h2
           id="identity"
-          className="mt-4 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl"
+          className="mt-3 font-display text-2xl font-bold leading-[1.15] tracking-tight md:text-3xl lg:mt-4 lg:text-5xl lg:leading-[1.1]"
         >
           Become the person who
           {reduced ? (
@@ -114,7 +114,7 @@ export function IdentitySection() {
           )}
         </h2>
 
-        <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-text-muted sm:mt-6 sm:text-lg">
           Not because you decided to be. Because there is a record of it, and the record is made of
           days you already lived.
         </p>
@@ -122,7 +122,7 @@ export function IdentitySection() {
 
       {/* Two across on a phone: four single-column cards for four short facts
           was most of a screen of scrolling to say "the app keeps count". */}
-      <ul className="mt-12 grid grid-cols-2 gap-3 sm:gap-4 lg:mt-14 lg:grid-cols-4">
+      <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-12 sm:gap-4 lg:mt-14 lg:grid-cols-4">
         {EVIDENCE.map(({ icon: Icon, label, what }, i) => (
           <li key={label}>
             <Reveal delay={i * 70} direction="scale" className="h-full">
@@ -138,7 +138,7 @@ export function IdentitySection() {
         ))}
       </ul>
 
-      <Reveal className="mx-auto mt-12 max-w-2xl text-center">
+      <Reveal className="mx-auto mt-8 max-w-2xl text-center sm:mt-12">
         <p className="text-base leading-relaxed text-text-primary/90 sm:text-lg">
           Streaks here are counted gently and never used against you. A missed day is a missed day,
           not a verdict, and nothing you have already done is ever taken away to punish it.

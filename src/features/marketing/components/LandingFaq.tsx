@@ -56,7 +56,7 @@ const FAQ: Qa[] = [
  */
 export function LandingFaq() {
   return (
-    <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6" aria-labelledby="faq">
+    <section className="mx-auto max-w-3xl px-4 sm:px-6" aria-labelledby="faq">
       <h2 id="faq" className="text-center font-display text-2xl font-bold sm:text-3xl">
         Questions, answered
       </h2>

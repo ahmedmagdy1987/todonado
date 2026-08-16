@@ -60,11 +60,11 @@ const SOURCE = {
 export function ResearchMoment() {
   return (
     <section
-      className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6 sm:py-16"
+      className="mx-auto w-full max-w-4xl px-4 sm:px-6"
       aria-labelledby="research"
     >
       <Reveal>
-        <div className="rounded-3xl border border-white/5 bg-surface/40 px-5 py-9 text-center sm:px-10 sm:py-10">
+        <div className="rounded-3xl border border-white/5 bg-surface/40 px-5 py-7 text-center sm:px-10 sm:py-10">
           <h2
             id="research"
             className="font-mono text-xs uppercase tracking-[0.2em] text-accent"
@@ -72,12 +72,12 @@ export function ResearchMoment() {
             Everyone is bad at this
           </h2>
 
-          <p className="mx-auto mt-5 max-w-2xl font-display text-lg font-semibold leading-[1.4] sm:text-2xl">
+          <p className="mx-auto mt-4 max-w-2xl font-display text-lg font-semibold leading-[1.35] sm:mt-5 sm:text-2xl">
             Across four studies, fewer than half of participants finished their tasks in the amount
             of time they originally predicted.
           </p>
 
-          <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-text-muted">
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-text-muted sm:mt-5">
             It was not only big projects. The same pattern showed up on ordinary jobs like fixing a
             bike or cleaning a flat. Underestimating your own work is normal, which is why guessing
             harder does not fix it.

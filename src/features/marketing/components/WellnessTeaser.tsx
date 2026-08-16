@@ -1,6 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, Moon, Pill, Wind, type LucideIcon} from 'lucide-react'
-import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
 import { InterestCard } from '@/features/wellness/components/InterestCard'
@@ -78,7 +77,8 @@ export function WellnessTeaser() {
   }
 
   return (
-    <section className="border-y border-white/5 bg-surface/30" aria-labelledby="focus-calm">
+    // Background removed: the enclosing chapter's scene provides it.
+    <section aria-labelledby="focus-calm">
       <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
         <Reveal className="mx-auto max-w-2xl text-center">
           <h2 id="focus-calm" className="font-display text-2xl font-bold sm:text-3xl">
@@ -99,51 +99,65 @@ export function WellnessTeaser() {
               Saying what the last one still NEEDS is both truer and safer than
               saying what it is not.
             */}
-            {countWord(LIVE_MODULES.length)} of these are free to use right now. The last one
-            still needs recording. Tell us if you&rsquo;d use it and we&rsquo;ll email you when
-            it&rsquo;s ready.
+            {countWord(LIVE_MODULES.length)} of these are free to use right now.
           </p>
         </Reveal>
 
         {/*
-          TWO ACROSS ON A PHONE.
+          THREE LINKS, NOT THREE ROWS OF DESCRIPTION.
 
-          Four full-width cards was most of three phone screens for a section
-          that is deliberately secondary: the Calm group in the breadth strip
-          above has already named breathwork and the sleep noise, so this
-          section's real job is the one thing that strip cannot do, which is
-          carry the fake door for the module that is not built. Halving the
-          column count halves the cost of saying it.
+          Every one of these modules is ALREADY named in the breadth list a few
+          hundred pixels above: breathwork and the sleep noise under Calm, the
+          supplement log under Habits. Describing them a second time, in full,
+          is the same duplication the "everything else" list was cut for.
+
+          The DESTINATIONS are what this block uniquely provides, so they all
+          survive as links; only the second description of each is gone. The
+          fake door keeps its card, because it is the one thing here that is not
+          usable yet and giving it a different shape from the three that are is
+          the honest way to say so.
         */}
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 lg:grid-cols-4">
-          {LIVE_MODULES.map(({ icon: Icon, title, description, to }, i) => (
-            <Reveal key={to} delay={i * 70} className="h-full">
-              <Card className="h-full ring-1 ring-brand/20">
-                <CardContent className="flex h-full flex-col gap-2.5 p-4 sm:gap-3 sm:p-5">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand sm:h-9 sm:w-9">
-                      <Icon className="h-4 w-4" aria-hidden />
-                    </span>
-                    <Badge variant="brand">Live</Badge>
-                  </div>
-                  <h3 className="font-display text-sm font-semibold sm:text-base">{title}</h3>
-                  <p className="text-xs text-text-muted sm:text-sm">{description}</p>
-                  <div className="mt-auto pt-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => open(to)}
-                      aria-label={`Open ${title}`}
-                    >
-                      {session ? 'Open' : 'Try it free'}
-                      <ArrowRight className="h-4 w-4" aria-hidden />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </Reveal>
+        <ul className="mt-6 flex flex-wrap justify-center gap-2 sm:mt-8 sm:gap-3">
+          {LIVE_MODULES.map(({ icon: Icon, title, description, to }) => (
+            <li key={to}>
+              {/* The description is no longer rendered as a second copy of what
+                  the breadth list already says, but it is still the best
+                  one-line explanation of each module, so it becomes the
+                  tooltip rather than being deleted. */}
+              <button
+                type="button"
+                onClick={() => open(to)}
+                aria-label={`Open ${title}`}
+                title={description}
+                className="focus-ring lift-card inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/10 bg-surface/60 px-4 text-sm text-text-primary hover:border-brand/25"
+              >
+                <Icon className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                {title}
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+              </button>
+            </li>
           ))}
+        </ul>
 
+        {/*
+          THE UNBUILT ONE IS SEPARATED, LABELLED, AND EXPLAINED IN PLACE.
+
+          Compressing the three live modules into chips put "Sleep sounds"
+          directly above a "Coming soon" badge, close enough that a reader
+          scanning the block could take the badge to apply to the whole group.
+          `e2e/marketing.spec.ts` caught it, and it was a real reading problem
+          rather than a test artefact: the guard exists precisely because a
+          shipped feature sitting next to an unbuilt label is a lie by layout.
+
+          The explanation used to live in the intro paragraph, three lines above
+          the thing it described. It belongs here, next to it, which fixes the
+          proximity and reads better.
+        */}
+        <div className="mx-auto mt-8 max-w-md border-t border-white/5 pt-8">
+          <p className="mb-4 text-center text-sm text-text-muted">
+            Guided meditation still needs a person to record the sessions. Tell us if you&rsquo;d
+            use it and we&rsquo;ll email you when it&rsquo;s ready.
+          </p>
           {WELLNESS_CONCEPTS.map((concept, i) => (
             <Reveal key={concept.key} delay={(LIVE_MODULES.length + i) * 70} className="h-full">
               <InterestCard concept={concept} source="landing" />

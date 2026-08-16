@@ -78,7 +78,7 @@ export function GoalsSystems() {
           Goals and systems
         </h2>
 
-        <figure className="mt-8">
+        <figure className="mt-6 sm:mt-8">
           <blockquote>
             <p className="font-display text-2xl font-bold leading-[1.25] tracking-tight sm:text-3xl lg:text-4xl">
               &ldquo;You do not rise to the level of your goals. You fall to the level of your
@@ -92,7 +92,7 @@ export function GoalsSystems() {
           </figcaption>
         </figure>
 
-        <p className="mx-auto mt-10 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
+        <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-text-muted sm:mt-10 sm:text-lg">
           A goal is a direction. A system is what you actually do on a Tuesday. Todonado is where
           the first turns into the second, because an intention with no hour attached to it is still
           just an intention.
@@ -101,7 +101,7 @@ export function GoalsSystems() {
 
       {/* Same two-shape rule as the loop: a row per step on a phone, three
           columns from `md`. One list, one order, one set of markup. */}
-      <ol className="mt-12 grid gap-3 md:mt-14 md:grid-cols-3 md:gap-4">
+      <ol className="mt-8 grid gap-2.5 sm:gap-3 md:mt-14 md:grid-cols-3 md:gap-4">
         {STEPS.map(({ icon: Icon, where, title, body }, i) => (
           <li key={where} className="relative">
             <Reveal delay={i * 80} direction="scale" className="h-full">
