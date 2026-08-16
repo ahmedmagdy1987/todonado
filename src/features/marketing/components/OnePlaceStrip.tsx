@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { Reveal } from '../demo/Reveal'
 import { ALL_IN_ONE_CATEGORIES } from '../plans'
 import { SECTION_RHYTHM } from '../sectionRhythm'
+import { EverythingStrip } from './EverythingStrip'
 
 interface Surface {
   /** The group's name — one word, because the items underneath do the talking. */
@@ -167,18 +168,34 @@ export function OnePlaceStrip() {
           </p>
         </Reveal>
 
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        {/*
+          Tightened rather than reduced.
+
+          This section now sits directly after the loop, so two consecutive
+          screens were making a breadth argument and the second one was three
+          full phone-screens of scrolling. Nothing was removed: every group,
+          every shipped item and every real destination is still here, and the
+          e2e guard still finds all five headings and all five buttons. The
+          padding, the icon and the bullet rhythm are simply smaller on a phone,
+          where a five-card column is the whole cost.
+        */}
+        {/* Two across on a phone, like every other card grid on the page. Five
+            full-width cards made this the tallest block on the landing once the
+            "everything else" list moved inside it. */}
+        <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
           {SURFACES.map(({ icon: Icon, name, line, items, to, cta }, i) => (
             <li key={name}>
               <Reveal delay={i * 60} direction="scale" className="h-full">
-                <div className="lift-card flex h-full flex-col rounded-2xl border border-white/5 bg-surface/60 p-5 hover:border-brand/25">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <h3 className="mt-3 font-display text-base font-semibold">{name}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-text-muted">{line}</p>
+                <div className="lift-card flex h-full flex-col rounded-2xl border border-white/5 bg-surface/60 p-4 hover:border-brand/25 sm:p-5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand sm:h-10 sm:w-10">
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
+                    </span>
+                    <h3 className="font-display text-base font-semibold">{name}</h3>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-text-muted">{line}</p>
 
-                  <ul className="mt-3 space-y-1.5">
+                  <ul className="mt-2.5 space-y-1">
                     {items.map((item) => (
                       <li key={item} className="flex items-start gap-1.5 text-xs text-text-muted">
                         <span
@@ -190,10 +207,15 @@ export function OnePlaceStrip() {
                     ))}
                   </ul>
 
+                  {/* `min-h-[44px]`: these five were 28px tall, which is under
+                      the touch floor the rest of the app holds itself to. The
+                      landing was never covered by the ergonomics sweep because
+                      that suite signs in first, so nothing had ever measured
+                      them. The label is unchanged; only the box grew. */}
                   <button
                     type="button"
                     onClick={() => open(to)}
-                    className="focus-ring mt-auto inline-flex items-center gap-1 rounded-lg pt-4 text-xs font-medium text-accent underline-offset-4 hover:underline"
+                    className="focus-ring mt-auto inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg pt-3 text-xs font-medium text-accent underline-offset-4 hover:underline"
                   >
                     {cta}
                     <ArrowRight className="h-3 w-3" aria-hidden />
@@ -203,6 +225,12 @@ export function OnePlaceStrip() {
             </li>
           ))}
         </ul>
+
+        {/* The flat "and also…" list, absorbed from what used to be its own
+            band immediately below this one. Two breadth sections in a row was
+            the same argument twice, and the grouped one is the stronger of the
+            two, so that is the one the reader is left holding. */}
+        <EverythingStrip />
       </div>
     </section>
   )

@@ -83,7 +83,7 @@ export function FocusDemo() {
             onClick={toggleSound}
             aria-pressed={sound}
             aria-label={sound ? 'Turn the end chime off' : 'Turn the end chime on'}
-            className="focus-ring ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-text-muted transition-colors hover:text-text-primary"
+            className="focus-ring tap-h-44 ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-text-muted transition-colors hover:text-text-primary"
           >
             {sound ? (
               <Volume2 className="h-4 w-4" aria-hidden />

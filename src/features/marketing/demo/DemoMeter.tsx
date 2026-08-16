@@ -37,6 +37,17 @@ interface DemoMeterProps {
   summary: CapacitySummary
   /** Heading shown beside the gauge icon. */
   title?: string
+  /**
+   * What to render the title as.
+   *
+   * `h3` is right wherever the meter sits inside a section that already has an
+   * `h2` — the capacity and recovery widgets both do. In the HERO it is wrong:
+   * the nearest heading above is the page's `h1`, so an `h3` there skips a
+   * level, which an outline reader hears as a missing section. The meter's
+   * title is a label on a widget rather than a division of the document, so
+   * `p` is both accessible and honest there.
+   */
+  titleAs?: 'h3' | 'p'
   /** Hide the explanatory sentence when the surrounding widget says it better. */
   showMessage?: boolean
   className?: string
@@ -49,6 +60,7 @@ interface DemoMeterProps {
 export function DemoMeter({
   summary,
   title = 'Day Capacity',
+  titleAs: TitleTag = 'h3',
   showMessage = true,
   className,
 }: DemoMeterProps) {
@@ -56,7 +68,7 @@ export function DemoMeter({
     <div className={cn('space-y-3', className)}>
       <div className="flex items-center gap-2">
         <Gauge className="h-4 w-4 text-brand" aria-hidden />
-        <h3 className="font-display text-sm font-semibold sm:text-base">{title}</h3>
+        <TitleTag className="font-display text-sm font-semibold sm:text-base">{title}</TitleTag>
         <span
           className={cn(
             'ml-auto font-mono text-xs tabular-nums transition-colors sm:text-sm',

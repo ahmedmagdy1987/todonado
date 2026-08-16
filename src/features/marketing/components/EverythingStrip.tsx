@@ -1,23 +1,13 @@
 import {
-  BarChart3,
   CalendarClock,
-  CalendarRange,
-  ClipboardCheck,
-  Compass,
   Flag,
-  Flame,
-  HeartPulse,
   LayoutList,
   Network,
   NotebookPen,
-  Play,
-  Sprout,
-  Timer,
+  Repeat,
   type LucideIcon,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { Reveal } from '../demo/Reveal'
-import { SECTION_RHYTHM } from '../sectionRhythm'
 
 interface Item {
   icon: LucideIcon
@@ -40,61 +30,91 @@ interface Item {
  * Anything added here in future must clear the same bar: not "the code is
  * merged" but "a stranger who signs up right now can use it".
  */
+/**
+ * ── THE SECOND RULE, ADDED IN THE EXECUTIVE CUT ────────────────────────────
+ *
+ * NOTHING HERE MAY REPEAT SOMETHING THE GROUP CARDS ABOVE ALREADY NAME.
+ *
+ * This list used to carry fourteen items, and once it moved inside the breadth
+ * section TEN of them turned out to be duplicates of a bullet a few hundred
+ * pixels higher up: "Get to work" was in the Focus group, "Quit tracker" in
+ * Habits, "Insights" in Reflect, "Focus & pomodoro" restated the Pomodoro
+ * bullet, and so on. Separated by a section boundary that was merely wasteful;
+ * adjacent, it reads as padding, which is precisely what a breadth section
+ * cannot afford to look like.
+ *
+ * So the list is now exactly the shipped capabilities the five groups do NOT
+ * mention. Two of them (recurring tasks, and the project structure itself) were
+ * missing from BOTH lists, which the deduplication is what surfaced.
+ *
+ * Adding an item here means first checking it is not already named above.
+ */
 const ITEMS: Item[] = [
-  { icon: Play, label: 'Get to work', blurb: 'One tap to start' },
-  { icon: Timer, label: 'Focus & pomodoro', blurb: '25 minutes on, 5 off' },
-  { icon: LayoutList, label: 'Templates', blurb: 'Ready-made lists with time estimates' },
-  { icon: ClipboardCheck, label: 'Checklists', blurb: 'Repeat lists, no dates' },
-  { icon: CalendarRange, label: 'Week planning', blurb: 'Seven days at once' },
+  { icon: Repeat, label: 'Recurring tasks', blurb: 'Daily, weekly, monthly, yearly' },
+  { icon: LayoutList, label: 'Projects & subtasks', blurb: 'Sections, priorities, drag to reorder' },
   { icon: CalendarClock, label: 'Calendar', blurb: 'Meetings take time off your day' },
-  { icon: Sprout, label: 'Quit tracker', blurb: 'Days since you stopped' },
-  { icon: Compass, label: 'Vision', blurb: 'The goals behind your work' },
-  { icon: BarChart3, label: 'Insights', blurb: 'Planned versus actual' },
-  { icon: Flame, label: 'Streaks', blurb: 'Gentle, never shaming' },
-  { icon: HeartPulse, label: 'Focus & Calm', blurb: 'Breathwork and tracking' },
-  // These three waited here while their migrations were pending, for the reason
-  // at the top of this file: a visitor who signed up would have found an honest
-  // "not switched on yet" page instead of the feature the strip promised.
-  // `20260731120000_mind_maps`, `20260731130000_user_challenges` and
-  // `20260731140000_journal_entries` are now applied and live-verified (tables
-  // present, anon reads `[]`, anon writes `42501`), so all three are claimable.
+  // These three waited out of the list entirely while their migrations were
+  // pending, for the reason at the top of this file: a visitor who signed up
+  // would have found an honest "not switched on yet" page instead of the
+  // feature the strip promised. `20260731120000_mind_maps`,
+  // `20260731130000_user_challenges` and `20260731140000_journal_entries` are
+  // applied and live-verified, so all three are claimable.
   { icon: Network, label: 'Mind maps', blurb: 'Think it out first' },
   { icon: NotebookPen, label: 'Journal', blurb: 'How today went' },
   { icon: Flag, label: 'Challenges', blurb: 'Try something for seven days' },
 ]
 
+/**
+ * NO LONGER ITS OWN SECTION.
+ *
+ * This shipped as a standalone band directly after "One place for your day",
+ * which meant the page made a breadth argument twice in a row: once grouped by
+ * the job each surface does, and then again as a flat list of everything. The
+ * second one is the weaker of the two and it is the one that reads as "look,
+ * we also built this" rather than "this completes your system".
+ *
+ * So it renders INSIDE the breadth section now, as its tail. Same items, same
+ * rule (see the header above: everything here ships today), one fewer section,
+ * and the grouped framing is what the reader is left holding.
+ *
+ * It keeps a heading, so it is still a findable, testable landmark rather than
+ * an anonymous list glued to the bottom of something else.
+ */
 export function EverythingStrip() {
   return (
-    <section className="border-y border-white/5 bg-surface/30" aria-labelledby="everything">
-      <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
-        <Reveal>
-          {/* The BREADTH claim now belongs to OnePlaceStrip, which groups the
-              surfaces by the job they do and links into each one. This section
-              went back to its narrower original job — the flat "and also…" list
-              — so the two no longer say the same thing twice in a row. */}
-          <h2 id="everything" className="text-center font-display text-2xl font-bold sm:text-3xl">
-            Everything else you&rsquo;d expect
-          </h2>
-        </Reveal>
+    <div className="mx-auto mt-14 max-w-4xl border-t border-white/5 pt-10">
+      <Reveal className="text-center">
+        <h3 id="everything" className="font-display text-lg font-semibold sm:text-xl">
+          Everything else you&rsquo;d expect
+        </h3>
+        <p className="mt-2 text-sm text-text-muted">
+          All of it included, on every plan unless a line says otherwise.
+        </p>
+      </Reveal>
 
-        <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-          {ITEMS.map(({ icon: Icon, label, blurb }, i) => (
-            <li key={label}>
-              <Reveal delay={i * 60} direction="scale" className="h-full">
-                <div className="lift-card flex h-full items-start gap-3 rounded-2xl border border-white/5 bg-surface/60 p-4 hover:border-brand/25 sm:items-center sm:p-5">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-display text-sm font-semibold sm:text-base">{label}</p>
-                    <p className="mt-0.5 text-xs text-text-muted sm:text-sm">{blurb}</p>
-                  </div>
-                </div>
-              </Reveal>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+      {/*
+        A DENSE LIST, NOT FOURTEEN CARDS.
+
+        This was fourteen bordered cards in a grid, immediately after two other
+        card grids, and the run of them read as filler no matter how true each
+        line was. Stripping the chrome to a hairline-ruled list removes roughly
+        a screen of height and lets it do the only job it has: completeness.
+      */}
+      <ul className="mt-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+        {ITEMS.map(({ icon: Icon, label, blurb }, i) => (
+          <li key={label} className="border-b border-white/5">
+            <Reveal delay={Math.min(i, 8) * 40}>
+              <div className="flex items-center gap-3 py-3">
+                <Icon className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                <p className="shrink-0 text-sm font-medium text-text-primary">{label}</p>
+                <p className="min-w-0 flex-1 truncate text-right text-xs text-text-muted">
+                  {blurb}
+                </p>
+              </div>
+            </Reveal>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

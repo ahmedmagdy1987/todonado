@@ -1,3 +1,5 @@
+import { ChevronDown } from 'lucide-react'
+
 interface Qa {
   q: string
   a: string
@@ -35,20 +37,46 @@ const FAQ: Qa[] = [
   },
 ]
 
+/**
+ * COLLAPSED BY DEFAULT, AND NATIVE.
+ *
+ * Five answers stacked open ran to roughly 1,500px on a phone, this far down a
+ * page that is already long, to answer questions most readers only have one of.
+ * The QUESTIONS are the scannable part: a visitor wants to spot "Is it free?"
+ * and open that one. Collapsed, the whole section is five readable lines.
+ *
+ * `<details>` / `<summary>` rather than a hand-rolled accordion, deliberately.
+ * It is keyboard operable, correctly announced, and open-able with no
+ * JavaScript at all, which matters more here than anywhere else on the page:
+ * these are the answers somebody goes looking for when they are deciding
+ * whether to trust the product.
+ *
+ * The answers stay in the DOM when closed, so the marketing truth-pass in
+ * `e2e/marketing.spec.ts` still scans every word of them.
+ */
 export function LandingFaq() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6" aria-labelledby="faq">
       <h2 id="faq" className="text-center font-display text-2xl font-bold sm:text-3xl">
         Questions, answered
       </h2>
-      <dl className="mt-10 space-y-4">
+      <div className="mt-10 divide-y divide-white/5 border-y border-white/5">
         {FAQ.map((item) => (
-          <div key={item.q} className="lift-card rounded-2xl border border-white/5 bg-surface/40 p-5 hover:border-brand/20">
-            <dt className="font-display text-base font-semibold text-text-primary">{item.q}</dt>
-            <dd className="mt-2 text-sm leading-relaxed text-text-muted">{item.a}</dd>
-          </div>
+          <details key={item.q} className="group">
+            <summary className="focus-ring flex min-h-[56px] cursor-pointer list-none items-center gap-3 py-4 text-left font-display text-base font-semibold text-text-primary marker:content-['']">
+              <span className="flex-1">{item.q}</span>
+              {/* Rotates on open. Decorative: `details` already reports its own
+                  expanded state to assistive tech, so an aria-label here would
+                  duplicate it. */}
+              <ChevronDown
+                aria-hidden
+                className="h-4 w-4 shrink-0 text-text-muted transition-transform duration-200 group-open:rotate-180"
+              />
+            </summary>
+            <p className="pb-5 pr-7 text-sm leading-relaxed text-text-muted">{item.a}</p>
+          </details>
         ))}
-      </dl>
+      </div>
     </section>
   )
 }

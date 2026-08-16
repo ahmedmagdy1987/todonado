@@ -47,7 +47,9 @@ export function HeroMeterDemo() {
   return (
     <Card className="w-full max-w-md shadow-elevation-lg ring-1 ring-white/5">
       <CardContent className="space-y-5 p-5 sm:p-6">
-        <DemoMeter summary={summary} showMessage={false} />
+        {/* `p`, not `h3`: the nearest heading above this in the hero is the
+            page's h1, so a level-3 title here skips a level in the outline. */}
+        <DemoMeter summary={summary} titleAs="p" showMessage={false} />
 
         <ul className="space-y-2" style={{ minHeight: LIST_MIN_HEIGHT }} aria-live="polite">
           {tasks.map((task) => (
@@ -75,7 +77,7 @@ export function HeroMeterDemo() {
           <button
             type="button"
             onClick={() => setRun((n) => n + 1)}
-            className="focus-ring ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-text-muted transition-colors hover:text-text-primary"
+            className="focus-ring tap-h-44 ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-text-muted transition-colors hover:text-text-primary"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
             Replay
