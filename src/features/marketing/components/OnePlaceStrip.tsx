@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { Reveal } from '../demo/Reveal'
 import { ALL_IN_ONE_CATEGORIES } from '../plans'
 import { SECTION_RHYTHM } from '../sectionRhythm'
+import { EverythingStrip } from './EverythingStrip'
 
 interface Surface {
   /** The group's name — one word, because the items underneath do the talking. */
@@ -178,7 +179,10 @@ export function OnePlaceStrip() {
           padding, the icon and the bullet rhythm are simply smaller on a phone,
           where a five-card column is the whole cost.
         */}
-        <ul className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        {/* Two across on a phone, like every other card grid on the page. Five
+            full-width cards made this the tallest block on the landing once the
+            "everything else" list moved inside it. */}
+        <ul className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
           {SURFACES.map(({ icon: Icon, name, line, items, to, cta }, i) => (
             <li key={name}>
               <Reveal delay={i * 60} direction="scale" className="h-full">
@@ -221,6 +225,12 @@ export function OnePlaceStrip() {
             </li>
           ))}
         </ul>
+
+        {/* The flat "and also…" list, absorbed from what used to be its own
+            band immediately below this one. Two breadth sections in a row was
+            the same argument twice, and the grouped one is the stronger of the
+            two, so that is the one the reader is left holding. */}
+        <EverythingStrip />
       </div>
     </section>
   )

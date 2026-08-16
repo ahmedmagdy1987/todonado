@@ -188,8 +188,20 @@ describe('the hero keeps its semantics while it animates', () => {
   })
 
   it('keeps both hero CTAs and their destinations', () => {
+    /*
+     * The secondary CTA is no longer a /pricing link. It is an in-page anchor
+     * to the problem section, because asking a stranger to evaluate cost before
+     * they know what the product does is the wrong second step, and the closing
+     * CTA's "Compare plans" was cut in the executive pass for being a third
+     * label pointing at the same page.
+     *
+     * A REAL ANCHOR is the part worth pinning: a scroll handler would break
+     * keyboard use and stop working without JavaScript, and it is the kind of
+     * thing a refactor swaps in without noticing.
+     */
     expect(landing).toMatch(/onClick=\{startFree\}/)
-    expect(landing).toMatch(/to="\/pricing"/)
+    expect(landing).toMatch(/href="#why-days-slip"/)
+    expect(landing).toMatch(/id="why-days-slip"/)
   })
 
   it('renders the funnel behind the content, never over it', () => {

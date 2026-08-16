@@ -169,13 +169,21 @@ test('landing: the strip names the three newly-live surfaces, and they are real'
   await page.goto('/welcome')
   await mountLazySections(page)
 
-  const strip = page.getByRole('region', { name: /Everything else/i })
+  /*
+   * The "everything else" list stopped being its own landmark in the executive
+   * cut and moved INSIDE the breadth section, because two breadth arguments
+   * back to back was the same point made twice and the flat list was the weaker
+   * of the two. The RULE it carries is unchanged and is what this test is for:
+   * these three shipped, they must be named, and nothing near them may read as
+   * unbuilt. Only the address changed.
+   */
+  const strip = page.getByRole('region', { name: /One place for your day/i })
+  await expect(strip.getByRole('heading', { name: /Everything else/i })).toBeVisible()
+
   for (const label of ['Mind maps', 'Journal', 'Challenges']) {
     await expect(strip.getByText(label, { exact: true })).toBeVisible()
   }
 
-  // The strip's whole rule is "everything here ships today", so none of the
-  // three may carry an unbuilt label anywhere near it.
   const text = (await strip.textContent()) ?? ''
   expect(text).not.toMatch(/coming soon|not built|not switched on|notify me/i)
 })

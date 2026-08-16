@@ -1,5 +1,5 @@
 import { Suspense, lazy, type CSSProperties, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { Badge, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -42,9 +42,6 @@ const ProblemSection = lazy(() =>
 const GoalsSystems = lazy(() =>
   import('./components/GoalsSystems').then((m) => ({ default: m.GoalsSystems })),
 )
-const QuoteBand = lazy(() =>
-  import('./components/QuoteBand').then((m) => ({ default: m.QuoteBand })),
-)
 const SystemLoop = lazy(() =>
   import('./components/SystemLoop').then((m) => ({ default: m.SystemLoop })),
 )
@@ -56,9 +53,6 @@ const ResearchMoment = lazy(() =>
 )
 const HowItWorks = lazy(() =>
   import('./components/HowItWorks').then((m) => ({ default: m.HowItWorks })),
-)
-const EverythingStrip = lazy(() =>
-  import('./components/EverythingStrip').then((m) => ({ default: m.EverythingStrip })),
 )
 const OnePlaceStrip = lazy(() =>
   import('./components/OnePlaceStrip').then((m) => ({ default: m.OnePlaceStrip })),
@@ -79,6 +73,17 @@ interface ShowcaseProps {
   children: ReactNode
   /** Put the widget on the left at desktop widths (alternating rhythm). */
   flip?: boolean
+  /**
+   * Headline centred ABOVE a full-width widget, instead of beside it.
+   *
+   * Two reasons, both visible only at desktop widths. The proof widgets ran
+   * five in a row in the same split composition, and by the fifth the layout
+   * had stopped being a rhythm and become a pattern. And the week board is the
+   * one widget that is genuinely wide — seven day columns — so half a container
+   * left it small next to 600px of empty space, which is the worst of both:
+   * a void beside a shrunken version of the flagship paid feature.
+   */
+  full?: boolean
 }
 
 /**
@@ -98,17 +103,34 @@ function SectionThread() {
 }
 
 /** One short line, one live widget. No paragraphs — the widget is the argument. */
-function Showcase({ eyebrow, line, children, flip = false }: ShowcaseProps) {
+function Showcase({ eyebrow, line, children, flip = false, full = false }: ShowcaseProps) {
+  // Accent blue, not brand violet: #6C5CE7 on the near-black background is
+  // 4.14:1 — under the 4.5:1 needed at this size. #4EA8FF is 7.9:1.
+  const heading = (
+    <>
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
+      <h2 className="mt-4 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
+        {line}
+      </h2>
+    </>
+  )
+
+  if (full) {
+    return (
+      <section className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
+        <Reveal className="mx-auto max-w-2xl text-center">{heading}</Reveal>
+        <Reveal direction="scale" delay={80} className="mt-10 sm:mt-12">
+          {children}
+        </Reveal>
+      </section>
+    )
+  }
+
   return (
     <section className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal direction={flip ? 'right' : 'left'} className={cn(flip && 'lg:order-2')}>
-          {/* Accent blue, not brand violet: #6C5CE7 on the near-black background
-              is 4.14:1 — under the 4.5:1 needed at this size. #4EA8FF is 7.9:1. */}
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">{eyebrow}</p>
-          <h2 className="mt-4 font-display text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl lg:text-5xl">
-            {line}
-          </h2>
+          {heading}
         </Reveal>
         <Reveal direction="scale" delay={80} className={cn(flip && 'lg:order-1')}>
           {children}
@@ -363,35 +385,30 @@ export function LandingPage() {
         <SectionThread />
 
         {/*
-          The second and last attributed quotation.
+          THE COVEY QUOTATION WAS CUT HERE, AND IT WAS VERIFIED.
 
-          Verified verbatim against the published book, not an aggregator: "The
-          7 Habits of Highly Effective People", Habit 3, p.161 in the Free Press
-          edition, and confirmed identical in the 30th anniversary edition and
-          in two other Covey volumes that reprint it with a citation.
+          "The key is not to prioritize what's on your schedule, but to schedule
+          your priorities" is genuinely Covey, genuinely from 7 Habits p.161,
+          and genuinely about weekly planning, which is why it sat above this
+          section. It was removed anyway, on editorial grounds.
 
-          It sits here rather than anywhere else because the sentence Covey
-          writes immediately after it is "And this can best be done in the
-          context of the week" — so the quotation's own context is weekly
-          planning, which is precisely the feature underneath it. A widely
-          circulated variant drops "what's on"; that one is from First Things
-          First, and the wording below is not trimmed to match it.
+          Two attributed quotations on one page starts to make the page sound
+          like it is quoting its way to authority rather than showing a product,
+          and the second one has to be better than the silence it replaces. This
+          one was not: the week board already argues "decide what does not get a
+          slot" by making every day's capacity visible, so the quote restated
+          the section's own point in someone else's voice. Cutting it also makes
+          the one remaining quotation land harder.
+
+          The verification survives in docs/HOMEPAGE_V2_CLAIMS.md, so putting it
+          back is a paste, not a research job.
         */}
-        <LazySection minHeight={320}>
-          <Suspense fallback={null}>
-            <QuoteBand
-              quote="The key is not to prioritize what's on your schedule, but to schedule your priorities."
-              author="Stephen R. Covey"
-              source="The 7 Habits of Highly Effective People, Habit 3"
-              bridge="Which is easy to agree with and hard to do, because it means deciding what does not get a slot. The week board makes that decision visible: every day has its own capacity, and moving something into Tuesday shows you what Tuesday can no longer hold."
-            />
-          </Suspense>
-        </LazySection>
 
         {/* Week planning is the flagship paid feature and was invisible to anyone
             who hadn't signed up. This runs the REAL planWeek, same as the app. */}
         <Showcase
           eyebrow="The week"
+          full
           line={
             <>
               Seven days that <span className="text-gradient-brand">all fit</span>.
@@ -485,14 +502,6 @@ export function LandingPage() {
           </Suspense>
         </LazySection>
 
-        {/* The flat "and also…" list. Compact by design: it sits between two
-            substantial sections and its job is completeness, not persuasion. */}
-        <LazySection minHeight={380}>
-          <Suspense fallback={null}>
-            <EverythingStrip />
-          </Suspense>
-        </LazySection>
-
         {/* ---------------------------------------------------------------- */}
         {/* 5. WHAT IT ADDS UP TO. The emotional close, held to what the      */}
         {/*    software actually records.                                     */}
@@ -546,17 +555,24 @@ export function LandingPage() {
                   Not the whole year. Not a new system for your life. One day, planned honestly,
                   that you can actually finish. Then do it again tomorrow.
                 </p>
-                <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                {/*
+                  ONE ACTION. The close used to carry a "Compare plans" link
+                  beside it, which was a third label for /pricing (after "See
+                  what Pro includes" and "Compare all plans") and it sat
+                  directly BELOW the pricing section the reader had just
+                  scrolled through. An ending that offers a choice is not an
+                  ending; this is the conclusion of the story, so it asks for
+                  exactly one thing.
+                */}
+                <div className="mt-8 flex justify-center">
                   <Button size="lg" onClick={startFree} className="cta-sheen">
                     {ctaLabel}
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Button>
-                  <Link to="/pricing">
-                    <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                      Compare plans
-                    </Button>
-                  </Link>
                 </div>
+                <p className="mt-4 text-xs text-text-muted">
+                  Free to start · no credit card · works on your phone and laptop
+                </p>
               </div>
             </div>
           </Reveal>

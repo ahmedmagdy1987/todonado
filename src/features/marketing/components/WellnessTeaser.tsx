@@ -105,19 +105,29 @@ export function WellnessTeaser() {
           </p>
         </Reveal>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/*
+          TWO ACROSS ON A PHONE.
+
+          Four full-width cards was most of three phone screens for a section
+          that is deliberately secondary: the Calm group in the breadth strip
+          above has already named breathwork and the sleep noise, so this
+          section's real job is the one thing that strip cannot do, which is
+          carry the fake door for the module that is not built. Halving the
+          column count halves the cost of saying it.
+        */}
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:mt-10 sm:gap-4 lg:grid-cols-4">
           {LIVE_MODULES.map(({ icon: Icon, title, description, to }, i) => (
             <Reveal key={to} delay={i * 70} className="h-full">
               <Card className="h-full ring-1 ring-brand/20">
-                <CardContent className="flex h-full flex-col gap-3">
+                <CardContent className="flex h-full flex-col gap-2.5 p-4 sm:gap-3 sm:p-5">
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand sm:h-9 sm:w-9">
                       <Icon className="h-4 w-4" aria-hidden />
                     </span>
                     <Badge variant="brand">Live</Badge>
                   </div>
-                  <h3 className="font-display text-base font-semibold">{title}</h3>
-                  <p className="text-sm text-text-muted">{description}</p>
+                  <h3 className="font-display text-sm font-semibold sm:text-base">{title}</h3>
+                  <p className="text-xs text-text-muted sm:text-sm">{description}</p>
                   <div className="mt-auto pt-2">
                     <Button
                       variant="secondary"
