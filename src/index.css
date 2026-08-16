@@ -442,6 +442,61 @@
   }
 
   /*
+   * The rotating phrase in the identity section.
+   *
+   * ── THE HEIGHT IS FIXED, AND THAT IS THE WHOLE TRICK ──────────────────────
+   *
+   * Every word is absolutely positioned inside a container with an explicit
+   * `em` height, so the tallest phrase and the shortest occupy exactly the same
+   * box and the paragraph beneath never moves. A rotating word that reflows the
+   * page is the single most common way this effect is done badly: it turns the
+   * section into a heartbeat and makes the copy below unreadable while it runs.
+   *
+   * Opacity and transform only, so it composites on the GPU like everything
+   * else here, and no JavaScript runs per frame: one CSS animation with a
+   * staggered delay per word does the entire effect.
+   *
+   * Reduced motion is handled in the COMPONENT rather than here, because the
+   * honest fallback is a different layout (one static line at a smaller size),
+   * not a frozen version of this one. Freezing it would leave four display-size
+   * phrases stacked on top of each other.
+   */
+  .identity-cycle {
+    position: relative;
+    display: block;
+    /*
+     * TWO LINES ON A PHONE, ONE FROM `sm`.
+     *
+     * The longest phrase is about 24 characters. At the display size this
+     * heading uses, that does not fit on one line at 390px, so with a 1.25em
+     * box the second line was clipped clean off. Reserving two lines below
+     * `sm` is the fix; the words are centred inside the box so a short phrase
+     * does not leave a hole above itself.
+     *
+     * The height is still FIXED at each breakpoint, which is the property that
+     * matters: the paragraph underneath never moves as the phrase changes.
+     */
+    height: 2.5em;
+  }
+
+  @media (min-width: 640px) {
+    .identity-cycle {
+      /* Tuned to the display line-height so descenders are never clipped. */
+      height: 1.25em;
+    }
+  }
+
+  .identity-cycle__word {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: identity-cycle 10s ease-in-out infinite both;
+  }
+
+  /*
    * A slow sheen across a primary CTA. Deliberately NOT on the Button primitive:
    * this is landing-page polish, and every button in the app quietly shimmering
    * would be a different (worse) product.
@@ -734,5 +789,47 @@ html {
   }
   50% {
     opacity: 0.95;
+  }
+}
+
+/*
+ * One phrase in the identity heading, held long enough to actually read.
+ *
+ * The percentages are written for FOUR phrases sharing a 10s cycle: each gets
+ * a 25% slot, is fully legible for roughly 2.2s of it, and crosses over in
+ * about 0.3s. If a phrase is ever added or removed these stops must change with
+ * it, or two phrases will be on screen at once. `identitySection.test.ts` pins
+ * the count for exactly that reason.
+ *
+ * The small vertical travel is what makes it read as a line being replaced
+ * rather than a light being switched.
+ */
+/*
+ * THE PHRASES CROSSFADE. THEY MUST NEVER BOTH BE GONE.
+ *
+ * The first version faded out at 22% and handed over at 25%, which left the
+ * heading reading "Become the person who" followed by NOTHING for 0.6s out of
+ * every 2.5s. That is roughly a quarter of the time, and it reads as a bug
+ * rather than as a design. A screenshot caught it; no test would have.
+ *
+ * So a phrase now holds full opacity right up to the handover at 25% and fades
+ * out over the following 3%, exactly while its successor (whose own cycle
+ * begins at 25%) fades in. The two overlap, the line is never empty, and the
+ * opposing vertical travel is what makes it read as a replacement.
+ */
+@keyframes identity-cycle {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0.3em, 0);
+  }
+  3%,
+  25% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  28%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -0.3em, 0);
   }
 }
