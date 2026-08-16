@@ -64,19 +64,27 @@ export function HowItWorks() {
         </p>
       </div>
 
-      <div className="mt-12 flex flex-col gap-12 sm:gap-14">
+      {/* Tightened on small screens. Three full-width captures with 12 units of
+          air between them was a lot of scrolling for a section whose job is
+          "and this is the real thing", especially now that five live widgets
+          above it have already demonstrated the behaviour. */}
+      <div className="mt-10 flex flex-col gap-8 sm:mt-12 sm:gap-14">
         {STEPS.map((step, i) => (
           <div
             key={step.n}
-            className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12"
+            className="grid items-center gap-4 sm:gap-8 lg:grid-cols-2 lg:gap-12"
           >
             {/* Text — alternate sides on desktop; always first on mobile. */}
             <div className={cn(i % 2 === 1 && 'lg:order-2')}>
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-gradient text-sm font-bold text-white">
                 {step.n}
               </span>
-              <h3 className="mt-4 font-display text-xl font-semibold sm:text-2xl">{step.title}</h3>
-              <p className="mt-3 max-w-md text-text-muted">{step.body}</p>
+              <h3 className="mt-3 font-display text-lg font-semibold sm:mt-4 sm:text-2xl">
+                {step.title}
+              </h3>
+              <p className="mt-2 max-w-md text-sm text-text-muted sm:mt-3 sm:text-base">
+                {step.body}
+              </p>
             </div>
             <div className={cn(i % 2 === 1 && 'lg:order-1')}>
               <Shot src={step.img} alt={step.alt} />
@@ -86,8 +94,8 @@ export function HowItWorks() {
       </div>
 
       {/* Mobile / PWA showcase — uses the real 390px capture. */}
-      <div className="mt-12 flex flex-col items-center gap-8 rounded-3xl border border-white/5 bg-surface/40 px-6 py-10 sm:flex-row sm:justify-center sm:gap-12">
-        <div className="w-[220px] shrink-0 overflow-hidden rounded-[2rem] border-4 border-surface-2 shadow-elevation-lg">
+      <div className="mt-10 flex flex-col items-center gap-6 rounded-3xl border border-white/5 bg-surface/40 px-6 py-8 sm:mt-12 sm:flex-row sm:justify-center sm:gap-12 sm:py-10">
+        <div className="w-[180px] shrink-0 overflow-hidden rounded-[2rem] border-4 border-surface-2 shadow-elevation-lg sm:w-[220px]">
           <img
             src="/shots/today-mobile.png"
             alt="Todonado running on a phone, showing the Today capacity meter and task list"

@@ -67,28 +67,39 @@ export function EverythingStrip() {
   return (
     <section className="border-y border-white/5 bg-surface/30" aria-labelledby="everything">
       <div className={cn(SECTION_RHYTHM, 'max-w-6xl')}>
-        <Reveal>
-          {/* The BREADTH claim now belongs to OnePlaceStrip, which groups the
-              surfaces by the job they do and links into each one. This section
-              went back to its narrower original job — the flat "and also…" list
-              — so the two no longer say the same thing twice in a row. */}
-          <h2 id="everything" className="text-center font-display text-2xl font-bold sm:text-3xl">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          {/* The BREADTH claim belongs to OnePlaceStrip, which groups the
+              surfaces by the job they do and links into each one, and to
+              SystemLoop, which explains why they share a product. This section
+              went back to its narrower original job — the flat "and also…"
+              list — so the three no longer say the same thing three times. */}
+          <h2 id="everything" className="font-display text-2xl font-bold sm:text-3xl">
             Everything else you&rsquo;d expect
           </h2>
+          <p className="mt-3 text-sm text-text-muted">
+            All of it included, on every plan unless a line says otherwise.
+          </p>
         </Reveal>
 
-        <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        {/*
+          A DENSE LIST, NOT FOURTEEN CARDS.
+
+          This was fourteen bordered cards in a grid, immediately after two
+          other card grids, and the run of them read as filler no matter how
+          true each line was. Stripping the chrome to a hairline-ruled list
+          removes roughly a screen of height, stops the page's third card wall,
+          and lets this section do the only job it has: completeness.
+        */}
+        <ul className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-x-10 sm:grid-cols-2">
           {ITEMS.map(({ icon: Icon, label, blurb }, i) => (
-            <li key={label}>
-              <Reveal delay={i * 60} direction="scale" className="h-full">
-                <div className="lift-card flex h-full items-start gap-3 rounded-2xl border border-white/5 bg-surface/60 p-4 hover:border-brand/25 sm:items-center sm:p-5">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-gradient-soft text-brand">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-display text-sm font-semibold sm:text-base">{label}</p>
-                    <p className="mt-0.5 text-xs text-text-muted sm:text-sm">{blurb}</p>
-                  </div>
+            <li key={label} className="border-b border-white/5">
+              <Reveal delay={Math.min(i, 8) * 40}>
+                <div className="flex items-center gap-3 py-3">
+                  <Icon className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                  <p className="shrink-0 text-sm font-medium text-text-primary">{label}</p>
+                  <p className="min-w-0 flex-1 truncate text-right text-xs text-text-muted">
+                    {blurb}
+                  </p>
                 </div>
               </Reveal>
             </li>

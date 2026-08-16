@@ -75,7 +75,7 @@ export function AutoPlanDemo() {
             type="button"
             onClick={reset}
             disabled={!running}
-            className="focus-ring inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm text-text-muted transition-colors hover:text-text-primary disabled:opacity-40"
+            className="focus-ring tap-h-44 inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm text-text-muted transition-colors hover:text-text-primary disabled:opacity-40"
           >
             <RotateCcw className="h-4 w-4" aria-hidden />
             Reset
