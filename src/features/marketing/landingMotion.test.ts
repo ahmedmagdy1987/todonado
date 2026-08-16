@@ -167,10 +167,17 @@ describe('reduced motion removes the motion, not the design', () => {
 
 describe('the hero keeps its semantics while it animates', () => {
   it('still has exactly one h1, and it still reads as two lines', () => {
+    /*
+     * The headline changed in Homepage V2, from "Plan a realistic day. / Not a
+     * wish-list." to the line below. Both halves are pinned for the same reason
+     * as before: each is its own animated span, and a refactor that merges them
+     * into one node silently drops a beat from the stagger while rendering
+     * identically at rest.
+     */
     const h1Open = (landing.match(/<h1\b/g) ?? []).length
     expect(h1Open).toBe(1)
-    expect(landing).toMatch(/Plan a realistic day\./)
-    expect(landing).toMatch(/Not a wish-list\./)
+    expect(landing).toMatch(/Your list is infinite\./)
+    expect(landing).toMatch(/Your day is not\./)
   })
 
   it('staggers with delays short enough not to delay comprehension', () => {

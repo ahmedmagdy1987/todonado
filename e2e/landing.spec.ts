@@ -267,12 +267,32 @@ test('hero: the staggered entrance always resolves to fully visible', async ({ p
 test('hero: both CTAs still go where they claim', async ({ page }) => {
   await page.goto('/welcome')
 
-  // Secondary CTA is a real link to a real page.
-  await page.getByRole('link', { name: 'See pricing' }).click()
-  await expect(page).toHaveURL(/\/pricing$/)
+  /*
+   * The secondary CTA became "See how it works" in Homepage V2 and points at
+   * the problem section rather than at /pricing: asking a stranger to evaluate
+   * cost before they have been told what the product does is the wrong second
+   * step. It is still a REAL anchor rather than a scroll handler, so it works
+   * from the keyboard and without JavaScript, and that is what is asserted.
+   */
+  const explore = page.getByRole('link', { name: 'See how it works' })
+  await expect(explore).toHaveAttribute('href', '#why-days-slip')
+  await explore.click()
+  await expect(page).toHaveURL(/#why-days-slip$/)
+  // The target exists, so the link cannot rot into a no-op.
+  await expect(page.locator('#why-days-slip')).toHaveCount(1)
 
   // Primary CTA sends a signed-out visitor to the auth page.
   await page.goto('/welcome')
   await page.getByRole('button', { name: 'Start free' }).first().click()
   await expect(page).toHaveURL(/\/login$/)
+})
+
+test('hero: pricing is still one click away from the top of the page', async ({ page }) => {
+  // The hero stopped linking to /pricing, so the header link is now the
+  // above-the-fold route to it. If that is ever removed, a visitor who wants
+  // the price has to scroll the entire story to find it.
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/welcome')
+  await page.getByRole('link', { name: 'Pricing' }).first().click()
+  await expect(page).toHaveURL(/\/pricing$/)
 })

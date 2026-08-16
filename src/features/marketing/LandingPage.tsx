@@ -25,6 +25,9 @@ const AutoPlanDemo = lazy(() =>
   import('./demo/AutoPlanDemo').then((m) => ({ default: m.AutoPlanDemo })),
 )
 const FocusDemo = lazy(() => import('./demo/FocusDemo').then((m) => ({ default: m.FocusDemo })))
+const RecoveryDemo = lazy(() =>
+  import('./demo/RecoveryDemo').then((m) => ({ default: m.RecoveryDemo })),
+)
 const WeekBoardDemo = lazy(() =>
   import('./demo/WeekBoardDemo').then((m) => ({ default: m.WeekBoardDemo })),
 )
@@ -33,6 +36,24 @@ const WeekBoardDemo = lazy(() =>
  * Everything below the hero is deferred the same way — the first paint ships
  * the hero and its live meter, nothing else.
  */
+const ProblemSection = lazy(() =>
+  import('./components/ProblemSection').then((m) => ({ default: m.ProblemSection })),
+)
+const GoalsSystems = lazy(() =>
+  import('./components/GoalsSystems').then((m) => ({ default: m.GoalsSystems })),
+)
+const QuoteBand = lazy(() =>
+  import('./components/QuoteBand').then((m) => ({ default: m.QuoteBand })),
+)
+const SystemLoop = lazy(() =>
+  import('./components/SystemLoop').then((m) => ({ default: m.SystemLoop })),
+)
+const IdentitySection = lazy(() =>
+  import('./components/IdentitySection').then((m) => ({ default: m.IdentitySection })),
+)
+const ResearchMoment = lazy(() =>
+  import('./components/ResearchMoment').then((m) => ({ default: m.ResearchMoment })),
+)
 const HowItWorks = lazy(() =>
   import('./components/HowItWorks').then((m) => ({ default: m.HowItWorks })),
 )
@@ -168,24 +189,35 @@ export function LandingPage() {
                 <Sparkles className="h-3 w-3" aria-hidden />
                 Your daily command center
               </Badge>
+              {/*
+                THE HEADLINE NAMES THE ENEMY, NOT THE FEATURE.
+
+                It used to read "Plan a realistic day. Not a wish-list." That is
+                a true description of the product and a weak first sentence: it
+                asks the reader to accept that their day is currently
+                unrealistic before they have been shown why. The version below
+                states a fact nobody argues with, and the product becomes the
+                obvious consequence of it one line later.
+              */}
               <h1 className="font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
                 {/* Two block spans rather than a `<br>`: each line can then
                     carry its own delay, and the accessible name is unchanged. */}
                 <span className="hero-rise block" style={{ '--rise-delay': '90ms' } as CSSProperties}>
-                  Plan a realistic day.
+                  Your list is infinite.
                 </span>
                 <span
                   className="hero-rise text-gradient-brand block"
                   style={{ '--rise-delay': '210ms' } as CSSProperties}
                 >
-                  Not a wish-list.
+                  Your day is not.
                 </span>
               </h1>
               <p
                 className="hero-rise mt-6 max-w-md text-base leading-relaxed text-text-muted sm:text-lg"
                 style={{ '--rise-delay': '330ms' } as CSSProperties}
               >
-                Every task gets a time estimate, so you can see if your day fits before it starts.
+                Todonado gives every task the minutes it really takes, so you can see what fits
+                before you commit. Then it helps you start, and picks up whatever slips.
               </p>
               <div
                 className="hero-rise mt-9 flex flex-col gap-3 sm:flex-row"
@@ -195,11 +227,20 @@ export function LandingPage() {
                   {ctaLabel}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
-                <Link to="/pricing" className="sm:w-auto">
+                {/*
+                  SECOND CTA IS EXPLORATION, NOT PURCHASE.
+
+                  This was "See pricing", which asks a stranger to evaluate cost
+                  before they have been told what the thing does. Pricing is
+                  still one click away in the header, the teaser, the closing
+                  CTA and the footer. A real anchor, so it works from the
+                  keyboard and survives with no JavaScript running.
+                */}
+                <a href="#why-days-slip" className="sm:w-auto">
                   <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                    See pricing
+                    See how it works
                   </Button>
-                </Link>
+                </a>
               </div>
               <p
                 className="hero-rise mt-4 text-xs text-text-muted"
@@ -236,13 +277,28 @@ export function LandingPage() {
         </section>
 
         {/* ---------------------------------------------------------------- */}
-        {/* 2. Three scroll sections — one line, one live widget each.       */}
+        {/* 2. THE PROBLEM. The page used to go straight from the hero to a   */}
+        {/*    solution, so a visitor met the answer before the question and  */}
+        {/*    could read four demos still thinking "a list with a timer".    */}
+        {/*    It is also the hero's secondary CTA target.                    */}
+        {/* ---------------------------------------------------------------- */}
+        <div id="why-days-slip" className="scroll-mt-20">
+          <LazySection minHeight={900}>
+            <Suspense fallback={null}>
+              <ProblemSection />
+            </Suspense>
+          </LazySection>
+        </div>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 3. THE ANSWER, in four live widgets. Each runs the product's real */}
+        {/*    logic; the thread between them says they are one system.       */}
         {/* ---------------------------------------------------------------- */}
         <Showcase
           eyebrow="Capacity"
           line={
             <>
-              See what actually <span className="text-warning">fits</span> in your day.
+              So give the day a <span className="text-warning">limit</span>.
             </>
           }
         >
@@ -251,13 +307,22 @@ export function LandingPage() {
 
         <SectionThread />
 
+        {/* The one motivational beat with an attributed quotation behind it,
+            placed so the idea and the feature that implements it are adjacent
+            rather than a screen apart. */}
+        <LazySection minHeight={640}>
+          <Suspense fallback={null}>
+            <GoalsSystems />
+          </Suspense>
+        </LazySection>
+
         <Showcase
-          eyebrow="Auto-plan"
+          eyebrow="From intention to plan"
           flip
           line={
             <>
-              One tap. A day that{' '}
-              <span className="text-gradient-brand">actually fits</span>.
+              A goal is not a plan until it has{' '}
+              <span className="text-gradient-brand">a time</span>.
             </>
           }
         >
@@ -270,7 +335,7 @@ export function LandingPage() {
           eyebrow="Focus"
           line={
             <>
-              Then <span className="text-success">protect your focus</span>.
+              Then <span className="text-success">protect the time</span> you set aside.
             </>
           }
         >
@@ -279,11 +344,54 @@ export function LandingPage() {
 
         <SectionThread />
 
+        {/* RECOVERY. A founding principle of this product that appeared on no
+            public surface at all, which left the story implying the plan always
+            holds. It never does, and the reader knows it. */}
+        <Showcase
+          eyebrow="Recovery"
+          flip
+          line={
+            <>
+              Bad days happen.{' '}
+              <span className="text-accent">They should not compound.</span>
+            </>
+          }
+        >
+          <LazyWidget component={RecoveryDemo} minHeight={620} label="the recovery demo" />
+        </Showcase>
+
+        <SectionThread />
+
+        {/*
+          The second and last attributed quotation.
+
+          Verified verbatim against the published book, not an aggregator: "The
+          7 Habits of Highly Effective People", Habit 3, p.161 in the Free Press
+          edition, and confirmed identical in the 30th anniversary edition and
+          in two other Covey volumes that reprint it with a citation.
+
+          It sits here rather than anywhere else because the sentence Covey
+          writes immediately after it is "And this can best be done in the
+          context of the week" — so the quotation's own context is weekly
+          planning, which is precisely the feature underneath it. A widely
+          circulated variant drops "what's on"; that one is from First Things
+          First, and the wording below is not trimmed to match it.
+        */}
+        <LazySection minHeight={320}>
+          <Suspense fallback={null}>
+            <QuoteBand
+              quote="The key is not to prioritize what's on your schedule, but to schedule your priorities."
+              author="Stephen R. Covey"
+              source="The 7 Habits of Highly Effective People, Habit 3"
+              bridge="Which is easy to agree with and hard to do, because it means deciding what does not get a slot. The week board makes that decision visible: every day has its own capacity, and moving something into Tuesday shows you what Tuesday can no longer hold."
+            />
+          </Suspense>
+        </LazySection>
+
         {/* Week planning is the flagship paid feature and was invisible to anyone
             who hadn't signed up. This runs the REAL planWeek, same as the app. */}
         <Showcase
           eyebrow="The week"
-          flip
           line={
             <>
               Seven days that <span className="text-gradient-brand">all fit</span>.
@@ -300,25 +408,62 @@ export function LandingPage() {
           </Suspense>
         </LazySection>
 
-        {/* 3. Everything-else strip. */}
-        <LazySection minHeight={520}>
+        {/* The one research moment, and it sits here because it is the SETUP
+            for the loop below rather than a fact dropped in for credibility:
+            people underestimate their own work, so a system that measures what
+            things actually took is answering a real and well-documented
+            problem rather than an invented one. */}
+        <LazySection minHeight={360}>
           <Suspense fallback={null}>
-            <EverythingStrip />
+            <ResearchMoment />
           </Suspense>
         </LazySection>
 
-        {/* 3b. The breadth, stated as a fact and linked to the real surfaces. */}
+        {/* ---------------------------------------------------------------- */}
+        {/* 4. THE SYSTEM. Only now, once every piece has been shown working, */}
+        {/*    does the page explain why they belong in one product. It does  */}
+        {/*    it by following one number around the loop rather than by      */}
+        {/*    claiming "all in one", which is the sentence every visitor has  */}
+        {/*    already learned to skip.                                       */}
+        {/* ---------------------------------------------------------------- */}
+        <LazySection minHeight={900}>
+          <Suspense fallback={null}>
+            <SystemLoop />
+          </Suspense>
+        </LazySection>
+
+        {/* The breadth, stated as a fact and linked to the real surfaces. It
+            follows the loop rather than preceding it, so "one place" arrives as
+            evidence for a claim already made rather than as a feature wall. */}
         <LazySection minHeight={560}>
           <Suspense fallback={null}>
             <OnePlaceStrip />
           </Suspense>
         </LazySection>
 
-        {/* Focus & Calm: two shipped modules link into the app; the two that
-            aren't usable yet keep the insert-only feature_intents fake door. */}
+        {/* Focus & Calm: shipped modules link into the app; the one that
+            isn't usable yet keeps the insert-only feature_intents fake door. */}
         <LazySection minHeight={560}>
           <Suspense fallback={null}>
             <WellnessTeaser />
+          </Suspense>
+        </LazySection>
+
+        {/* The flat "and also…" list. Compact by design: it sits between two
+            substantial sections and its job is completeness, not persuasion. */}
+        <LazySection minHeight={380}>
+          <Suspense fallback={null}>
+            <EverythingStrip />
+          </Suspense>
+        </LazySection>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* 5. WHAT IT ADDS UP TO. The emotional close, held to what the      */}
+        {/*    software actually records.                                     */}
+        {/* ---------------------------------------------------------------- */}
+        <LazySection minHeight={760}>
+          <Suspense fallback={null}>
+            <IdentitySection />
           </Suspense>
         </LazySection>
 
@@ -348,11 +493,22 @@ export function LandingPage() {
                 }}
               />
               <div className="relative">
+                {/*
+                  THE CLOSE LOWERS THE BAR ON PURPOSE.
+
+                  Everything above this point argues that most days are planned
+                  badly, which is a heavy note to end on. A closing CTA that
+                  then asks for a life overhaul earns a "not today". Asking for
+                  ONE honest day is both the smallest possible commitment and
+                  exactly what the product does, so the ask and the promise are
+                  the same size.
+                */}
                 <h2 className="font-display text-2xl font-bold sm:text-4xl">
-                  Stop planning days that don&rsquo;t fit.
+                  Start with today.
                 </h2>
-                <p className="mx-auto mt-4 max-w-md text-text-muted">
-                  Commit to what fits, focus on it, and pick up whatever slips.
+                <p className="mx-auto mt-4 max-w-lg text-text-muted">
+                  Not the whole year. Not a new system for your life. One day, planned honestly,
+                  that you can actually finish. Then do it again tomorrow.
                 </p>
                 <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                   <Button size="lg" onClick={startFree} className="cta-sheen">

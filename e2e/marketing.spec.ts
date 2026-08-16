@@ -371,14 +371,25 @@ test('pricing: the public page quotes $5/month and $48/year, on desktop and mobi
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 })
       await page.goto(route)
-      // The teaser is below the fold on /welcome and lazily mounted.
-      await page.evaluate(async () => {
-        const step = Math.round(window.innerHeight * 0.8)
-        for (let y = 0; y < document.body.scrollHeight; y += step) {
-          window.scrollTo(0, y)
-          await new Promise((r) => setTimeout(r, 90))
-        }
-      })
+      // BOTH routes are lazy CHUNKS, so wait for the page itself to render
+      // before reading any text. The old timed scroll happened to serve as
+      // that wait on /pricing; making the scroll conditional removed it, and
+      // the body was still "Loading…" when it was read.
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      /*
+       * The teaser is additionally below the fold on /welcome and lazily
+       * mounted section by section.
+       *
+       * This used to be a one-pass scroll on a fixed 90ms cadence, which is a
+       * race against however tall the page happens to be: each pass only
+       * mounts the sections it reaches, and mounting makes the page taller.
+       * The Homepage V2 narrative sections pushed the landing past what one
+       * pass could cover and the sibling test below started failing with
+       * "approved copy missing" — the copy was fine, the scroll never got
+       * there. `mountLazySections` loops until the sentinel actually exists,
+       * so it cannot be outrun by a longer page.
+       */
+      if (route === '/welcome') await mountLazySections(page)
       const body = await page.locator('body').innerText()
       const where = `${route} @ ${width}px`
 
@@ -423,13 +434,10 @@ test('pricing: the intro states the real offer, with no pre-Stripe language left
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(route)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await page.evaluate(async () => {
-      const step = Math.round(window.innerHeight * 0.8)
-      for (let y = 0; y < document.body.scrollHeight; y += step) {
-        window.scrollTo(0, y)
-        await new Promise((r) => setTimeout(r, 90))
-      }
-    })
+    // Deterministic mount rather than a timed scroll — see the note in the
+    // price-consistency test above. A one-pass scroll is a race against the
+    // page's own height, and it lost that race when the landing grew.
+    if (route === '/welcome') await mountLazySections(page)
     const body = await page.locator('body').innerText()
     const lower = body.toLowerCase()
 
