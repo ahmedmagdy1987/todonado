@@ -59,6 +59,18 @@
     }
   }
 
+  /*
+   * In-page anchors glide rather than jump.
+   *
+   * The marketing header navigates to sections of the landing page by hash,
+   * and an instant jump gives no sense of having MOVED THROUGH the page,
+   * which is exactly the orientation a long page needs. Safe to set globally:
+   * the reduced-motion block immediately below forces it back to `auto`.
+   */
+  html {
+    scroll-behavior: smooth;
+  }
+
   /* Respect a reduced-motion preference across the app (the breathwork pacer
      also gates its own rAF animation on this in JS). */
   @media (prefers-reduced-motion: reduce) {
@@ -776,6 +788,112 @@
     );
   }
 
+  /* ================================================================== */
+  /*  MATERIALS — the second half of scene separation, and the half     */
+  /*  the tone system above could not provide.                          */
+  /*                                                                    */
+  /*  The five tones MODULATE the page-wide aurora on purpose: each     */
+  /*  scene is translucent so the same world shows through under        */
+  /*  different light. That was the right instinct for a page of        */
+  /*  storytelling, and it is why the page still read as ONE CONTINUOUS */
+  /*  GRADIENT from top to bottom. Translucency cannot produce the      */
+  /*  feeling of entering a new part of a document, because the same    */
+  /*  aurora is visibly behind all of it.                               */
+  /*                                                                    */
+  /*  A MATERIAL IS OPAQUE. It occludes the aurora completely, so the   */
+  /*  boundary is a genuine change of surface rather than a change of   */
+  /*  light. That is the difference between "different materials" and   */
+  /*  the coloured bands the tone system was written to avoid: every    */
+  /*  material below is built from the SAME locked tokens, and none     */
+  /*  introduces a hue. What varies is opacity and elevation, not       */
+  /*  colour. A purple band followed by a blue band would still be      */
+  /*  wrong; a paper surface followed by a glass one is not.            */
+  /*                                                                    */
+  /*  Use sparingly. Atmosphere is still the brand: the hero and the    */
+  /*  Pro section keep the aurora, and the dense, scannable sections    */
+  /*  (capabilities, comparison, plans, price) get a real surface to    */
+  /*  sit on, because small text over a moving gradient is the one      */
+  /*  place the aurora actively costs legibility.                       */
+  /* ================================================================== */
+  .band {
+    position: relative;
+    isolation: isolate;
+  }
+
+  /*
+   * The hairline is a light source, not a border.
+   *
+   * A plain 1px line reads as a boundary between two flat colours. A
+   * single-pixel highlight at the top edge reads as an edge catching the
+   * light, which is what makes a surface look like a surface.
+   */
+  .band::before,
+  .band::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    pointer-events: none;
+  }
+  .band::before {
+    top: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(248, 250, 252, 0.09) 22%,
+      rgba(248, 250, 252, 0.09) 78%,
+      transparent
+    );
+  }
+  .band::after {
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(10, 13, 22, 0.9) 50%, transparent);
+  }
+
+  /* PAPER. The workhorse: an opaque panel for reading and scanning. */
+  .band--solid {
+    background: #0f172a;
+  }
+
+  /* RAISED. One step up, for the section that carries the most content. */
+  .band--raised {
+    background: linear-gradient(180deg, #131d33 0%, #0f172a 100%);
+  }
+
+  /*
+   * EDITORIAL. Deepest and flattest, for the comparison table.
+   *
+   * A faint horizontal rule pattern, at the same 44px rhythm as the table
+   * rows, so the surface itself reads as ruled paper. It is drawn in the
+   * background rather than as borders on the rows because the pattern
+   * should continue past the table's edges.
+   */
+  .band--editorial {
+    background-color: #080b12;
+    background-image: repeating-linear-gradient(
+      180deg,
+      rgba(248, 250, 252, 0.022) 0px,
+      rgba(248, 250, 252, 0.022) 1px,
+      transparent 1px,
+      transparent 44px
+    );
+  }
+
+  /*
+   * PREMIUM. The ONE place the brand gradient is spent on a whole section.
+   *
+   * It marks the single commercial turn in the page (why Pro is worth
+   * paying for). Spending it anywhere else would make it mean nothing
+   * here, which is exactly what happened when every section was a wash.
+   */
+  .band--premium {
+    background:
+      radial-gradient(120% 100% at 50% 0%, rgba(108, 92, 231, 0.22) 0%, transparent 62%),
+      radial-gradient(90% 80% at 80% 100%, rgba(78, 168, 255, 0.13) 0%, transparent 60%),
+      #0c1120;
+  }
+
   /*
    * SPACING HIERARCHY, WHICH IS THE OTHER HALF OF THE FIX.
    *
@@ -785,12 +903,23 @@
    * the page's height went and why nothing grouped: two beats of one
    * argument were spaced exactly like two unrelated arguments.
    */
+  /*
+   * 2.75rem, down from 3.5rem, and the materials are what paid for it.
+   *
+   * The previous value was set when separation between sections was carried
+   * entirely by a translucent tone change cross-dissolving over ~120px, which
+   * is a soft boundary that needs whitespace on both sides to register at all.
+   * An opaque material change is a hard boundary: the surface, the hairline and
+   * the elevation all change at one line, and it reads as a new section without
+   * any help from padding. Nine sections at both ends is 216px of phone height
+   * that was buying a distinction the art direction now makes on its own.
+   */
   .chapter-pad {
-    padding-block: 3.5rem;
+    padding-block: 2.75rem;
   }
 
   .beat-gap {
-    margin-top: 3rem;
+    margin-top: 2.5rem;
   }
 
   /*
@@ -814,10 +943,10 @@
      * distinction the art direction already makes.
      */
     .chapter-pad {
-      padding-block: 5.5rem;
+      padding-block: 4.5rem;
     }
     .beat-gap {
-      margin-top: 3.5rem;
+      margin-top: 3rem;
     }
   }
 }

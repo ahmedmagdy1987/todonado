@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Compass, Gauge, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { MarketingHeader } from './components/MarketingHeader'
+import { SiteHeader } from './components/SiteHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 
 interface AboutBlock {
@@ -31,7 +31,7 @@ const BLOCKS: AboutBlock[] = [
 export function AboutPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background text-text-primary">
-      <MarketingHeader />
+      <SiteHeader />
       <main className="flex-1">
         <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">

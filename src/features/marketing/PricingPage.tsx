@@ -4,7 +4,7 @@ import { Check, ChevronDown, Info, Sparkles } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
-import { MarketingHeader } from './components/MarketingHeader'
+import { SiteHeader } from './components/SiteHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { UpgradeIntentModal } from './components/UpgradeIntentModal'
 import { ALL_IN_ONE_CATEGORIES, PLANS, PRICING_DISCLAIMER, type Plan } from './plans'
@@ -161,7 +161,7 @@ export function PricingPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-text-primary">
-      <MarketingHeader />
+      <SiteHeader />
 
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-4 pt-16 text-center sm:px-6">

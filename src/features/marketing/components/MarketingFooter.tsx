@@ -1,17 +1,49 @@
 import { Link } from 'react-router-dom'
 import { Logo } from '@/components/brand/Logo'
+import { LEGAL_CONTACT } from '@/lib/config'
 
 interface FooterLink {
   label: string
   to: string
+  /** Rendered as a plain anchor: a `mailto:` is not a route. */
+  external?: boolean
 }
 
+/**
+ * THREE COLUMNS THAT MATCH THE PAGE ABOVE THEM.
+ *
+ * The footer used to offer four links in total: Home, Pricing, Privacy, Terms,
+ * About. A visitor who reached the bottom because they were looking for
+ * something specific found almost nothing to look at, which reads as a site
+ * that has almost nothing in it.
+ *
+ * Product now points at the real sections of the landing page, so the footer is
+ * a second route to the same information rather than a legal formality. Every
+ * entry is a destination that exists: there are no placeholder social links,
+ * no "Careers", and no "Blog", because inventing a link that goes nowhere is
+ * the fastest way to make a small product look abandoned rather than small.
+ *
+ * Support is `LEGAL_CONTACT` from `@/lib/config`, which is the address the
+ * privacy and terms pages already publish. Imported rather than typed out, so
+ * the footer cannot come to advertise a different inbox from the legal pages.
+ * It is the only support channel that exists, so it is the only one named.
+ */
 const SECTIONS: { heading: string; links: FooterLink[] }[] = [
   {
     heading: 'Product',
     links: [
-      { label: 'Home', to: '/welcome' },
+      { label: 'What is inside', to: '/welcome#product' },
+      { label: 'How it works', to: '/welcome#how-it-works' },
+      { label: 'Compare', to: '/welcome#compare' },
+      { label: 'Free vs Pro', to: '/welcome#plans' },
       { label: 'Pricing', to: '/pricing' },
+    ],
+  },
+  {
+    heading: 'Company',
+    links: [
+      { label: 'About', to: '/about' },
+      { label: 'Support', to: `mailto:${LEGAL_CONTACT}`, external: true },
     ],
   },
   {
@@ -20,10 +52,6 @@ const SECTIONS: { heading: string; links: FooterLink[] }[] = [
       { label: 'Privacy Policy', to: '/privacy' },
       { label: 'Terms of Use', to: '/terms' },
     ],
-  },
-  {
-    heading: 'Company',
-    links: [{ label: 'About Us', to: '/about' }],
   },
 ]
 
@@ -60,16 +88,26 @@ export function MarketingFooter() {
                 {section.heading}
               </p>
               <ul className="space-y-2">
-                {section.links.map((link) => (
-                  <li key={link.to}>
-                    <Link
-                      to={link.to}
-                      className="focus-ring inline-flex min-h-[32px] items-center rounded text-sm text-text-muted transition-colors hover:text-text-primary"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {section.links.map((link) => {
+                  // 44px, not the 32px this used to be. The footer was never
+                  // covered by the app's ergonomics sweep, because that suite
+                  // signs in first and never reaches a public page.
+                  const className =
+                    'focus-ring inline-flex min-h-[44px] items-center rounded text-sm text-text-muted transition-colors hover:text-text-primary'
+                  return (
+                    <li key={link.to}>
+                      {link.external ? (
+                        <a href={link.to} className={className}>
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link to={link.to} className={className}>
+                          {link.label}
+                        </Link>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </nav>
           ))}

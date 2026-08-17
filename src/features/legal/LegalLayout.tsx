@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { LEGAL_CONTACT } from '@/lib/config'
-import { MarketingHeader } from '@/features/marketing/components/MarketingHeader'
+import { SiteHeader } from '@/features/marketing/components/SiteHeader'
 import { MarketingFooter } from '@/features/marketing/components/MarketingFooter'
 
 /**
@@ -36,7 +36,7 @@ export function LegalLayout({
 }: LegalLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col bg-background text-text-primary">
-      <MarketingHeader />
+      <SiteHeader />
       <main className="flex-1">
         <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
