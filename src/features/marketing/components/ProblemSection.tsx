@@ -90,12 +90,12 @@ export function ProblemSection() {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">Why days slip</p>
         <h2
           id="the-problem"
-          className="mt-4 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl"
+          className="mt-3 font-display text-3xl font-bold leading-[1.08] tracking-tight md:text-4xl lg:mt-4 lg:text-6xl lg:leading-[1.05]"
         >
           A list can grow forever.
           <span className="mt-1 block text-warning">A day cannot.</span>
         </h2>
-        <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-text-muted sm:mt-6 sm:text-lg">
           Nobody plans an impossible day on purpose. They plan ten reasonable things and never add
           up the minutes.
         </p>
@@ -214,7 +214,7 @@ export function ProblemSection() {
         </div>
       </div>
 
-      <Reveal className="mx-auto mt-10 max-w-2xl text-center sm:mt-16">
+      <Reveal className="mx-auto mt-8 max-w-2xl text-center sm:mt-14">
         <p className="text-base leading-relaxed text-text-primary/90 sm:text-lg">
           A plain list will never tell you this. It has no idea how long your day is, so it lets you
           keep adding. The overflow does not disappear. It becomes tomorrow&rsquo;s guilt, and the

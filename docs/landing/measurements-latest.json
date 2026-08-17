@@ -1,0 +1,633 @@
+{
+  "generatedAt": "2026-08-16T17:14:41.510Z",
+  "viewports": {
+    "390": {
+      "docHeight": 11801,
+      "viewportH": 844,
+      "chapters": [
+        {
+          "tone": "chapter relative",
+          "height": 967
+        },
+        {
+          "tone": "chapter relative",
+          "height": 2580
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1454
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1721
+        },
+        {
+          "tone": "chapter relative",
+          "height": 2226
+        },
+        {
+          "tone": "chapter relative",
+          "height": 2122
+        }
+      ],
+      "chapterCount": 6,
+      "ctaCount": 4,
+      "ctaLabels": [
+        "Start free",
+        "Start free",
+        "Start free",
+        "Start free"
+      ],
+      "overflowPx": 0,
+      "h2Count": 10,
+      "blocks": [
+        {
+          "chapter": 1,
+          "label": "chapter__scene",
+          "height": 967
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-x-0 top-0 h",
+          "height": 620
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-0 opacity-[",
+          "height": 967
+        },
+        {
+          "chapter": 1,
+          "label": "vortex",
+          "height": 967
+        },
+        {
+          "chapter": 1,
+          "label": "relative mx-auto grid w-full max-w-6xl items-c",
+          "height": 967
+        },
+        {
+          "chapter": 2,
+          "label": "chapter__scene",
+          "height": 2580
+        },
+        {
+          "chapter": 2,
+          "label": "A list can grow forever.A day cannot.",
+          "height": 1147
+        },
+        {
+          "chapter": 2,
+          "label": "So give the day a limit, and let it fill itsel",
+          "height": 767
+        },
+        {
+          "chapter": 2,
+          "label": "Then seven days that all fit.",
+          "height": 458
+        },
+        {
+          "chapter": 3,
+          "label": "chapter__scene",
+          "height": 1454
+        },
+        {
+          "chapter": 3,
+          "label": "Then protect the time you set aside.",
+          "height": 553
+        },
+        {
+          "chapter": 3,
+          "label": "section-thread",
+          "height": 68
+        },
+        {
+          "chapter": 3,
+          "label": "Bad days happen. They should not compound.",
+          "height": 721
+        },
+        {
+          "chapter": 4,
+          "label": "chapter__scene",
+          "height": 1721
+        },
+        {
+          "chapter": 4,
+          "label": "The number you write downcomes back to you.",
+          "height": 1409
+        },
+        {
+          "chapter": 4,
+          "label": "beat-gap",
+          "height": 152
+        },
+        {
+          "chapter": 5,
+          "label": "chapter__scene",
+          "height": 2226
+        },
+        {
+          "chapter": 5,
+          "label": "One place for your day",
+          "height": 1491
+        },
+        {
+          "chapter": 5,
+          "label": "A calmer side to your day",
+          "height": 575
+        },
+        {
+          "chapter": 6,
+          "label": "chapter__scene",
+          "height": 2122
+        },
+        {
+          "chapter": 6,
+          "label": "Free for every day. Pro when you want the whol",
+          "height": 1264
+        },
+        {
+          "chapter": 6,
+          "label": "Questions, answered",
+          "height": 264
+        },
+        {
+          "chapter": 6,
+          "label": "Start with today.",
+          "height": 386
+        }
+      ]
+    },
+    "768": {
+      "docHeight": 10564,
+      "viewportH": 1024,
+      "chapters": [
+        {
+          "tone": "chapter relative",
+          "height": 1009
+        },
+        {
+          "tone": "chapter relative",
+          "height": 2781
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1369
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1582
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1749
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1592
+        }
+      ],
+      "chapterCount": 6,
+      "ctaCount": 4,
+      "ctaLabels": [
+        "Start free",
+        "Start free",
+        "Start free",
+        "Start free"
+      ],
+      "overflowPx": 0,
+      "h2Count": 10,
+      "blocks": [
+        {
+          "chapter": 1,
+          "label": "chapter__scene",
+          "height": 1009
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-x-0 top-0 h",
+          "height": 746
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-0 opacity-[",
+          "height": 1009
+        },
+        {
+          "chapter": 1,
+          "label": "vortex",
+          "height": 1009
+        },
+        {
+          "chapter": 1,
+          "label": "relative mx-auto grid w-full max-w-6xl items-c",
+          "height": 1009
+        },
+        {
+          "chapter": 2,
+          "label": "chapter__scene",
+          "height": 2781
+        },
+        {
+          "chapter": 2,
+          "label": "A list can grow forever.A day cannot.",
+          "height": 1383
+        },
+        {
+          "chapter": 2,
+          "label": "So give the day a limit, and let it fill itsel",
+          "height": 724
+        },
+        {
+          "chapter": 2,
+          "label": "Then seven days that all fit.",
+          "height": 466
+        },
+        {
+          "chapter": 3,
+          "label": "chapter__scene",
+          "height": 1369
+        },
+        {
+          "chapter": 3,
+          "label": "Then protect the time you set aside.",
+          "height": 534
+        },
+        {
+          "chapter": 3,
+          "label": "section-thread",
+          "height": 68
+        },
+        {
+          "chapter": 3,
+          "label": "Bad days happen. They should not compound.",
+          "height": 655
+        },
+        {
+          "chapter": 4,
+          "label": "chapter__scene",
+          "height": 1582
+        },
+        {
+          "chapter": 4,
+          "label": "The number you write downcomes back to you.",
+          "height": 1298
+        },
+        {
+          "chapter": 4,
+          "label": "beat-gap",
+          "height": 124
+        },
+        {
+          "chapter": 5,
+          "label": "chapter__scene",
+          "height": 1749
+        },
+        {
+          "chapter": 5,
+          "label": "One place for your day",
+          "height": 1110
+        },
+        {
+          "chapter": 5,
+          "label": "A calmer side to your day",
+          "height": 479
+        },
+        {
+          "chapter": 6,
+          "label": "chapter__scene",
+          "height": 1592
+        },
+        {
+          "chapter": 6,
+          "label": "Free for every day. Pro when you want the whol",
+          "height": 738
+        },
+        {
+          "chapter": 6,
+          "label": "Questions, answered",
+          "height": 276
+        },
+        {
+          "chapter": 6,
+          "label": "Start with today.",
+          "height": 370
+        }
+      ]
+    },
+    "1280": {
+      "docHeight": 9752,
+      "viewportH": 900,
+      "chapters": [
+        {
+          "tone": "chapter relative",
+          "height": 836
+        },
+        {
+          "tone": "chapter relative",
+          "height": 2448
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1257
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1492
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1741
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1632
+        }
+      ],
+      "chapterCount": 6,
+      "ctaCount": 4,
+      "ctaLabels": [
+        "Start free",
+        "Start free",
+        "Start free",
+        "Start free"
+      ],
+      "overflowPx": 0,
+      "h2Count": 10,
+      "blocks": [
+        {
+          "chapter": 1,
+          "label": "chapter__scene",
+          "height": 836
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-x-0 top-0 h",
+          "height": 657
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-0 opacity-[",
+          "height": 836
+        },
+        {
+          "chapter": 1,
+          "label": "vortex",
+          "height": 836
+        },
+        {
+          "chapter": 1,
+          "label": "relative mx-auto grid w-full max-w-6xl items-c",
+          "height": 595
+        },
+        {
+          "chapter": 2,
+          "label": "chapter__scene",
+          "height": 2448
+        },
+        {
+          "chapter": 2,
+          "label": "A list can grow forever.A day cannot.",
+          "height": 1013
+        },
+        {
+          "chapter": 2,
+          "label": "So give the day a limit, and let it fill itsel",
+          "height": 636
+        },
+        {
+          "chapter": 2,
+          "label": "Then seven days that all fit.",
+          "height": 511
+        },
+        {
+          "chapter": 3,
+          "label": "chapter__scene",
+          "height": 1257
+        },
+        {
+          "chapter": 3,
+          "label": "Then protect the time you set aside.",
+          "height": 446
+        },
+        {
+          "chapter": 3,
+          "label": "section-thread",
+          "height": 68
+        },
+        {
+          "chapter": 3,
+          "label": "Bad days happen. They should not compound.",
+          "height": 567
+        },
+        {
+          "chapter": 4,
+          "label": "chapter__scene",
+          "height": 1492
+        },
+        {
+          "chapter": 4,
+          "label": "The number you write downcomes back to you.",
+          "height": 1136
+        },
+        {
+          "chapter": 4,
+          "label": "beat-gap",
+          "height": 124
+        },
+        {
+          "chapter": 5,
+          "label": "chapter__scene",
+          "height": 1741
+        },
+        {
+          "chapter": 5,
+          "label": "One place for your day",
+          "height": 1030
+        },
+        {
+          "chapter": 5,
+          "label": "A calmer side to your day",
+          "height": 479
+        },
+        {
+          "chapter": 6,
+          "label": "chapter__scene",
+          "height": 1632
+        },
+        {
+          "chapter": 6,
+          "label": "Free for every day. Pro when you want the whol",
+          "height": 698
+        },
+        {
+          "chapter": 6,
+          "label": "Questions, answered",
+          "height": 276
+        },
+        {
+          "chapter": 6,
+          "label": "Start with today.",
+          "height": 370
+        }
+      ]
+    },
+    "1440": {
+      "docHeight": 9728,
+      "viewportH": 900,
+      "chapters": [
+        {
+          "tone": "chapter relative",
+          "height": 836
+        },
+        {
+          "tone": "chapter relative",
+          "height": 2448
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1257
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1492
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1741
+        },
+        {
+          "tone": "chapter relative",
+          "height": 1608
+        }
+      ],
+      "chapterCount": 6,
+      "ctaCount": 4,
+      "ctaLabels": [
+        "Start free",
+        "Start free",
+        "Start free",
+        "Start free"
+      ],
+      "overflowPx": 0,
+      "h2Count": 10,
+      "blocks": [
+        {
+          "chapter": 1,
+          "label": "chapter__scene",
+          "height": 836
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-x-0 top-0 h",
+          "height": 656
+        },
+        {
+          "chapter": 1,
+          "label": "pointer-events-none absolute inset-0 opacity-[",
+          "height": 836
+        },
+        {
+          "chapter": 1,
+          "label": "vortex",
+          "height": 836
+        },
+        {
+          "chapter": 1,
+          "label": "relative mx-auto grid w-full max-w-6xl items-c",
+          "height": 595
+        },
+        {
+          "chapter": 2,
+          "label": "chapter__scene",
+          "height": 2448
+        },
+        {
+          "chapter": 2,
+          "label": "A list can grow forever.A day cannot.",
+          "height": 1013
+        },
+        {
+          "chapter": 2,
+          "label": "So give the day a limit, and let it fill itsel",
+          "height": 636
+        },
+        {
+          "chapter": 2,
+          "label": "Then seven days that all fit.",
+          "height": 511
+        },
+        {
+          "chapter": 3,
+          "label": "chapter__scene",
+          "height": 1257
+        },
+        {
+          "chapter": 3,
+          "label": "Then protect the time you set aside.",
+          "height": 446
+        },
+        {
+          "chapter": 3,
+          "label": "section-thread",
+          "height": 68
+        },
+        {
+          "chapter": 3,
+          "label": "Bad days happen. They should not compound.",
+          "height": 567
+        },
+        {
+          "chapter": 4,
+          "label": "chapter__scene",
+          "height": 1492
+        },
+        {
+          "chapter": 4,
+          "label": "The number you write downcomes back to you.",
+          "height": 1136
+        },
+        {
+          "chapter": 4,
+          "label": "beat-gap",
+          "height": 124
+        },
+        {
+          "chapter": 5,
+          "label": "chapter__scene",
+          "height": 1741
+        },
+        {
+          "chapter": 5,
+          "label": "One place for your day",
+          "height": 1030
+        },
+        {
+          "chapter": 5,
+          "label": "A calmer side to your day",
+          "height": 479
+        },
+        {
+          "chapter": 6,
+          "label": "chapter__scene",
+          "height": 1608
+        },
+        {
+          "chapter": 6,
+          "label": "Free for every day. Pro when you want the whol",
+          "height": 698
+        },
+        {
+          "chapter": 6,
+          "label": "Questions, answered",
+          "height": 276
+        },
+        {
+          "chapter": 6,
+          "label": "Start with today.",
+          "height": 346
+        }
+      ]
+    }
+  }
+}

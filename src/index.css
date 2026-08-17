@@ -641,6 +641,185 @@
       display: none;
     }
   }
+
+  /* ================================================================== */
+  /*  CHAPTERS: same world, different scenes.                            */
+  /*                                                                     */
+  /*  THE PROBLEM THIS SOLVES, MEASURED RATHER THAN FELT. An audit of    */
+  /*  the live page found 18 sections carrying only THREE background     */
+  /*  treatments, and 15 of the 18 were fully transparent — so 83% of    */
+  /*  the page was one continuous aurora and every idea visually         */
+  /*  dissolved into the next. Every section also used one shared        */
+  /*  padding constant, which meant there was no spacing hierarchy at    */
+  /*  all: a major turn in the argument and a supporting beat were the   */
+  /*  same size, so nothing could read as a chapter.                     */
+  /*                                                                     */
+  /*  Five tones, not eighteen backgrounds. Each is built from the SAME  */
+  /*  tokens (background #0A0D16, surface #0F172A, brand #6C5CE7,        */
+  /*  accent #4EA8FF) at different densities, so the page changes scene  */
+  /*  without changing brand. No new colour is introduced anywhere.      */
+  /* ================================================================== */
+  .chapter {
+    position: relative;
+    isolation: isolate;
+  }
+
+  /* The scene layer. Sits behind the chapter's content and above the
+     page-wide aurora, so a tone MODULATES the shared background rather
+     than replacing it. Decorative and inert. */
+  .chapter__scene {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    /* Contain the paint so a scene can never widen the document. */
+    contain: layout paint;
+  }
+
+  /*
+   * TRANSITIONS ARE PART OF THE SYSTEM, NOT AN AFTERTHOUGHT.
+   *
+   * Each scene fades its own top and bottom edge to nothing, so two
+   * adjacent tones cross-dissolve over ~120px instead of meeting at a
+   * hard line. That is what keeps a five-state page from reading as
+   * stacked coloured bands.
+   */
+  .chapter__scene::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: inherit;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 120px,
+      #000 calc(100% - 120px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 120px,
+      #000 calc(100% - 120px),
+      transparent 100%
+    );
+  }
+
+  /* ---- TONE 1: ORIGIN. The hero. Nothing added; the page aurora and
+     the vortex carry it at full strength. Declared so the tone set is
+     complete and a chapter always states its scene explicitly. ---- */
+  .chapter--origin .chapter__scene {
+    background: none;
+  }
+
+  /* ---- TONE 2: MEASURE. Analytical. A faint calibration grid and a
+     cool lift, for the chapters about counting minutes and fitting a
+     day. The grid is a repeating-linear-gradient, not an image: no
+     request, no decode, and it scales with the viewport. ---- */
+  .chapter--measure .chapter__scene {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(15, 23, 42, 0) 0%,
+        rgba(15, 23, 42, 0.55) 22%,
+        rgba(15, 23, 42, 0.55) 78%,
+        rgba(15, 23, 42, 0) 100%
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(148, 163, 184, 0.05) 0 1px,
+        transparent 1px 88px
+      );
+  }
+
+  /* ---- TONE 3: FOCUS. The deepest scene. The aurora is pushed down so
+     the product UI is the brightest thing on the screen, which is the
+     whole point of the execution chapters. A vignette concentrates the
+     eye on the centre. ---- */
+  .chapter--focus .chapter__scene {
+    background:
+      radial-gradient(75% 55% at 50% 50%, rgba(10, 13, 22, 0) 0%, rgba(10, 13, 22, 0.82) 100%),
+      linear-gradient(
+        180deg,
+        rgba(10, 13, 22, 0) 0%,
+        rgba(10, 13, 22, 0.8) 18%,
+        rgba(10, 13, 22, 0.8) 82%,
+        rgba(10, 13, 22, 0) 100%
+      );
+  }
+
+  /* ---- TONE 4: SYSTEM. The widest canvas. Brand light returns as a
+     broad centred glow for the connected-loop and breadth chapters,
+     where the page is arguing that everything belongs together. ---- */
+  .chapter--system .chapter__scene {
+    background:
+      radial-gradient(60% 45% at 50% 40%, rgba(108, 92, 231, 0.16) 0%, transparent 70%),
+      radial-gradient(45% 40% at 85% 75%, rgba(78, 168, 255, 0.1) 0%, transparent 70%),
+      linear-gradient(
+        180deg,
+        rgba(15, 23, 42, 0) 0%,
+        rgba(15, 23, 42, 0.4) 25%,
+        rgba(15, 23, 42, 0.4) 75%,
+        rgba(15, 23, 42, 0) 100%
+      );
+  }
+
+  /* ---- TONE 5: CLOSE. Clean and commercial. Decoration is at its
+     lowest anywhere on the page so the price and the decision are what
+     is left. ---- */
+  .chapter--close .chapter__scene {
+    background: linear-gradient(
+      180deg,
+      rgba(15, 23, 42, 0) 0%,
+      rgba(15, 23, 42, 0.6) 20%,
+      rgba(15, 23, 42, 0.72) 100%
+    );
+  }
+
+  /*
+   * SPACING HIERARCHY, WHICH IS THE OTHER HALF OF THE FIX.
+   *
+   * A CHAPTER gets the large tier. A BEAT inside a chapter gets the
+   * small one. Previously every one of the eighteen sections paid the
+   * chapter tier at both its top and its bottom, which is where most of
+   * the page's height went and why nothing grouped: two beats of one
+   * argument were spaced exactly like two unrelated arguments.
+   */
+  .chapter-pad {
+    padding-block: 3.5rem;
+  }
+
+  .beat-gap {
+    margin-top: 3rem;
+  }
+
+  /*
+   * THE REVERT POINT IS 1024px, NOT 640px, AND THAT WAS A REAL BUG.
+   *
+   * Everything compact was originally restored at `sm`, which is 640px — a
+   * large phone in landscape. Measured, that gave a 768px tablet a page 15,294px
+   * tall against a 390px phone's 15,358px: the tablet was paying full desktop
+   * spacing in a column barely wider than a phone's, so it got none of the
+   * compression at all. The generous tier now waits until there is genuinely a
+   * wide column to spend it on.
+   */
+  @media (min-width: 1024px) {
+    /*
+     * 5.5rem, not the 7rem a page of undifferentiated sections would need.
+     *
+     * The separation between chapters is now carried by the SCENE CHANGE —
+     * the tone shifts and cross-dissolves over about 120px at the boundary —
+     * so the padding no longer has to do that job on its own. Spending 7rem
+     * at both ends of nine chapters was 2,016px of desktop page buying a
+     * distinction the art direction already makes.
+     */
+    .chapter-pad {
+      padding-block: 5.5rem;
+    }
+    .beat-gap {
+      margin-top: 3.5rem;
+    }
+  }
 }
 
 /*

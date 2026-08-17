@@ -42,3 +42,6 @@ blob-report
 
 # Mobile/a11y audit screenshots (diagnostic, not committed)
 .mobile-audit
+
+# Landing review screenshots: generated proof, not source (24MB per run).
+docs/landing/*/

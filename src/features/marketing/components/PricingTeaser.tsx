@@ -11,12 +11,15 @@ import { PRO_PRICE_COPY, usd } from '../pricing'
 const TEASER_IDS = ['free', 'pro'] as const
 
 /**
- * How many bullets to show before deferring to /pricing. Eight keeps the whole
- * Free list plus every differentiating Pro line (smart briefing, history limit,
- * live calendar sync, Insights); only Pro's closing "Everything in Free"
- * summary is deferred.
+ * How many bullets to show before deferring to /pricing.
+ *
+ * Was eight, which showed the whole Free list. Six on a teaser whose job is to
+ * get the reader to /pricing, because sixteen bullets between the reader and
+ * the closing ask is a specification sheet, not a teaser, and the two strongest
+ * lines in each column do the deciding. "Compare all plans" sits directly
+ * underneath and the full lists are one click away, unchanged.
  */
-const BULLET_LIMIT = 8
+const BULLET_LIMIT = 6
 
 interface PricingTeaserProps {
   onStartFree: () => void
@@ -37,7 +40,7 @@ export function PricingTeaser({ onStartFree, ctaLabel }: PricingTeaserProps) {
         <p className="mt-3 text-text-muted">{PRICING_DISCLAIMER}</p>
       </Reveal>
 
-      <div className="mt-10 grid items-stretch gap-4 sm:grid-cols-2">
+      <div className="mt-8 grid items-stretch gap-4 sm:mt-10 sm:grid-cols-2">
         {plans.map((plan, i) => (
           <Reveal key={plan.id} delay={i * 90} className="h-full">
             <Card
@@ -77,7 +80,7 @@ export function PricingTeaser({ onStartFree, ctaLabel }: PricingTeaserProps) {
                   )}
                 </div>
 
-                <ul className="flex-1 space-y-2.5">
+                <ul className="flex-1 space-y-2">
                   {plan.features.slice(0, BULLET_LIMIT).map((f) => (
                     <li key={f} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />

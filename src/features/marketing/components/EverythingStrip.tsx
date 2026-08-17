@@ -82,7 +82,7 @@ const ITEMS: Item[] = [
  */
 export function EverythingStrip() {
   return (
-    <div className="mx-auto mt-14 max-w-4xl border-t border-white/5 pt-10">
+    <div className="mx-auto mt-10 max-w-4xl border-t border-white/5 pt-8 sm:mt-14 sm:pt-10">
       <Reveal className="text-center">
         <h3 id="everything" className="font-display text-lg font-semibold sm:text-xl">
           Everything else you&rsquo;d expect
@@ -100,7 +100,7 @@ export function EverythingStrip() {
         line was. Stripping the chrome to a hairline-ruled list removes roughly
         a screen of height and lets it do the only job it has: completeness.
       */}
-      <ul className="mt-8 grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+      <ul className="mt-6 grid grid-cols-1 gap-x-8 sm:mt-8 sm:grid-cols-2 lg:gap-x-10">
         {ITEMS.map(({ icon: Icon, label, blurb }, i) => (
           <li key={label} className="border-b border-white/5">
             <Reveal delay={Math.min(i, 8) * 40}>
