@@ -304,6 +304,221 @@ test('the money and calendar endpoints are reachable from the page — connect-s
   ).toEqual([])
 })
 
+/*
+ * ── THE PRERENDER, TESTED WHERE IT ACTUALLY EXISTS ────────────────────────
+ *
+ * These belong in this file and nowhere else. The main E2E suite drives the
+ * Vite dev server, which has no prerendered files at all — it serves the same
+ * empty shell for every route, exactly as production used to. This is the only
+ * suite that runs against the built `dist/`, behind the real routing rules and
+ * the real enforcing policy, so it is the only place that can prove a crawler
+ * gets HTML and that the structured data survives `script-src 'self'`.
+ */
+const MARKETING_ROUTES = ['/welcome', '/pricing', '/about', '/terms', '/privacy']
+
+/** The words a crawler with no JavaScript would read. */
+function visibleText(html: string): string {
+  const body = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(html)?.[1] ?? ''
+  return body
+    .replace(/<(script|style|template|noscript)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+test('every public route is served as real HTML, with its own title and canonical', async ({
+  request,
+}) => {
+  const seen = new Map<string, string>()
+
+  for (const path of MARKETING_ROUTES) {
+    const res = await request.get(path)
+    expect(res.ok(), `${path} did not respond`).toBeTruthy()
+    const html = await res.text()
+
+    // The regression this whole change exists to prevent: a 200 with an empty
+    // body. Before prerendering, EVERY route here returned 0 characters.
+    expect(
+      visibleText(html).length,
+      `${path} served no readable text — the prerender did not run for it`,
+    ).toBeGreaterThan(500)
+
+    const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? ''
+    const canonical = /<link rel="canonical"[^>]*href="([^"]+)"/i.exec(html)?.[1] ?? ''
+    expect(title, `${path} has no title`).toBeTruthy()
+    expect(canonical, `${path} has no canonical`).toBeTruthy()
+
+    // Every page used to claim the SAME canonical, which told Google they were
+    // all duplicates of the homepage. Each must now name its own URL.
+    expect(canonical.endsWith(path), `${path} claims to be ${canonical}`).toBe(true)
+
+    // Titles and descriptions must distinguish the pages, not repeat one blurb.
+    expect(seen.has(title), `${path} reuses the title already served by ${seen.get(title)}`).toBe(
+      false,
+    )
+    seen.set(title, path)
+  }
+})
+
+test('the structured data is present, parses, and survives script-src self', async ({
+  page,
+  request,
+}) => {
+  const html = await (await request.get('/welcome')).text()
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(
+    (m) => JSON.parse(m[1]) as Record<string, unknown>,
+  )
+  expect(blocks.length, 'no JSON-LD was injected into /welcome').toBeGreaterThanOrEqual(2)
+
+  const app = blocks.find((b) => b['@type'] === 'SoftwareApplication')
+  expect(app, 'no SoftwareApplication block').toBeTruthy()
+
+  /*
+   * NOTHING INVENTED. There are no reviews of Todonado, so there is no rating
+   * to publish. Fabricating one is a Google structured-data policy violation
+   * AND the exact species of claim the marketing surface was audited to remove;
+   * this fails the build rather than trusting a future editor to remember.
+   */
+  for (const forbidden of ['aggregateRating', 'reviewCount', 'review', 'ratingValue']) {
+    expect(JSON.stringify(app), `structured data claims ${forbidden}, which is not a known fact`).not.toContain(
+      forbidden,
+    )
+  }
+
+  /*
+   * `script-src 'self'` forbids inline SCRIPT. A `type="application/ld+json"`
+   * element is a data block: the HTML parser never executes it, so the inline
+   * check is never reached. That is the theory — and the point of asserting it
+   * here is that the theory is not what ships. The page is loaded under the
+   * real enforcing policy and asked whether anything was blocked.
+   */
+  await page.goto('/welcome')
+  await page.waitForLoadState('networkidle')
+
+  const inDom = await page.evaluate(
+    () => document.querySelectorAll('script[type="application/ld+json"]').length,
+  )
+  expect(inDom, 'the JSON-LD was stripped from the DOM under the enforcing policy').toBeGreaterThanOrEqual(2)
+
+  const v = await violationsOf(page)
+  expect(
+    v.filter((x) => x.directive.startsWith('script-src')),
+    `the enforcing policy blocked the structured data:\n${describeViolations(v)}`,
+  ).toEqual([])
+
+  /*
+   * THE CONTROL, WITHOUT WHICH THE ASSERTION ABOVE PROVES NOTHING.
+   *
+   * "No violations were reported" has two explanations: the policy allowed the
+   * JSON-LD, or the detector is broken and reports nothing either way. So the
+   * page is now asked to run a script the policy definitely forbids. If THAT
+   * raises no violation, the measurement is faulty and this test fails rather
+   * than issuing a clean bill of health it did not earn.
+   */
+  const control = await page.evaluate(async () => {
+    const before = window.__cspViolations.length
+    const s = document.createElement('script')
+    s.textContent = 'window.__cspControlRan = true'
+    document.head.append(s)
+    // `securitypolicyviolation` is QUEUED, not dispatched synchronously, so a
+    // count read on this same tick is always zero. Writing it that way first is
+    // how this control turned out to need a control of its own.
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    return {
+      raised: window.__cspViolations.length - before,
+      executed: (window as { __cspControlRan?: boolean }).__cspControlRan === true,
+    }
+  })
+  expect(control.executed, 'an inline script RAN under script-src self').toBe(false)
+  expect(
+    control.raised,
+    'the violation detector reported nothing for a script the policy forbids, so the check above was vacuous',
+  ).toBeGreaterThan(0)
+})
+
+test('with JavaScript off, the prerendered pages are readable rather than merely present', async ({
+  browser,
+}) => {
+  /*
+   * HTML THAT IS PRESENT BUT PAINTED INVISIBLE IS THE WORST OF BOTH WORLDS.
+   *
+   * A crawler sees hidden text, a reader sees a blank column, and the byte
+   * count looks like success. This is not hypothetical: `ProblemSection` builds
+   * its list with a setInterval, so on the server the count stayed 0 and all
+   * ten task titles were prerendered at `opacity-0` — permanently, since the
+   * effect that clears them never runs without JavaScript. It shipped straight
+   * past the byte-count checks above.
+   *
+   * Desktop width on purpose: a responsive `hidden md:block` control is
+   * legitimately not rendered on a phone, and asserting at 390px would either
+   * fail on that or need an exception list that could hide a real defect.
+   */
+  const ctx = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 1280, height: 900 },
+  })
+
+  try {
+    for (const path of ['/welcome', '/pricing']) {
+      const page = await ctx.newPage()
+      await page.goto(path, { waitUntil: 'load' })
+      // CSS entrance animations are allowed to run; only what never resolves
+      // without JavaScript should still be invisible after this.
+      await page.waitForTimeout(3500)
+
+      const invisible = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('h1,h2,h3,p,li,button,a'))
+          .filter((el) => {
+            if (!(el.textContent || '').trim()) return false
+            const s = getComputedStyle(el)
+            return s.opacity === '0' || s.visibility === 'hidden' || s.display === 'none'
+          })
+          .map((el) => `<${el.tagName}> ${(el.textContent || '').trim().slice(0, 60)}`),
+      )
+
+      expect(
+        invisible,
+        `${path} prerenders text that no reader without JavaScript can ever see:\n  ${invisible.join('\n  ')}`,
+      ).toEqual([])
+
+      // And the page is genuinely readable, not just free of hidden nodes.
+      const readable = await page.evaluate(() =>
+        (document.body.innerText || '').replace(/\s+/g, ' ').trim(),
+      )
+      expect(readable.length, `${path} has almost nothing to read`).toBeGreaterThan(800)
+      expect(await page.locator('h1').count(), `${path} has no h1`).toBeGreaterThan(0)
+
+      await page.close()
+    }
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('the SPA fallback is noindex, and the marketing pages are not', async ({ request }) => {
+  /*
+   * One HTML file answers every unmatched URL, which is how a router-driven app
+   * serves /today and also /a-typo. It used to be index.html, so a nonexistent
+   * URL returned 200 wearing the homepage's title and canonical — a soft 404.
+   * The fallback now says noindex, and the check that matters is that this did
+   * not leak onto the real pages.
+   */
+  const missing = await request.get('/this-path-does-not-exist-9f2b')
+  expect(missing.ok(), 'the SPA fallback must still answer unmatched paths').toBeTruthy()
+  const shell = await missing.text()
+  expect(shell, 'the fallback must be noindex').toMatch(/<meta name="robots" content="noindex"/)
+  expect(shell, 'the fallback must not claim to be any canonical URL').not.toMatch(
+    /<link rel="canonical"/,
+  )
+
+  for (const path of MARKETING_ROUTES) {
+    const html = await (await request.get(path)).text()
+    expect(html, `${path} was served the noindex fallback instead of its own page`).not.toMatch(
+      /<meta name="robots" content="noindex"/,
+    )
+  }
+})
+
 test('the whole visited surface raised ZERO violations', async ({ page }) => {
   /*
    * The catch-all. Individual tests assert their own directive; this one fails

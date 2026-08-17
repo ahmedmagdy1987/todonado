@@ -104,11 +104,26 @@ const server = createServer((req, res) => {
     return
   }
 
-  // No traversal: resolve inside dist or fall through to the shell.
+  /*
+   * VERCEL CHECKS THE FILESYSTEM BEFORE IT APPLIES A REWRITE, AND SO DOES THIS.
+   *
+   * A `rewrites` rule only fires for a path that matched no static file, which
+   * is what lets the prerendered pages exist alongside a catch-all SPA rule. A
+   * request for /pricing resolves `dist/pricing.html` or `dist/pricing/index.html`
+   * and never reaches the rewrite; a request for /today matches nothing and
+   * falls through to the shell.
+   *
+   * Modelling that here is not a detail. If this server kept serving the shell
+   * for every path, the CSP run would be testing the SPA six times over and
+   * would never load a prerendered document — so it could not answer whether
+   * the injected JSON-LD survives `script-src 'self'`, which is the question
+   * this change most needs settled.
+   */
   const rel = normalize(pathname).replace(/^([/\\])+/, '')
-  const candidate = join(DIST, rel)
-  const isFile = candidate.startsWith(DIST) && existsSync(candidate) && statSync(candidate).isFile()
-  const file = isFile ? candidate : join(DIST, 'index.html')
+  const inside = (p) => p.startsWith(DIST) && existsSync(p) && statSync(p).isFile()
+  const candidates = [join(DIST, rel), join(DIST, `${rel}.html`), join(DIST, rel, 'index.html')]
+  // The rewrite destination, matching vercel.json: the noindex SPA shell.
+  const file = candidates.find(inside) ?? join(DIST, 'app.html')
 
   res.statusCode = 200
   res.setHeader('content-type', TYPES[extname(file)] ?? 'application/octet-stream')
