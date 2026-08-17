@@ -1,3 +1,26 @@
+import { ENTITLEMENTS } from '@/features/billing/entitlements'
+
+/*
+ * ── THE FREE_* NUMBERS BELOW ARE NOW DERIVED, NOT DECLARED ─────────────────
+ *
+ * Each one used to be a literal in this file, and each doc comment claimed
+ * "this is the only place the number lives". That was true of the number and
+ * false of the RULE: the tier that the number applied to, whether Pro was
+ * unlimited, and whether anything enforced it were all decided elsewhere, at
+ * sixteen `usePlan()` call sites that had each worked it out again.
+ *
+ * The rule now lives in ONE table (`@/features/billing/entitlements`), which is
+ * a dependency-free leaf module so the serverless functions can import the same
+ * table rather than a copy of it. These exports are kept, and keep their names,
+ * so the fifteen existing import sites are untouched and there is still exactly
+ * one definition. Read them as a view onto the contract.
+ *
+ * Anything genuinely NOT a commercial lever stays a literal here. The clearest
+ * example is MAX_CALENDAR_SOURCES_PER_USER, which is an abuse ceiling enforced
+ * by a database trigger and is identical on both tiers: a security cap and a
+ * price lever must never be confused, because the entitlement layer is allowed
+ * to be generous and the security layer is not.
+ */
 /** App-wide configuration & feature flags. */
 
 /**
@@ -21,7 +44,7 @@ export const DEFAULT_DAILY_CAPACITY_MINUTES = 360
  * auto-plan and templates are fully functional on Free no matter how old the
  * task is. See src/features/history/historyWindow.ts.
  */
-export const FREE_HISTORY_DAYS = 14
+export const FREE_HISTORY_DAYS = ENTITLEMENTS.free.limits.historyDays
 
 /**
  * How many PERSONAL templates a Free plan may CREATE. Pro (and Founding) are
@@ -30,7 +53,7 @@ export const FREE_HISTORY_DAYS = 14
  * The limit gates creation ONLY. Templates already saved keep working and
  * applying forever at any count: nothing a user made is ever held hostage.
  */
-export const FREE_PERSONAL_TEMPLATES = 3
+export const FREE_PERSONAL_TEMPLATES = ENTITLEMENTS.free.limits.personalTemplates
 
 /**
  * How many ACTIVE quit habits a Free plan may CREATE. Pro (and Founding) are
@@ -42,7 +65,7 @@ export const FREE_PERSONAL_TEMPLATES = 3
  * them something would be indefensible, and this is the one feature in the app
  * where that would do real harm.
  */
-export const FREE_QUIT_HABITS = 1
+export const FREE_QUIT_HABITS = ENTITLEMENTS.free.limits.quitHabits
 
 /**
  * Do the GENERATED sleep-noise tracks (white, pink, brown) require Pro?
@@ -73,7 +96,7 @@ export const SLEEP_NOISE_REQUIRES_PRO = false
  * linkable forever. Holding someone's goals hostage would be a grim way to sell
  * a subscription.
  */
-export const FREE_VISION_CARDS = 3
+export const FREE_VISION_CARDS = ENTITLEMENTS.free.limits.visionCards
 
 /**
  * How many MIND MAPS a Free plan may CREATE. Pro (and Founding) are unlimited.
@@ -83,7 +106,7 @@ export const FREE_VISION_CARDS = 3
  * drawn opens, edits and saves forever, at any count. One is deliberately enough
  * to be useful rather than a demo — a single map holds 200 nodes.
  */
-export const FREE_MIND_MAPS = 1
+export const FREE_MIND_MAPS = ENTITLEMENTS.free.limits.mindMaps
 
 /**
  * How many challenges a Free plan may have ACTIVE at once. Pro is unlimited.
@@ -92,7 +115,7 @@ export const FREE_MIND_MAPS = 1
  * person running six challenges at once is not doing any of them. Completed and
  * abandoned challenges never count against it, and it never blocks restarting.
  */
-export const FREE_ACTIVE_CHALLENGES = 1
+export const FREE_ACTIVE_CHALLENGES = ENTITLEMENTS.free.limits.activeChallenges
 
 /**
  * How many calendar sources ONE USER may own, on every plan (audit FLAG-5).
