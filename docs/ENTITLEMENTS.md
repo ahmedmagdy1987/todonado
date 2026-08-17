@@ -135,9 +135,26 @@ policy — RLS is row ownership and must not become a price list.
 rows are never examined, so grandfathering is preserved.
 *Rollback:* `drop trigger`, single statement, no data touched.
 
-**Recommendation:** Option B for the count caps and the storage policy, as one small reviewed
-migration, *after* this PR is merged. Option A is not worth its cost for limits whose worst-case
-abuse is a sixth mind map.
+**Recommendation:** Option B for the count caps, as one small reviewed migration, *after* this PR is
+merged. Option A is not worth its cost for limits whose worst-case abuse is a sixth mind map.
+
+> **UPDATE, 2026-08-18 — Option B was reviewed in detail and is DESIGNED BUT NOT APPLIED.**
+> `docs/proposals/SERVER_ENFORCEMENT_OPTION_B.md` carries the full review and the SQL. Three
+> findings sharpen the sentence above, and two of them contradict it:
+>
+> - **It covers FOUR of the five count caps, not five.** `activeChallenges` counts challenges whose
+>   *derived phase* is active, which needs the per-challenge `durationDays` from the TypeScript
+>   catalog, a progress computation over four other tables, and the user's local calendar day. The
+>   database has none of the three, and a trigger counting `status = 'active'` would be *stricter*
+>   than the UI. It stays client-side.
+> - **It does NOT cover the storage policy.** The audio object is uploaded *before* the row is
+>   written, so a trigger on `journal_entries` would reject the row and leave an orphaned
+>   unauthorised object. Voice notes need a narrow server-mediated signed upload instead, which is
+>   designed and not built.
+> - **It cannot be applied until `billing` is authoritative.** The table is EMPTY in production
+>   (16 users, 0 rows, verified read-only), and the only thing making anyone Pro is a TypeScript
+>   email allowlist the database cannot see. Applying the trigger first would cap the owner's own
+>   founding account.
 
 Until then: the table above is honest about which column says "client", and no marketing surface
 claims otherwise.
