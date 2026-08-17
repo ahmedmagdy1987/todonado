@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom'
 import { NotebookPen, Search, Trash2, Volume2 } from 'lucide-react'
 import { Button, Card, CardContent, Input, Textarea } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
 import { useHistoryWindow } from '@/features/history/useHistoryWindow'
-import { FREE_HISTORY_DAYS } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import type { JournalEntry } from '@/types/database'
@@ -51,7 +50,8 @@ import { VoiceNote } from './components/VoiceNote'
 export function JournalPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro, billingLoading } = usePlan()
+  const { access } = useEntitlements()
+  const voiceAccess = access('journal.voiceNotes')
   const today = todayISO()
 
   const { data, isPending } = useJournalEntries(userId)
@@ -105,10 +105,43 @@ export function JournalPage() {
     }
     setError(null)
 
+    /*
+     * THE ENTITLEMENT CHECK LIVES ON THE WRITE PATH, NOT ONLY ON THE BUTTON.
+     *
+     * The audit's finding was that voice notes were "UI-gated but not
+     * server-gated", and the narrower half of that was that they were not gated
+     * HERE either: `save()` called `uploadJournalAudio` with no plan test at
+     * all, so the only thing standing between a Free session and a stored
+     * recording was which branch of a component had rendered. A disabled button
+     * is not a control.
+     *
+     * This refuses the upload for anything but a resolved, entitled plan, which
+     * also means it refuses while the plan is still resolving. The written entry
+     * is still saved: losing somebody's journal text because their billing row
+     * was slow would be a far worse bug than the one being fixed. The recording
+     * is kept in memory rather than discarded, so upgrading and pressing save
+     * again keeps it.
+     *
+     * This is the application layer. It is not a security boundary, because a
+     * client can always talk to PostgREST and to Storage directly with its own
+     * session, and closing that needs a change this PR is not permitted to make.
+     * docs/ENTITLEMENTS.md sets out exactly what remains open and what closing
+     * it would cost.
+     */
+    const mayRecord = voiceAccess === 'allowed'
+    if (recorder.recording && !mayRecord) {
+      setError(
+        voiceAccess === 'resolving'
+          ? 'Still checking your plan. Try saving again in a moment.'
+          : 'Voice notes are part of Pro. Your writing has been saved.',
+      )
+      if (voiceAccess === 'resolving') return
+    }
+
     const text = serialiseEntry(sections)
     let newPath: string | null = null
     try {
-      if (recorder.recording) {
+      if (recorder.recording && mayRecord) {
         newPath = audioKey(userId, today, Math.random().toString(36).slice(2, 10))
         await uploadJournalAudio(newPath, recorder.recording.blob)
       }
@@ -124,7 +157,10 @@ export function JournalPage() {
         // here costs storage, not correctness.
         await removeJournalAudio(previousPath).catch(() => {})
       }
-      recorder.discard()
+      // Only drop the take if it was actually stored. A Free user's recording
+      // stays in memory so upgrading and saving again keeps it, rather than
+      // silently destroying something they just made.
+      if (newPath) recorder.discard()
       setDirty(false)
     } catch (e) {
       if (newPath) await removeJournalAudio(newPath).catch(() => {})
@@ -143,12 +179,14 @@ export function JournalPage() {
     await removeJournalAudio(path).catch(() => {})
   }
 
-  // Free sees the same rolling history window as every other history surface.
-  // Via the shared hook, NOT an inline `isPro ? null : …`: `useHistoryWindow`
-  // exists to hold the `billingLoading` guard, and re-deriving it here dropped
-  // that — so a Pro user could briefly be told 16 entries were behind a Free
-  // window. It fails in the user-favouring direction by design.
-  const { cutoffDay: cutoff } = useHistoryWindow(today)
+  /*
+   * Free sees the same rolling window as every other history surface, through
+   * the shared hook rather than an inline `isPro ? null : …`. Re-deriving it
+   * locally is what once let a Pro user be told 16 entries were behind a Free
+   * window; the hook owns that guard, and `resolving` is what the NOTICE below
+   * waits on so it cannot be shown before the plan is known.
+   */
+  const { cutoffDay: cutoff, days: historyDays, resolving: planResolving } = useHistoryWindow(today)
   const past = rows.filter((e) => e.entry_date !== today)
   const { visible, hiddenCount } = windowEntries(past, cutoff)
   const listed = searchEntries(visible, query)
@@ -211,7 +249,7 @@ export function JournalPage() {
               </label>
 
               <VoiceNote
-                isPro={isPro || billingLoading}
+                access={voiceAccess}
                 state={recorder.state}
                 seconds={recorder.seconds}
                 maxSeconds={recorder.maxSeconds}
@@ -277,11 +315,11 @@ export function JournalPage() {
               </ul>
             )}
 
-            {hiddenCount > 0 && (
+            {hiddenCount > 0 && !planResolving && (
               <div className="rounded-2xl border border-white/5 bg-surface-2/30 p-4">
                 <p className="text-xs leading-relaxed text-text-muted">
                   {hiddenCount} older {hiddenCount === 1 ? 'entry is' : 'entries are'} outside the{' '}
-                  {FREE_HISTORY_DAYS}-day window on Free.{' '}
+                  {historyDays}-day window on Free.{' '}
                   <span className="text-text-primary">Nothing has been deleted</span>.{' '}
                   <Link
                     to="/settings/plan"
