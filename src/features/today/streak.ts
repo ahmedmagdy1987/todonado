@@ -1,6 +1,5 @@
 import { format, parseISO } from 'date-fns'
 import { isoDateOffset, todayISO } from '@/lib/date'
-import { windowDayKeys } from '@/features/history/historyWindow'
 import type { Task } from '@/types/database'
 
 /**
@@ -78,21 +77,29 @@ export function computePlanningStreak(planningDays: Set<string>, todayStr: strin
 }
 
 /**
- * Convenience: derive the streak straight from the tasks cache.
+ * Derive the streak straight from the tasks cache. NEVER WINDOWED BY PLAN.
  *
- * `cutoffDay` applies the plan's history window (null = unlimited). The streak
- * badge is a FREE-visible surface, so on a limited plan it must be computed from
- * exactly the days that plan can see — never silently from history the user has
- * been told is out of view. A Free streak therefore tops out at the window
- * length, which is honest: it reflects the data they actually have.
+ * ── THIS FUNCTION USED TO TAKE A `cutoffDay`, AND THAT WAS A BUG ────────────
+ *
+ * It applied the Free history window to the streak, with the reasoning that a
+ * limited plan "must be computed from exactly the days that plan can see". That
+ * conflates two unrelated things. The history window is a DISPLAY limit on
+ * completed-work surfaces; the streak is a MOTIVATION COUNTER derived from the
+ * user's own tasks, every one of which is already in the cache on both plans.
+ *
+ * The effect was that a Free user who had planned every single day for three
+ * months read "14-day streak" forever, and nothing anywhere said why. A
+ * motivational counter that silently stops counting is worse than not having
+ * one: it looks like the product forgot, and the one thing a streak must do is
+ * be believed. It was also internally inconsistent, because the weekly review
+ * has always called this without a cutoff, so Insights and Today disagreed
+ * about the same number.
+ *
+ * The parameter is REMOVED rather than defaulted to null, so the coupling cannot
+ * be reintroduced by a caller passing a cutoff it happens to have in scope,
+ * which is exactly how it arrived. The streak is uncapped on every tier, and
+ * `streak.test.ts` pins that.
  */
-export function planningStreak(
-  tasks: Task[],
-  todayStr: string = todayISO(),
-  cutoffDay: string | null = null,
-): StreakInfo {
-  return computePlanningStreak(
-    windowDayKeys(planningDaysFromTasks(tasks), cutoffDay),
-    todayStr,
-  )
+export function planningStreak(tasks: Task[], todayStr: string = todayISO()): StreakInfo {
+  return computePlanningStreak(planningDaysFromTasks(tasks), todayStr)
 }
