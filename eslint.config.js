@@ -27,9 +27,21 @@ export default tseslint.config(
   },
   // E2E (Playwright), serverless (/api), and config files run in Node.
   {
-    files: ['e2e/**/*.ts', 'api/**/*.ts', 'playwright.config.ts'],
+    files: ['e2e/**/*.ts', 'e2e-csp/**/*.ts', 'api/**/*.ts', 'playwright.config.ts'],
     languageOptions: {
       globals: { ...globals.node },
     },
+  },
+  /*
+   * The prerender entry runs in Node at BUILD time and is never loaded by a
+   * browser, so Fast Refresh — which is what `only-export-components` protects —
+   * has nothing to do with it. Turning the rule off here is more honest than
+   * splitting a build script into two files to satisfy a dev-server constraint
+   * that does not apply to it.
+   */
+  {
+    files: ['src/prerender/**/*.{ts,tsx}'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 )
