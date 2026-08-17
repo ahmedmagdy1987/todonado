@@ -109,7 +109,16 @@ export const PLANS: Plan[] = [
       `${FREE_PERSONAL_TEMPLATES} personal templates · ${FREE_QUIT_HABITS} quit habit · ${FREE_VISION_CARDS} vision goals`,
       `${FREE_MIND_MAPS} mind map · ${FREE_ACTIVE_CHALLENGES} challenge at a time · the daily journal, in text`,
       'Breathwork, and a supplement & medication log',
-      `Completed history for the last ${FREE_HISTORY_DAYS} days`,
+      /*
+       * Reads "30 days" now, from the constant rather than a literal.
+       *
+       * It also no longer needs to disclose a capped streak, because the streak
+       * is no longer capped: it used to pass through this same window, so a Free
+       * user who had planned every day for three months read "14-day streak"
+       * forever with nothing to explain it. The window is a display limit on
+       * completed work; a motivation counter is not completed work.
+       */
+      `Completed history for the last ${FREE_HISTORY_DAYS} days · your planning streak is never capped`,
       'Calendar import (.ics file)',
       // Was "Dark, installable PWA". Three jargon words for one ordinary fact.
       'Works on your phone and laptop, no app store',
@@ -137,13 +146,40 @@ export const PLANS: Plan[] = [
     features: [
       'Week planning: 7 days of capacity, drag between days + “Plan my week”',
       'Insights: planned time vs. real time, estimate accuracy, and focus trends',
-      'Smart daily briefing: your day already planned, with priority and estimate reminders',
-      'Unlimited history: every completed task, kept forever',
+      /*
+       * "priority reminders" WAS in this line and has been removed, because
+       * priority alerts are now FREE.
+       *
+       * They were Pro, and a packaging review could not defend it: an alert is
+       * "this high-priority task is overdue", derived in the browser from tasks
+       * the user already holds, and every list app on earth does it. Withholding
+       * it made the paid tier look mean rather than valuable. What Pro actually
+       * adds to the briefing is the day arriving already planned, and the
+       * estimate nudge, so that is what this now says.
+       */
+      'Smart daily briefing: your day already planned, with an estimate reality check',
+      /*
+       * THIS LINE USED TO READ "every completed task, kept forever".
+       *
+       * The audit flagged it as the most damaging claim on the page, because it
+       * implies Free DELETES your work. It never has: the Free window is a
+       * filter in the view layer over rows already sitting in the user's own
+       * browser cache, so upgrading reveals them on the next render with no
+       * refetch. Selling back something that was never taken away costs trust in
+       * the other bullets. The feature is real, so the words "Unlimited history"
+       * stay; the false implication does not.
+       */
+      `Unlimited history: your whole record stays in view, not just the last ${FREE_HISTORY_DAYS} days. Nothing is ever deleted on either plan`,
       'Live calendar sync: paste your calendar link once and meetings update daily',
       'Unlimited personal templates & checklists',
       'Unlimited quit habits, vision goals, mind maps and challenges',
       'Voice notes in the daily journal',
-      'Everything in Free, unlimited',
+      /*
+       * "Everything in Free, unlimited" was here and is deliberately gone. It
+       * mapped to NO gate anywhere in the code and restated two of the bullets
+       * directly above it. On a list of nine, one line that means nothing is a
+       * ninth of the pitch spent saying nothing.
+       */
     ],
   },
   {

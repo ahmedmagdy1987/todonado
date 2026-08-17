@@ -1,27 +1,22 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Compass, Network, Plus, Sparkles } from 'lucide-react'
+import { Compass, Network, Plus } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { InterestChip } from '@/components/common/InterestChip'
 import { SortableList } from '@/components/common/SortableList'
 import { useAuth } from '@/features/auth/auth-context'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
+import { ProUpgradeNotice } from '@/features/billing/components/ProUpgradeNotice'
 import { useProjects } from '@/features/projects/api/useProjects'
 import { useWorkspace } from '@/features/workspace/workspace-context'
-import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
-import { FEATURES, FREE_VISION_CARDS } from '@/lib/config'
+import { FEATURES } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import { newPositionForMove } from '@/lib/reorder'
 import type { VisionCard } from '@/types/database'
 import { useVisionCards, useVisionMutations } from './api/useVision'
-import {
-  linkedProject,
-  nextVisionPosition,
-  sortVisionCards,
-} from './vision'
+import { linkedProject, nextVisionPosition, sortVisionCards } from './vision'
 import { VisionCardDialog } from './components/VisionCardDialog'
 import { VisionCardItem } from './components/VisionCardItem'
-import { capDecision } from '@/features/billing/gate'
 
 /**
  * Vision — the goals behind the work.
@@ -38,7 +33,7 @@ import { capDecision } from '@/features/billing/gate'
 export function VisionPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro, billingLoading } = usePlan()
+  const { limitState, limit: limitFor, plan } = useEntitlements()
   const { workspaceId } = useWorkspace()
   const { data: projects = [] } = useProjects(workspaceId)
 
@@ -65,18 +60,31 @@ export function VisionPage() {
   // Mind maps once its migration was applied; this is the identical shape, and
   // the Add button is likewise rendered outside the loading branch. The PLAN is
   // the other half of the same question — see src/features/billing/gate.ts.
-  const decision = capDecision({
-    planKnown: !billingLoading,
-    countKnown: !isPending,
-    isPro,
-    count: cards.length + pendingCreate,
-    limit: FREE_VISION_CARDS,
-  })
-  const ready = decision !== 'unknown'
+  /*
+   * ONE CALL, ASKING THE CONTRACT. The limit is not named here on purpose.
+   *
+   * Each of the six capped surfaces used to assemble this decision itself from
+   * `usePlan()` plus a `FREE_*` constant it imported, which is six copies of one
+   * rule and six chances to get the loading states wrong. Two of them already
+   * had: `MindMapsPage` shipped a bug where a tap before the list arrived saw
+   * `maps.length === 0`, passed the cap and created a second map on a one-map
+   * plan, and the same page later folded only the COUNT into `countKnown` and
+   * never the plan, so a Pro user at the Free limit was told on every cold load
+   * that they had hit a limit they had paid to remove.
+   *
+   * `limitState` answers `resolving` until BOTH the plan and the count are in,
+   * and the limit itself comes from the entitlement table. Grandfathering is the
+   * same call's default: an account already above the ceiling is refused a NEW
+   * one and keeps everything it has.
+   */
+  const used = cards.length + pendingCreate
+  const decision = limitState('visionCards', used, !isPending)
+  const limit = limitFor('visionCards')
+  const ready = decision !== 'resolving'
 
   function openAdd() {
     if (!ready) return
-    if (decision === 'capped') {
+    if (decision === 'atLimit') {
       // A card in the flow, never a modal — and the editor must not open behind it.
       setShowLimit(true)
       return
@@ -138,7 +146,12 @@ export function VisionPage() {
         </div>
       </header>
 
-      {showLimit && decision === 'capped' && <VisionLimitUpsell limit={FREE_VISION_CARDS} />}
+      {showLimit && decision === 'atLimit' && <ProUpgradeNotice
+          featureKey="visionCards"
+          count={used}
+          limit={limit}
+          plan={plan}
+        />}
 
       {!available ? (
         <NotSwitchedOnCard />
@@ -227,52 +240,6 @@ export function VisionPage() {
   )
 }
 
-/** Shown when a Free user at the limit tries to add another goal. */
-function VisionLimitUpsell({ limit }: { limit: number }) {
-  const { user } = useAuth()
-
-  function recordIntent() {
-    void captureUpgradeIntent({
-      tier: 'pro',
-      userId: user?.id ?? null,
-      email: user?.email ?? null,
-      source: 'vision_limit',
-    }).catch(() => {
-      /* signal only — never block the click */
-    })
-  }
-
-  return (
-    <div
-      role="note"
-      aria-label="Vision card limit reached"
-      className="rounded-2xl border border-brand/25 bg-brand-gradient-soft p-4"
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-brand">
-          <Sparkles className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">
-            {limit} goals on Free. Pro keeps it unlimited
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-text-muted">
-            Everything you&rsquo;ve already written stays exactly where it is, editable and linked;
-            this only limits adding another.{' '}
-            <Link
-              to="/settings/plan"
-              onClick={recordIntent}
-              className="focus-ring rounded text-accent underline-offset-4 hover:underline"
-            >
-              Upgrade
-            </Link>{' '}
-            for as many as you need.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /**
  * The honest state when `vision_cards` does not exist. The migration is applied
