@@ -109,7 +109,19 @@ export const PLANS: Plan[] = [
       `${FREE_PERSONAL_TEMPLATES} personal templates · ${FREE_QUIT_HABITS} quit habit · ${FREE_VISION_CARDS} vision goals`,
       `${FREE_MIND_MAPS} mind map · ${FREE_ACTIVE_CHALLENGES} challenge at a time · the daily journal, in text`,
       'Breathwork, and a supplement & medication log',
-      `Completed history for the last ${FREE_HISTORY_DAYS} days`,
+      /*
+       * THE STREAK IS WINDOWED TOO, AND THIS LINE NEVER SAID SO.
+       *
+       * The planning streak is computed from day keys passed through the same
+       * history window, so a Free user who has planned every day for three
+       * months reads "14-day streak" indefinitely. Nobody would read
+       * "completed history for the last 14 days" as "and your streak counter
+       * stops there", so the omission was doing real work. Stated plainly here
+       * until the streak itself is fixed (proposed as E4 in
+       * docs/PRODUCT_VALUE_AUDIT.md, deliberately not implemented in the same
+       * change as the copy that discloses it).
+       */
+      `Completed history and planning streak for the last ${FREE_HISTORY_DAYS} days · nothing is ever deleted`,
       'Calendar import (.ics file)',
       // Was "Dark, installable PWA". Three jargon words for one ordinary fact.
       'Works on your phone and laptop, no app store',
@@ -138,12 +150,30 @@ export const PLANS: Plan[] = [
       'Week planning: 7 days of capacity, drag between days + “Plan my week”',
       'Insights: planned time vs. real time, estimate accuracy, and focus trends',
       'Smart daily briefing: your day already planned, with priority and estimate reminders',
-      'Unlimited history: every completed task, kept forever',
+      /*
+       * THIS LINE USED TO READ "every completed task, kept forever".
+       *
+       * A product audit on 2026-08-17 flagged it as the single most damaging
+       * claim on the page, because it implies Free DELETES your work. It never
+       * has: `FREE_HISTORY_DAYS` is a filter in the view layer over rows that
+       * are already in the user's own browser cache, so upgrading reveals them
+       * on the next render with no refetch. Selling the return of something
+       * that was never taken away is the kind of claim that costs trust in the
+       * other eight bullets. The words "Unlimited history" stay, because the
+       * feature is real and it is genuinely what Pro adds.
+       */
+      `Unlimited history: your whole record stays in view, not just the last ${FREE_HISTORY_DAYS} days. Nothing is ever deleted on either plan`,
       'Live calendar sync: paste your calendar link once and meetings update daily',
       'Unlimited personal templates & checklists',
       'Unlimited quit habits, vision goals, mind maps and challenges',
       'Voice notes in the daily journal',
-      'Everything in Free, unlimited',
+      /*
+       * "Everything in Free, unlimited" was here and is deliberately gone.
+       *
+       * It mapped to NO gate anywhere in the code, and it restated two of the
+       * bullets directly above it. On a list of nine, one line that means
+       * nothing is one ninth of the pitch spent saying nothing.
+       */
     ],
   },
   {

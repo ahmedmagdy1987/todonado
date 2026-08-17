@@ -187,21 +187,40 @@ describe('the hero keeps its semantics while it animates', () => {
     expect(Math.max(...delays)).toBeLessThanOrEqual(600)
   })
 
-  it('keeps both hero CTAs and their destinations', () => {
+  it('keeps both hero CTAs, and the second one is a real anchor to a real section', () => {
     /*
-     * The secondary CTA is no longer a /pricing link. It is an in-page anchor
-     * to the problem section, because asking a stranger to evaluate cost before
-     * they know what the product does is the wrong second step, and the closing
-     * CTA's "Compare plans" was cut in the executive pass for being a third
-     * label pointing at the same page.
+     * The secondary CTA is not a /pricing link: asking a stranger to evaluate
+     * cost before they know what the product does is the wrong second step.
+     *
+     * It now points at the capability section rather than at the problem
+     * section. "See how it works" sent someone who pressed it into an
+     * ARGUMENT, when a visitor pressing the secondary button on a landing page
+     * is asking what they would actually be getting. That section also moved
+     * from roughly 80% of the page depth to the middle, which is what makes it
+     * a sane destination.
      *
      * A REAL ANCHOR is the part worth pinning: a scroll handler would break
      * keyboard use and stop working without JavaScript, and it is the kind of
-     * thing a refactor swaps in without noticing.
+     * thing a refactor swaps in without noticing. The matching `id` is pinned
+     * alongside it so the link can never point at a section that was renamed.
      */
     expect(landing).toMatch(/onClick=\{startFree\}/)
-    expect(landing).toMatch(/href="#why-days-slip"/)
-    expect(landing).toMatch(/id="why-days-slip"/)
+    expect(landing).toMatch(/href="#product"/)
+    expect(landing).toMatch(/id="product"/)
+  })
+
+  it('gives the header nav a real target for every section it links to', () => {
+    /*
+     * `SiteHeader` navigates to three landing sections by hash. A hash with no
+     * matching element fails silently: the click does nothing at all, which is
+     * indistinguishable from a broken page and is exactly the kind of thing
+     * that survives a refactor unnoticed.
+     */
+    for (const id of ['product', 'how-it-works', 'compare']) {
+      expect(landing, `the header links to #${id} but no section carries that id`).toMatch(
+        new RegExp(`id="${id}"`),
+      )
+    }
   })
 
   it('renders the funnel behind the content, never over it', () => {

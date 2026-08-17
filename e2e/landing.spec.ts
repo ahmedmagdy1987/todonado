@@ -18,12 +18,23 @@ import { expectNoHorizontalOverflow } from './fixtures'
 
 const BG = '.living-bg'
 
+/*
+ * `behavior: 'instant'` is load-bearing, not tidiness.
+ *
+ * The landing page sets `scroll-behavior: smooth` on `html` so in-page anchors
+ * glide. That property governs PROGRAMMATIC scrolls too, so a tight
+ * scrollTo loop like this one animates every step and never reaches the bottom
+ * within the frame budget: the lazy sections below never mount and the test
+ * fails with a locator timeout that looks nothing like its actual cause.
+ * Real users are unaffected either way, since wheel and touch scrolling ignore
+ * `scroll-behavior` entirely.
+ */
 /** Scroll to the bottom and back so lazy sections mount and the page is tall. */
 async function scrollThrough(page: Page) {
   await page.evaluate(async () => {
     const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
     for (let y = 0; y < document.body.scrollHeight; y += Math.round(window.innerHeight * 0.8)) {
-      window.scrollTo(0, y)
+      window.scrollTo({ top: y, behavior: 'instant' })
       await frame()
       await new Promise((r) => setTimeout(r, 60))
     }
@@ -286,18 +297,23 @@ test('hero: both CTAs still go where they claim', async ({ page }) => {
   await page.goto('/welcome')
 
   /*
-   * The secondary CTA became "See how it works" in Homepage V2 and points at
-   * the problem section rather than at /pricing: asking a stranger to evaluate
-   * cost before they have been told what the product does is the wrong second
-   * step. It is still a REAL anchor rather than a scroll handler, so it works
-   * from the keyboard and without JavaScript, and that is what is asserted.
+   * The secondary CTA does not point at /pricing: asking a stranger to
+   * evaluate cost before they have been told what the product does is the
+   * wrong second step.
+   *
+   * In V3 it points at the CAPABILITY section rather than at the problem
+   * section. "See how it works" sent whoever pressed it into an argument, when
+   * somebody pressing the secondary button on a landing page is asking what
+   * they would actually be getting. It is still a REAL anchor rather than a
+   * scroll handler, so it works from the keyboard and without JavaScript, and
+   * that is what is asserted.
    */
-  const explore = page.getByRole('link', { name: 'See how it works' })
-  await expect(explore).toHaveAttribute('href', '#why-days-slip')
+  const explore = page.getByRole('link', { name: 'See what is inside' })
+  await expect(explore).toHaveAttribute('href', '#product')
   await explore.click()
-  await expect(page).toHaveURL(/#why-days-slip$/)
+  await expect(page).toHaveURL(/#product$/)
   // The target exists, so the link cannot rot into a no-op.
-  await expect(page.locator('#why-days-slip')).toHaveCount(1)
+  await expect(page.locator('#product')).toHaveCount(1)
 
   // Primary CTA sends a signed-out visitor to the auth page.
   await page.goto('/welcome')

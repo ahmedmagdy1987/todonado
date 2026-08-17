@@ -22,18 +22,18 @@ async function mountLazySections(page: Page) {
       const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
       const step = Math.round(window.innerHeight * 0.75)
       for (let y = 0; y < document.body.scrollHeight; y += step) {
-        window.scrollTo(0, y)
+        window.scrollTo({ top: y, behavior: 'instant' })
         await frame()
         await frame()
         await new Promise((r) => setTimeout(r, 100))
       }
-      window.scrollTo(0, document.body.scrollHeight)
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' })
       await frame()
       await new Promise((r) => setTimeout(r, 150))
     })
   }
   await expect(sentinel, 'lazy landing sections never mounted').toHaveCount(1)
-  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
 }
 
 /**
