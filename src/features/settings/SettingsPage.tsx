@@ -217,6 +217,9 @@ function PlanSection() {
         </div>
         <Link to="/settings/plan">
           <Button variant="secondary" size="sm">
+            {/* Cosmetic only, and neutral while resolving: "View plan" is
+                true on either tier, so an unresolved plan shows the label that
+                cannot be wrong rather than guessing at an upsell. */}
             {isPro || billingLoading ? 'View plan' : 'View & upgrade'}
           </Button>
         </Link>

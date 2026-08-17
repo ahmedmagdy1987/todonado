@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Flower2, Play, Waves, type LucideIcon } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
 import { SLEEP_NOISE_REQUIRES_PRO } from '@/lib/config'
 import { AudioPlayer } from './AudioPlayer'
 import { isGenerated, isTrackPlayable, type AudioTrack } from './tracks'
@@ -22,17 +22,22 @@ function TrackRow({
   onActivate: () => void
   onStop: () => void
 }) {
-  const { isPro, billingLoading } = usePlan()
+  const { isPro, resolving } = useEntitlements()
   /*
    * A generated track is FREE, and `SLEEP_NOISE_REQUIRES_PRO` in src/lib/config.ts
-   * is the only thing that decides it. Flipping that constant to true is the
-   * whole change: this row starts showing a Pro badge instead of Play.
+   * is the only thing that decides it. It is currently false and the packaging
+   * review confirmed it should stay false: wind-down tools are not the
+   * monetisation surface, and gating breathing or noise to manufacture paid
+   * value would read exactly as badly as it sounds.
    *
-   * Fails OPEN while the plan is still loading, the JournalPage idiom: this
-   * gates a listening control, not a write, so a subscriber must not watch it
-   * flicker into a paywall on every cold load.
+   * The polarity is still fixed here rather than left alone, because the switch
+   * exists and a latent bug behind an off switch is still a bug. While the plan
+   * is RESOLVING the row is neither locked nor playable-because-we-assumed-Pro:
+   * `locked` stays false so no subscriber sees a paywall flicker, and nothing is
+   * given away either, because the flag that would gate it is off.
    */
-  const locked = SLEEP_NOISE_REQUIRES_PRO && isGenerated(track) && !(isPro || billingLoading)
+  const locked =
+    SLEEP_NOISE_REQUIRES_PRO && isGenerated(track) && !resolving && !isPro
   const available = isTrackPlayable(track) && !locked
   const Icon = rowIcon(track)
 

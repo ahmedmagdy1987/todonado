@@ -4,6 +4,11 @@ import type { EstimationBias } from '@/features/insights/insights'
 import type { CapacityStatus } from './capacity'
 import { sumEffort } from './capacity'
 import type { DayPlan, PlanPick } from './autoPlan'
+import {
+  featureAccess,
+  type EntitlementStatus,
+  type PlanTier,
+} from '@/features/billing/entitlements'
 import type { StreakInfo } from './streak'
 import { rolloverSpan } from './rollover'
 import type { Task, TaskPriority } from '@/types/database'
@@ -86,7 +91,21 @@ export function selectPriorityAlerts(
 
 export interface DigestInput {
   todayStr: string
-  isPro: boolean
+  /**
+   * THREE STATES, NOT `isPro: boolean`, AND BOTH FAILURE MODES ARE REAL.
+   *
+   * This was a boolean, and Today passed it as `isPro || billingLoading` so that
+   * a subscriber would not be shown the Free briefing plus a "consider Pro"
+   * block on every cold load. That concern was legitimate; the fix was not,
+   * because Today is the app's default screen, so it was also the single
+   * highest-traffic place where a Free user was handed the paid layer.
+   *
+   * Both are avoidable at once. While `resolving`, the briefing renders its Free
+   * shape AND SUPPRESSES THE UPSELL: nobody is pitched a plan before we know
+   * which one they are on, and nothing paid is shown to anybody who has not
+   * bought it. It settles a beat later into the real answer.
+   */
+  entitlement: DigestEntitlement
   /** Whole local days since signup; null when unknown (never forces `welcome`). */
   accountAgeDays: number | null
   streak: StreakInfo
@@ -102,6 +121,12 @@ export interface DigestInput {
   bias: EstimationBias
   /** Every task in the workspace — alerts are scanned from this. */
   tasks: Task[]
+}
+
+/** What the briefing is allowed to include, and whether that is settled yet. */
+export interface DigestEntitlement {
+  status: EntitlementStatus
+  plan: PlanTier
 }
 
 export interface DigestSuggestion {
@@ -161,7 +186,7 @@ function hasOfferablePlan(plan: DayPlan | null): plan is DayPlan {
 export function composeDigest(input: DigestInput): Digest {
   const {
     todayStr,
-    isPro,
+    entitlement,
     accountAgeDays,
     streak,
     rolloverTasks,
@@ -173,6 +198,17 @@ export function composeDigest(input: DigestInput): Digest {
     bias,
     tasks,
   } = input
+
+  /*
+   * Asked of the contract, once, rather than re-derived from the tier at three
+   * call sites below. `featureAccess` returns `resolving` until the plan is
+   * settled, so both of these are false during that window and the briefing
+   * renders its Free shape with the upsell suppressed.
+   */
+  const mayPreplan =
+    featureAccess(entitlement.status, entitlement.plan, 'digest.preplannedDay') === 'allowed'
+  const mayNudge =
+    featureAccess(entitlement.status, entitlement.plan, 'insights.estimateAccuracy') === 'allowed'
 
   const variant =
     accountAgeDays != null && accountAgeDays <= WELCOME_MAX_AGE_DAYS ? 'welcome' : 'standard'
@@ -196,21 +232,41 @@ export function composeDigest(input: DigestInput): Digest {
     freeMinutes: Math.max(0, Math.round(freeMinutes)),
     capacityStatus,
     suggestion:
-      isPro && offerable
+      mayPreplan && offerable
         ? { picks: plan.picks, taskCount: plan.picks.length, totalMinutes: plan.totalMinutes }
         : null,
     // The sample threshold is the real guard here, not the account age: a new
     // account simply has no samples, so this stays null on its own.
+    //
+    // Gated on `insights.estimateAccuracy` rather than on a bespoke digest
+    // feature, because that is exactly what it is: the Insights estimate-accuracy
+    // capability, surfaced one screen earlier. Two keys for one capability is how
+    // a pricing page ends up disagreeing with itself.
     bias:
-      isPro && bias.hasEnough && bias.biasPct != null &&
+      mayNudge && bias.hasEnough && bias.biasPct != null &&
       (bias.direction === 'under' || bias.direction === 'over')
         ? { direction: bias.direction, pct: Math.abs(bias.biasPct) }
         : null,
-    // Deliberately NOT gated on the welcome variant. Alerts are about what's
-    // coming, not what's happened — a day-one user with something due tomorrow
-    // should see it, and withholding it would be the "empty shell" we're avoiding.
-    alerts: isPro ? selectPriorityAlerts(tasks, todayStr) : [],
-    proTeaser: !isPro && offerable,
+    /*
+     * PRIORITY ALERTS ARE NOW FREE, AND THIS IS A DELIBERATE UNGATING.
+     *
+     * They were Pro. A packaging audit could not justify it: an alert is "this
+     * high-priority task is overdue", derived in the browser from tasks the user
+     * already has, and any list app on earth does it. It was one of the weakest
+     * lines in the paid tier, and the comment immediately below has always
+     * argued that withholding what is COMING is the wrong instinct.
+     *
+     * Deliberately NOT gated on the welcome variant either: a day-one user with
+     * something due tomorrow should see it.
+     */
+    alerts: selectPriorityAlerts(tasks, todayStr),
+    /*
+     * Suppressed while resolving, which is the other half of the fix. Showing a
+     * subscriber a pitch for the plan they already pay for is the specific
+     * annoyance the old optimistic read was trying to avoid, and it is avoided
+     * here without giving anything away in the process.
+     */
+    proTeaser: entitlement.status === 'resolved' && !mayPreplan && offerable,
     dayAlreadyPlanned: plan?.capacityFull ?? false,
     unplanned: plan ? plan.candidateCount + plan.excludedByScope : 0,
   }

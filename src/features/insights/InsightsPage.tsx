@@ -4,7 +4,7 @@ import { Badge, Card, CardContent } from '@/components/ui'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
 import { PointsPanel } from '@/features/points/components/PointsPanel'
 import { FEATURES } from '@/lib/config'
 import { todayISO } from '@/lib/date'
@@ -70,7 +70,8 @@ export function InsightsPage() {
   // `billingLoading` matters here more than anywhere: without it a paying
   // subscriber sees the blurred teaser and an Upgrade CTA on every cold load,
   // and clicking it writes an `upgrade_intents` row that has no delete policy.
-  const { isPro, billingLoading } = usePlan()
+  const { isPro, resolving: billingLoading, access } = useEntitlements()
+  const canSeePoints = access('insights.pointsBreakdown') === 'allowed'
   const { workspaceId, capacityMinutes } = useWorkspace()
   const { data: tasks = [], isPending: tasksPending } = useTasks(workspaceId)
   const { data: sessions = [], isPending: focusPending } = useFocusSessions(workspaceId)
@@ -95,7 +96,11 @@ export function InsightsPage() {
       {/* The audit trail for the chip on Today: same function, same inputs, same
           window, so the two can never disagree. Zero extra requests — `tasks`
           and `sessions` are already in hand above. */}
-      {isPro && FEATURES.points && !loading && (
+      {/* Gated on a named capability rather than a bare `isPro`, so the one
+          place that decides what Pro contains is the entitlement table. Still a
+          real gate: this panel is a SIBLING of the branch below, not inside its
+          Pro arm, so dropping the check would show it above the Free teaser. */}
+      {canSeePoints && FEATURES.points && !loading && (
         <PointsPanel tasks={tasks} sessions={sessions} today={today} />
       )}
       {/* The skeleton, not the teaser and not nothing: until the plan is known
