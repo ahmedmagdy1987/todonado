@@ -30,6 +30,24 @@ async function scrollThrough(page: Page) {
   })
 }
 
+/**
+ * Scroll until the landing FAQ has actually mounted.
+ *
+ * A single scroll pass is a RACE AGAINST THE PAGE'S OWN HEIGHT: each pass only
+ * mounts the lazy sections it reaches, and mounting makes the document taller,
+ * so the bottom keeps moving away. That is exactly how the first version of the
+ * touch-target test below failed with a locator timeout instead of an
+ * assertion. Looping until the sentinel exists cannot be outrun.
+ */
+async function mountFaq(page: Page) {
+  const sentinel = page.getByRole('link', { name: /See all pricing questions/i })
+  for (let attempt = 0; attempt < 6 && (await sentinel.count()) === 0; attempt += 1) {
+    await scrollThrough(page)
+    await page.waitForTimeout(150)
+  }
+  await expect(sentinel, 'the landing FAQ never mounted').toHaveCount(1)
+}
+
 test('living background: decorative, and provably so', async ({ page }) => {
   await page.goto('/welcome')
 
@@ -285,6 +303,59 @@ test('hero: both CTAs still go where they claim', async ({ page }) => {
   await page.goto('/welcome')
   await page.getByRole('button', { name: 'Start free' }).first().click()
   await expect(page).toHaveURL(/\/login$/)
+})
+
+test('390px: every control in the landing FAQ clears the 44px touch floor', async ({
+  page,
+}) => {
+  /*
+   * THE DEFECT THIS EXISTS TO CATCH, WHICH REACHED PRODUCTION.
+   *
+   * "See all pricing questions" shipped as a bare inline link and measured
+   * 162x17 CSS px on the live site. That is under Todonado's own 44px floor and
+   * under the WCAG 2.2 SC 2.5.8 AA minimum of 24x24, so it was a conformance
+   * failure, not a preference. Nothing caught it: it type-checked, it linted,
+   * every content assertion passed, and it looked completely correct.
+   *
+   * The whole FAQ block is covered rather than just that one link, because it
+   * is one component and the next control added to it would be just as easy to
+   * miss.
+   *
+   * The height is measured from the RENDERED BOX. `tap-h-44`-style
+   * pseudo-element expansion is deliberately not credited here: this block's
+   * controls sit in flowing text, where an absolutely positioned band lands on
+   * the lines above and below and is not actually hit-testable.
+   */
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/welcome')
+  await mountFaq(page)
+
+  const faq = page.locator('section', { has: page.locator('#faq') }).first()
+  await faq.scrollIntoViewIfNeeded()
+  await expect(faq.getByRole('link', { name: /See all pricing questions/i })).toBeVisible()
+
+  const targets = await faq.evaluate((section) =>
+    [...section.querySelectorAll('a, button, summary')].map((el) => ({
+      label: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40),
+      height: Math.round(el.getBoundingClientRect().height),
+    })),
+  )
+
+  expect(targets.length, 'the FAQ should expose its questions plus the link').toBeGreaterThanOrEqual(4)
+  for (const t of targets) {
+    expect(t.height, `"${t.label}" is ${t.height}px, under the 44px touch floor`).toBeGreaterThanOrEqual(44)
+  }
+})
+
+test('the landing FAQ link still points at the full set on /pricing', async ({ page }) => {
+  // The touch-target fix must not quietly change where the link goes: the
+  // homepage carries three questions and the other three live on /pricing, so
+  // this anchor is the only route to them.
+  await page.goto('/welcome')
+  await mountFaq(page)
+  const link = page.getByRole('link', { name: /See all pricing questions/i })
+  await link.scrollIntoViewIfNeeded()
+  await expect(link).toHaveAttribute('href', '/pricing#faq')
 })
 
 test('hero: pricing is still one click away from the top of the page', async ({ page }) => {

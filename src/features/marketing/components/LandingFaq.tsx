@@ -47,10 +47,37 @@ export function LandingFaq() {
         ))}
       </div>
 
-      <p className="mt-5 text-center text-sm">
+      {/* `mt-1.5`, down from `mt-5`, and that is arithmetic rather than a
+          design tweak. The link below became a real 44px box, which adds about
+          13px of its own space above the text; trimming the same amount off
+          this margin leaves the words exactly where they were on screen. The
+          touch target grew, the layout did not move. */}
+      <p className="mt-1.5 text-center text-sm">
+        {/*
+          `inline-flex min-h-[44px] items-center` is the touch target, not a
+          style.
+
+          Live production measured this link at 162x17 CSS px. That is under
+          Todonado's own 44px floor and under the WCAG 2.2 SC 2.5.8 AA minimum
+          of 24x24, so it was a conformance failure rather than a preference.
+          It arrived with the FAQ split, where the homepage dropped to three
+          questions and gained this link to the full set.
+
+          `tap-h-44` was NOT used, and the reason is worth keeping: that
+          utility grows the hit area with an absolutely positioned
+          pseudo-element, which works for a control with space around it and
+          fails for text in a paragraph, because the taller band lands on the
+          lines above and below. Here the link owns its line, so giving the box
+          a real height is both simpler and actually hit-testable.
+
+          Nothing visual changes: no background, no border, same text at the
+          same size, still centred by the parent, same destination. Only the
+          box the finger can land on is bigger. This is the same treatment
+          "Compare all plans" already uses in PricingTeaser.
+        */}
         <Link
           to="/pricing#faq"
-          className="focus-ring rounded text-accent underline-offset-4 hover:underline"
+          className="focus-ring inline-flex min-h-[44px] items-center rounded px-3 text-accent underline-offset-4 hover:underline"
         >
           See all pricing questions
         </Link>
