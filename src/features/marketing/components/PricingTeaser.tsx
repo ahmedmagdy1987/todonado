@@ -19,7 +19,16 @@ const TEASER_IDS = ['free', 'pro'] as const
  * lines in each column do the deciding. "Compare all plans" sits directly
  * underneath and the full lists are one click away, unchanged.
  */
-const BULLET_LIMIT = 6
+/*
+ * THREE, NOT SIX, BECAUSE THE FULL TABLE IS NOW DIRECTLY ABOVE THIS.
+ *
+ * V3 added a complete Free-vs-Pro table one section up, so twelve more bullets
+ * here were the same information a second time, immediately after the reader
+ * had finished reading it. A price card still needs enough substance not to
+ * look empty, so it keeps the three strongest true lines; deciding WHAT you get
+ * is the table's job, and deciding whether to pay for it is this one's.
+ */
+const BULLET_LIMIT = 3
 
 interface PricingTeaserProps {
   onStartFree: () => void
