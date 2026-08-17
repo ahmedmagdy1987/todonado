@@ -47,7 +47,22 @@ export function useInView<T extends Element>({
   threshold = 0.15,
 }: InViewOptions = {}): [RefObject<T>, boolean] {
   const ref = useRef<T>(null)
-  const [inView, setInView] = useState(false)
+  /*
+   * START SHOWN WHERE THERE IS NO IntersectionObserver, INCLUDING THE SERVER.
+   *
+   * This used to start `false` unconditionally, with an effect flipping it to
+   * `true` when the API is missing. Effects never run during server rendering,
+   * so every `Reveal` on a prerendered page was emitted at `opacity-0` and
+   * `translate-y-6`: the copy was in the HTML but painted invisible, which is
+   * the worst of both worlds — a crawler sees hidden text and a reader with no
+   * JavaScript sees a blank page.
+   *
+   * Deriving the initial value instead means the server, and any browser
+   * without the API, render the finished state. In a real browser
+   * IntersectionObserver exists, so this is still `false` on the first client
+   * render and the reveal animation is completely unchanged.
+   */
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined')
 
   useEffect(() => {
     const el = ref.current

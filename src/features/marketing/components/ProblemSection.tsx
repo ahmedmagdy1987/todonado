@@ -54,9 +54,27 @@ export function ProblemSection() {
   const reduced = usePrefersReducedMotion()
   const [ref, inView] = useInView<HTMLDivElement>({ rootMargin: '0px 0px -15% 0px' })
 
-  // Start finished under reduced motion: the reveal is the decoration, the sum
-  // is the content, and the content must never wait on the decoration.
-  const [counted, setCounted] = useState(() => (reduced ? PROBLEM_TASKS.length : 0))
+  /*
+   * Start finished under reduced motion: the reveal is the decoration, the sum
+   * is the content, and the content must never wait on the decoration.
+   *
+   * AND START FINISHED WHERE NOTHING CAN EVER ANIMATE IT.
+   *
+   * This list is built one item at a time by a setInterval, so anywhere that
+   * effect does not run the count stays 0 and every row renders `opacity-0`
+   * forever. That was invisible while the page only ever existed in a browser.
+   * Prerendering made it visible: the built HTML carried all ten task titles at
+   * zero opacity, permanently — a reader with JavaScript off saw an empty
+   * column under "A list can grow forever", which is the one section where the
+   * list IS the argument.
+   *
+   * `IntersectionObserver` is the same tell `useReveal` uses: present in every
+   * browser that can run the animation, absent on the server. So this is still
+   * 0 on the first client render and the count-up is completely unchanged.
+   */
+  const [counted, setCounted] = useState(() =>
+    reduced || typeof IntersectionObserver === 'undefined' ? PROBLEM_TASKS.length : 0,
+  )
 
   useEffect(() => {
     if (reduced) {
