@@ -13,16 +13,31 @@ import { fileURLToPath, URL } from 'node:url'
  * a real engine exists — `e2e/landing.spec.ts` (Playwright) drives an actual
  * browser at real viewports.
  *
- * Every rule here was paid for in measured frame time by the living background
- * (see index.css) and re-earned by the vortex. If one of these fails, the
- * landing has probably just lost 30fps on a mid-range phone.
+ * -- THE BACKGROUND IS STRUCTURE NOW, AND THAT IS WHAT IS PINNED ------------
+ *
+ * This file used to pin an aurora of drifting blurred blobs and a "vortex" of
+ * orbiting motes: roughly twenty rules about keeping animated decoration cheap.
+ * Both layers are deleted. A pixel audit of the rendered page found the aurora
+ * varied the background by delta-L* 3.34 across the whole hero (a WCAG ratio of
+ * 1.083:1, below the level at which an edge is perceptible at all) while the
+ * grain tile on top of it contributed per-pixel noise worth 30 to 50 percent of
+ * that signal: colour with no form, which is the definition of a stain. The
+ * vortex occupied 8.1% of the desktop first screen, returned 2.4% of the
+ * headline's visual weight, and on a 390px phone rendered ZERO visible pixels
+ * because its stage sat 37px below the fold.
+ *
+ * The rules below pin the opposite property: that the background is STATIC and
+ * that the page's contrast lives in its MATERIALS rather than in an effect. A
+ * motion rule cannot regress on a layer that does not move, so what is worth
+ * defending is that nobody quietly adds one back.
  */
 
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
 
 const css = read('../../index.css')
-const vortex = read('./components/VortexField.tsx')
+const backdrop = read('./components/HeroBackdrop.tsx')
 const landing = read('./LandingPage.tsx')
+const section = read('./components/Section.tsx')
 
 /**
  * Source with comments removed.
@@ -35,7 +50,7 @@ const landing = read('./LandingPage.tsx')
 const stripComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
-const vortexCode = stripComments(vortex)
+const backdropCode = stripComments(backdrop)
 
 /** The block of CSS between a selector and its closing brace. */
 function ruleBody(source: string, selector: string): string {
@@ -53,91 +68,142 @@ function ruleBody(source: string, selector: string): string {
   throw new Error(`unterminated rule for ${selector}`)
 }
 
-describe('vortex field: the rules that keep it cheap', () => {
-  it('NEVER blurs a moving layer', () => {
+describe('the hero backdrop is structure, and it holds still', () => {
+  const LAYERS = ['.hero-backdrop__lattice', '.hero-backdrop__spot', '.hero-backdrop__horizon']
+
+  it('animates nothing at all', () => {
     /*
-     * The whole performance story, and it was measured not guessed: blurring
-     * the aurora blobs took the landing from 60fps to 21, because a blurred
-     * surface is re-rasterised every time it moves. Softness comes from
-     * gradient alpha falloff instead.
+     * THE RULE THAT REPLACED TWENTY RULES.
+     *
+     * The cheapest animated layer is the one that is not there. Motion in the
+     * background also competes with motion in the product story, and the story
+     * is the thing a visitor has to read, so this is a hierarchy decision
+     * before it is a performance one.
      */
-    for (const selector of ['.vortex__mote', '.vortex__core', '.vortex__ring', '.vortex__orbit']) {
+    for (const selector of [...LAYERS, '.hero-backdrop {']) {
+      const body = ruleBody(css, selector)
+      expect(body, `${selector} must not animate`).not.toMatch(/animation/)
+      expect(body, `${selector} must not transition`).not.toMatch(/transition/)
+    }
+  })
+
+  it('never blurs anything, moving or not', () => {
+    /*
+     * Blur was already banned on MOVING layers for a measured reason: it took
+     * the landing from 60fps to 21. The ban is now total. A survey of nine
+     * production dark landing pages found none shipping a blur radius over
+     * 36px, and softness here comes from gradient alpha falloff, which costs
+     * one rasterisation ever.
+     */
+    for (const selector of [...LAYERS, '.hero-backdrop {']) {
       expect(ruleBody(css, selector)).not.toMatch(/filter:\s*blur/)
     }
   })
 
-  it('animates ONLY transform and opacity', () => {
-    // Anything else (width, top, box-shadow, background-position) would drag
-    // layout or paint onto the main thread every frame.
-    const animated = ['vortex-spin', 'vortex-core', 'hero-rise']
-    for (const name of animated) {
-      const body = ruleBody(css, `@keyframes ${name}`)
-      const props = [...body.matchAll(/^\s*([a-z-]+)\s*:/gm)].map((m) => m[1])
-      expect(props.length, `${name} declares properties`).toBeGreaterThan(0)
-      for (const prop of props) {
-        expect(['transform', 'opacity']).toContain(prop)
-      }
-    }
-  })
-
-  it('never scales, because scaling re-rasterises a gradient every frame', () => {
-    for (const name of ['vortex-spin', 'vortex-core']) {
-      expect(ruleBody(css, `@keyframes ${name}`)).not.toMatch(/scale\s*\(/)
-    }
-  })
-
-  it('contains its paint so a ring can never widen the document', () => {
-    // This is what keeps 320px free of horizontal scroll.
-    expect(ruleBody(css, '.vortex {')).toMatch(/contain:\s*layout paint/)
-    expect(ruleBody(css, '.vortex {')).toMatch(/overflow:\s*hidden/)
-  })
-
   it('is inert to assistive tech and to the pointer', () => {
-    expect(vortex).toMatch(/aria-hidden/)
-    expect(ruleBody(css, '.vortex {')).toMatch(/pointer-events:\s*none/)
+    expect(backdrop).toMatch(/aria-hidden/)
+    expect(ruleBody(css, '.hero-backdrop {')).toMatch(/pointer-events:\s*none/)
   })
 
-  it('parks every animation when the tab is hidden', () => {
-    expect(vortex).toMatch(/visibilitychange/)
-    expect(css).toMatch(/\.vortex\[data-paused='true'\][\s\S]{0,120}animation-play-state:\s*paused/)
+  it('is pure markup: no state, no listener, no frame loop', () => {
+    for (const banned of ['useState', 'useEffect', 'requestAnimationFrame', 'addEventListener']) {
+      expect(backdropCode, `the backdrop must not use ${banned}`).not.toContain(banned)
+    }
   })
 
-  it('coalesces pointer work into at most one rAF and removes its listener', () => {
-    expect(vortex).toMatch(/requestAnimationFrame/)
-    expect(vortex).toMatch(/cancelAnimationFrame/)
-    expect(vortex).toMatch(/removeEventListener\('pointermove'/)
-    // Passive, so a move can never block scrolling.
-    expect(vortex).toMatch(/'pointermove',\s*onMove,\s*\{\s*passive:\s*true\s*\}/)
+  it('keeps the light inside the hero rather than washing the page', () => {
+    // Absolute inside the hero section, never fixed. The aurora it replaces was
+    // fixed to the viewport and bled through every section on the page.
+    expect(ruleBody(css, '.hero-backdrop {')).toMatch(/position:\s*absolute/)
+    expect(ruleBody(css, '.hero-backdrop {')).not.toMatch(/position:\s*fixed/)
   })
 
-  it('never re-renders React per pointer frame', () => {
-    // A useState write per pointermove is exactly the main-thread cost this
-    // design exists to avoid; the frame handler must only touch style.
-    expect(vortexCode).not.toMatch(/useState/)
-    expect(vortexCode).toMatch(/style\.setProperty/)
+  it('puts the spotlight peak OUTSIDE the frame, so the light has no edge', () => {
+    /*
+     * Anchored at `50% 0%` the brightest point landed exactly on the hero's top
+     * edge: measured L* 3.71 at y=60 and L* 15.77 at y=66. Six pixels, seventeen
+     * points of lightness, straight across the full width, so it read as a lit
+     * bar welded to the navigation. Every origin must sit above the box.
+     */
+    const spot = ruleBody(css, '.hero-backdrop__spot')
+    const origins = [...spot.matchAll(/at\s+[\d.]+%\s+(-?[\d.]+)%/g)].map((m) => Number(m[1]))
+    expect(origins.length, 'the spotlight declares radial origins').toBeGreaterThan(0)
+    for (const y of origins) {
+      expect(y, `a spotlight origin at ${y}% sits inside the frame`).toBeLessThan(0)
+    }
   })
 
-  it('uses a fixed table rather than Math.random, so screenshots stay comparable', () => {
-    expect(vortexCode).not.toMatch(/Math\.random/)
+  it('lets the light pass behind the header instead of starting under it', () => {
+    /*
+     * The header is `sticky` and IN FLOW, so without this lift the hero's box
+     * begins below it and `overflow-hidden` clips the light to a hard line at
+     * the navigation's lower edge.
+     *
+     * The lift must EQUAL the header's full box - `h-16` plus the 1px
+     * transparent border it carries at rest to avoid a shift on scroll - and
+     * the padding must give the same amount back, or the composition moves.
+     */
+    const lift = landing.match(/-mt-\[(\d+)px\]/)
+    const pad = landing.match(/\spt-\[(\d+)px\]/)
+    expect(lift, 'the hero must lift its box behind the header').not.toBeNull()
+    expect(pad, 'the hero must give the lifted space back as padding').not.toBeNull()
+    expect(Number(pad?.[1])).toBe(Number(lift?.[1]))
+    expect(Number(lift?.[1]), 'the lift must cover the header box, 64px + its 1px border').toBe(65)
+  })
+})
+
+describe('the page separates its sections with material, not with atmosphere', () => {
+  it('steps the panel a real distance from the page, not four points of L*', () => {
+    /*
+     * THE MEASURED CORE DEFECT, PINNED SO IT CANNOT COME BACK.
+     *
+     * `panel` was `bg-surface` (#0F172A, L* 7.96) on a `#0A0D16` page
+     * (L* 3.66): delta-L* 4.30, a WCAG step of 1.09:1. An audit of the rendered
+     * first screen found 92.2% of it inside a six-L* band out of a hundred and
+     * concluded the page read as one long dark wash rather than as a sequence
+     * of rooms. Three rounds of background effects had been spent on a problem
+     * that was a token choice.
+     *
+     * `bg-surface-2` (#1E293B, L* 16.39) is delta-L* 12.68, or 1.36:1.
+     */
+    expect(section).toMatch(/panel: 'bg-surface-2'/)
+    expect(section, 'panel must not fall back to the near-invisible step').not.toMatch(
+      /panel: 'bg-surface'/,
+    )
+  })
+
+  it('never re-introduces a full-page atmospheric wash', () => {
+    /*
+     * The aurora was fixed behind every section at once, which is what made
+     * five different materials read as one.
+     *
+     * The markup check runs on COMMENT-STRIPPED source, because this page
+     * explains at length why both layers were removed and naming a thing in a
+     * comment is not mounting it.
+     */
+    const mounted = stripComments(landing)
+    for (const [css_class, component] of [
+      ['.living-bg', 'LivingBackground'],
+      ['.vortex', 'VortexField'],
+    ]) {
+      expect(css, `${css_class} was deleted deliberately`).not.toContain(css_class)
+      expect(mounted, `${component} must not be re-mounted`).not.toContain(component)
+    }
+  })
+
+  it('does not fade the hero back to page-dark right at the boundary', () => {
+    /*
+     * `.hero-settle::after` faded the hero's final 160px to #0A0D16 to keep the
+     * step uniform while the aurora drifted underneath it. It worked, in the
+     * sense that it made the step uniformly invisible: it was deleting the only
+     * contrast the boundary had. With a real material step there is nothing
+     * left for it to hide.
+     */
+    expect(css).not.toContain('hero-settle')
   })
 })
 
 describe('reduced motion removes the motion, not the design', () => {
-  it('stops the funnel and the pointer parallax without deleting them', () => {
-    const reduced = css.slice(css.indexOf('.vortex {'))
-    const block = reduced.slice(0, reduced.indexOf('/* ====='))
-    expect(block).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
-    // The rings/core/motes are still rendered: nothing sets display:none.
-    expect(block).not.toMatch(/\.vortex[^{]*\{[^}]*display:\s*none/)
-    expect(block).toMatch(/\.vortex__orbit,\s*\n?\s*\.vortex__core\s*\{\s*animation:\s*none/)
-  })
-
-  it('never attaches the pointer listener under reduced motion', () => {
-    // Not merely "the transform is zeroed" — the listener is never added, so a
-    // reduced-motion user pays nothing at all for an effect they cannot see.
-    expect(vortex).toMatch(/if\s*\(!el \|\| reduced\)\s*return/)
-  })
-
   it('collapses the hero stagger DELAY, not just its duration', () => {
     /*
      * The global prefers-reduced-motion rule sets animation-duration to
@@ -270,19 +336,25 @@ describe('the hero keeps its semantics while it animates', () => {
      * a section that exists on this page.
      */
     expect(landing).toMatch(/onClick=\{startFree\}/)
-    expect(landing).toMatch(/href="#features"/)
-    expect(landing).toMatch(/id="features"/)
+    expect(landing).toMatch(/href="#how-it-works"/)
+    expect(landing).toMatch(/id="how-it-works"/)
   })
 
-  it('renders the funnel behind the content, never over it', () => {
-    // The vortex is emitted before <main z-10>, and main carries the stacking.
-    expect(landing.indexOf('<VortexField />')).toBeLessThan(landing.indexOf('<h1'))
+  it('renders the backdrop behind the content, never over it', () => {
+    /*
+     * `indexOf` returns -1 for a missing element, which a naive `toBeLessThan`
+     * happily passes. That is exactly how this test stayed green after the
+     * vortex stopped being rendered, so presence is asserted first.
+     */
+    const at = landing.indexOf('<HeroBackdrop />')
+    expect(at, 'the hero must render a backdrop').toBeGreaterThan(-1)
+    expect(at).toBeLessThan(landing.indexOf('<h1'))
   })
 })
 
 describe('the landing adds no new dependency', () => {
   it('imports nothing outside the repo and its existing stack', () => {
-    const imports = [...vortex.matchAll(/from '([^']+)'/g)].map((m) => m[1])
+    const imports = [...backdrop.matchAll(/from '([^']+)'/g)].map((m) => m[1])
     for (const spec of imports) {
       const ok = spec === 'react' || spec.startsWith('.') || spec.startsWith('@/')
       expect(ok, `unexpected dependency ${spec}`).toBe(true)

@@ -168,11 +168,25 @@ export function ProductShot({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-elevation-lg',
+        /*
+          A LIT OBJECT ON A DARK FLOOR.
+
+          This was `bg-surface` (#0F172A) sitting on a `#0A0D16` hero: a step of
+          delta-L* 4.3, which an audit of the rendered page measured as 1.09:1 -
+          below the level at which an edge registers in peripheral vision. The
+          card did not read as raised, it read as a slightly different patch of
+          the same darkness, and "slightly different patch of darkness" is what
+          made it look cheap.
+
+          `bg-surface-2` (#1E293B) is a step of delta-L* 12.7. The rows inside
+          then have to go the other way - they are recessed into the slab rather
+          than raised out of it - which is why they carry `bg-background` below.
+        */
+        'overflow-hidden rounded-2xl border border-white/10 bg-surface-2 shadow-elevation-lg',
         className,
       )}
     >
-      <div className="flex items-center justify-between border-b border-white/5 bg-surface-2/60 px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2.5">
         <p className="font-display text-sm font-semibold text-text-primary">Today</p>
         <p className="font-mono text-[11px] uppercase tracking-wider text-text-muted">
           Tue · {formatMinutes(HERO_DAY_MINUTES)} to work with
@@ -181,18 +195,36 @@ export function ProductShot({ className }: { className?: string }) {
 
       <div className={cn('space-y-4 p-4', scattered ? 'storm--chaos' : 'storm--settled')}>
         {/*
-          TWO NUMBERS, KEPT SEPARATE.
-          "Today's plan" is the commitment and never moves. "Today's progress"
-          is the only thing that fills. The version before this asked both
-          questions with one bar labelled "92% planned", which could only ever
-          end in a warning.
+          TWO NUMBERS, KEPT SEPARATE, AND NAMED AS QUESTIONS.
+
+          "What fits today" is the commitment and never moves. "How today is
+          going" is the only thing that fills. One bar labelled "92% planned"
+          asked both questions at once and could only ever end in a warning.
+
+          THE LABELS ARE MARKETING COPY, NOT THE APP'S VOCABULARY, AND THAT IS
+          DELIBERATE. In the product the control is called the Day Capacity
+          meter, which is the right name for a thing you operate every morning
+          and the wrong name for the first sentence a stranger reads: capacity
+          is infrastructure vocabulary, and "Today's progress" is the label
+          every app on earth already uses. These two are phrased as the
+          questions a visitor is actually asking, they are parallel in shape so
+          the pair reads as one thought, and each survives its own extremes -
+          "How today is going" is honest at 0%, where "Progress: 0%" reads as
+          failure, and at 100% where "done" would otherwise appear twice in
+          adjacent lines.
+
+          THE PLAN VALUE IS THE HERO'S FOCAL NUMBER. It is set larger than
+          anything else in the card because it is the one thing on this page no
+          competitor's hero can copy: the day, measured. It used to be 11px
+          grey mono, which is to say the differentiator was on screen and
+          illegible.
         */}
         <div className="space-y-2.5">
           <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium text-text-primary">Today’s plan</p>
+            <p className="text-sm font-medium text-text-muted">What fits today</p>
             <p
               className={cn(
-                'font-mono text-xs tabular-nums text-text-muted transition-opacity duration-500 motion-reduce:transition-none',
+                'font-mono text-sm font-medium tabular-nums text-text-primary transition-opacity duration-500 sm:text-base motion-reduce:transition-none',
                 // The time appears as the storm settles, because that IS what
                 // just happened: a pile of obligations became an amount of time.
                 scattered ? 'opacity-0' : 'opacity-100',
@@ -205,10 +237,10 @@ export function ProductShot({ className }: { className?: string }) {
 
           <div>
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium text-text-primary">Today’s progress</p>
+              <p className="text-sm font-medium text-text-muted">How today is going</p>
               <p
                 className={cn(
-                  'font-mono text-sm tabular-nums transition-colors duration-300 motion-reduce:transition-none',
+                  'font-mono text-sm font-medium tabular-nums transition-colors duration-300 sm:text-base motion-reduce:transition-none',
                   finished ? 'text-success' : 'text-text-muted',
                 )}
               >
@@ -217,7 +249,7 @@ export function ProductShot({ className }: { className?: string }) {
             </div>
 
             <div
-              className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2"
+              className="mt-2 h-2 overflow-hidden rounded-full bg-background"
               role="img"
               aria-label={`Today's progress: ${done} of ${total} tasks done`}
             >
@@ -257,7 +289,7 @@ export function ProductShot({ className }: { className?: string }) {
                   'storm-item flex h-9 items-center gap-2.5 rounded-xl border px-3 transition-colors duration-300 motion-reduce:transition-none',
                   complete
                     ? 'border-success/25 bg-success/[0.07]'
-                    : 'border-white/5 bg-surface-2/40',
+                    : 'border-white/5 bg-background/50',
                 )}
                 style={scatterVars(index, scattered ? 0 : index * 55)}
               >
@@ -315,7 +347,7 @@ export function ProductShot({ className }: { className?: string }) {
             {HERO_LATER.map((task, index) => (
               <li
                 key={task.id}
-                className="storm-item storm-later absolute inset-x-0 top-0 flex h-9 items-center gap-2.5 rounded-xl border border-white/5 bg-surface-2/40 px-3 transition-opacity duration-500"
+                className="storm-item storm-later absolute inset-x-0 top-0 flex h-9 items-center gap-2.5 rounded-xl border border-white/5 bg-background/50 px-3 transition-opacity duration-500"
                 style={scatterVars(total + index, 0)}
               >
                 <span className="h-4 w-4 shrink-0 rounded-full border border-white/20" />
@@ -339,15 +371,23 @@ export function ProductShot({ className }: { className?: string }) {
           </p>
         </div>
 
-        {/* The week the day sits inside. Orientation, not a second screen. */}
-        <div className="rounded-xl border border-white/5 bg-background/60 px-3 py-2.5">
+        {/*
+          The week the day sits inside. Orientation, not a second screen.
+
+          IT CARRIES A PRO MARKER BECAUSE THE WEEK BOARD IS PRO. `week.board`
+          and `week.autoPlan` are both paid in `entitlements.ts`, and an
+          unmarked seven-day strip in the hero quietly promises a free user
+          something they will not find after signing up. Everything else drawn
+          in this card is free.
+        */}
+        <div className="rounded-xl border border-white/5 bg-background/50 px-3 py-2.5">
           <div className="flex items-end justify-between gap-1.5">
             {WEEK.map((entry, index) => {
               const pct = Math.min(100, Math.round((entry.minutes / HERO_DAY_MINUTES) * 100))
               const isToday = index === TODAY_INDEX
               return (
                 <div key={index} className="flex flex-1 flex-col items-center gap-1.5">
-                  <div className="flex h-8 w-full items-end overflow-hidden rounded bg-surface-2/60">
+                  <div className="flex h-8 w-full items-end overflow-hidden rounded bg-background/70">
                     <div
                       className={cn(
                         'w-full rounded transition-colors duration-500 motion-reduce:transition-none',
@@ -368,8 +408,11 @@ export function ProductShot({ className }: { className?: string }) {
               )
             })}
           </div>
-          <p className="mt-2 text-center text-[11px] text-text-muted">
+          <p className="mt-2 flex flex-wrap items-center justify-center gap-1.5 text-center text-[11px] text-text-muted">
             The week ahead, each day planned around the time it really has
+            <span className="rounded bg-brand/15 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-brand">
+              Pro
+            </span>
           </p>
         </div>
       </div>

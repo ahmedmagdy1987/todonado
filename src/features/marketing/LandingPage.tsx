@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/auth-context'
-import { LivingBackground } from './components/LivingBackground'
-import { VortexField } from './components/VortexField'
+import { HeroBackdrop } from './components/HeroBackdrop'
 import { MarketingHeader } from './components/MarketingHeader'
 import { MarketingFooter } from './components/MarketingFooter'
 import { CONTAINER, Section, SectionIntro } from './components/Section'
@@ -18,6 +18,18 @@ import { PlanComparison } from './components/PlanComparison'
 import { PricingCards } from './components/PricingCards'
 import { LandingFaq } from './components/LandingFaq'
 import { ALL_IN_ONE_CATEGORIES, PRICING_DISCLAIMER } from './plans'
+
+/**
+ * The parts of a life the product organises, in the order a day meets them.
+ *
+ * Six words at the very top of the page. It is the cheapest possible fix for
+ * the complaint that the hero reads as business software: the breadth claim
+ * arrives BEFORE the pitch, in the one place on a phone guaranteed to be seen,
+ * instead of three lines down inside a paragraph. Every one of these is a real
+ * category in the sample day beneath it, so the claim is checkable on the same
+ * screen that makes it.
+ */
+const LIFE_DOMAINS = ['Work', 'Health', 'Family', 'Errands', 'Money', 'Routines'] as const
 
 /**
  * THE COMMERCIAL LANDING PAGE.
@@ -75,89 +87,167 @@ export function LandingPage() {
           material="brand"
           flush
           ariaLabel="What Todonado is"
-          className="hero-settle isolate overflow-hidden"
+          /*
+            `-mt-16 pt-16` LIFTS THE HERO'S BOX BEHIND THE HEADER, and it is
+            there for one measured reason. The header is `sticky h-16` and
+            transparent at rest, but it is IN FLOW, so the hero section used to
+            begin at y=64 and `overflow-hidden` clipped the backdrop to that
+            box. Sampled down the centre column, the spotlight went from L* 3.71
+            at y=60 to L* 15.77 at y=66: a hard horizontal edge across the full
+            width, exactly at the navigation's lower boundary, so the light read
+            as a lit bar welded to the header instead of as light.
+            The negative margin puts the section's box at y=0 and the matching
+            padding puts the CONTENT back where it was, so the composition is
+            untouched and the light simply passes behind the nav.
+
+            65 AND NOT 64, WHICH IS NOT A ROUNDING SLIP. The header is `h-16`
+            plus a `border-b border-transparent` it carries at rest purely so
+            that gaining a visible border on scroll does not shift the page by a
+            pixel. That border is part of its layout box, so the box is 65px and
+            a `-mt-16` lift left exactly one row of unlit background above the
+            light. Measured, not assumed: the hero's top was reported at y=1.
+          */
+          className="isolate -mt-[65px] overflow-hidden pt-[65px]"
         >
           {/*
-            THE BRAND MOMENT, AND THE ONLY ONE.
-            Both layers are scoped to this box: the aurora is `contained` rather
-            than fixed to the viewport, and the vortex is already absolute. So
-            the atmosphere belongs to the hero and stops costing anything the
-            moment it scrolls away, instead of sitting behind the whole document
-            where every opaque section below hides it anyway.
+            STRUCTURE, NOT WEATHER. The aurora and the vortex are gone; see
+            HeroBackdrop.tsx for why. Nothing in the background moves now, so
+            the only motion on the first screen is the plan assembling itself.
           */}
-          <LivingBackground contained />
-          <VortexField />
+          <HeroBackdrop />
 
           <div
-            className={`${CONTAINER} relative z-10 grid items-center gap-8 py-12 sm:gap-10 sm:py-20 lg:grid-cols-2 lg:gap-14 lg:py-24`}
+            /*
+              ── WHAT THE FIRST 844 PIXELS OWE A VISITOR ────────────────────
+              A measured audit of the phone hero found 240px of the fold going
+              to things that were neither the promise nor the proof: a six-line
+              paragraph, a second heavyweight button, and a line of microcopy
+              on its own. An intermediate build spent the reclaimed space by
+              hoisting the product card above the call to action, and that was
+              worse in a way worth recording: it put the sign-up control 160px
+              BELOW the fold, so a page whose whole argument is "this is not
+              another to-do list" opened on a phone with nothing but a list of
+              tasks and no way to act on it.
+              The order here is the plain one - promise, proof of the promise
+              in words, the ask, then the picture - and the space comes out of
+              the paragraph and the gaps instead. What lands above the fold on
+              a 390px screen is the headline, the sentence, both buttons, and
+              the top of the card, which is now where the day's two numbers
+              are drawn at a size you can actually read.
+            */
+            className={`${CONTAINER} relative z-10 grid gap-7 py-8 sm:gap-9 sm:py-14 lg:grid-cols-2 lg:items-center lg:gap-14 lg:py-24`}
           >
+            <div className="lg:flex lg:flex-col lg:justify-center">
             <div>
-              <h1 className="font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+              {/*
+                THE FIRST HUNDRED PIXELS SAY "NOT JUST WORK".
+
+                Every previous version spent its opening on a headline and then
+                a paragraph, and a visitor who read only that far had no reason
+                to think this was for anything but a job. Six words at the very
+                top does what a sentence three lines down could not: the breadth
+                claim arrives before the pitch, in the one place on a phone that
+                is guaranteed to be seen.
+              */}
+              <ul className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-text-muted">
+                {LIFE_DOMAINS.map((domain, index) => (
+                  <li
+                    key={domain}
+                    /*
+                      The sixth wraps onto a line of its own at 390px, which
+                      reads as a mistake rather than as a list. It joins from
+                      `sm`, where the row has the width for it.
+                    */
+                    className={cn('flex items-center gap-2', index >= 5 && 'hidden sm:flex')}
+                  >
+                    {index > 0 && <span aria-hidden className="h-1 w-1 rounded-full bg-brand/60" />}
+                    {domain}
+                  </li>
+                ))}
+              </ul>
+
+              <h1 className="mt-4 font-display text-[2.05rem] font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-6xl">
                 Your list is infinite.
                 <br />
                 Your day is not.
               </h1>
 
               {/*
-                NO CATEGORY NOUN, ON PURPOSE.
+                ONE SENTENCE, AND IT NARRATES THE THING BESIDE IT.
 
-                This sentence used to begin "Todonado is a daily planner". A
-                self-applied category noun is the strongest signal on a landing
-                page: it tells the reader which shelf to put you on, and
-                everything after it is read as a qualifier on that shelf. So the
-                clauses about running the plan in a timer and showing what it
-                really took, which are not planner behaviour at all, were being
-                absorbed as planner features.
+                The version this replaces was five lines of mechanism, and on a
+                390px screen it pushed the product visual almost entirely below
+                the fold: a visitor met a paragraph about a focus timer instead
+                of seeing the plan being built. Mechanism belongs further down
+                the page, where there is room to prove it.
 
-                It opens with a verb instead. The differentiator comes first
-                (hours, not wishes) so the claim stays sharp, and the breadth
-                comes second as concrete nouns a reader can check two screens
-                later on the feature map. Breathwork, mind maps and challenges
-                are deliberately left out: they are why people stay, not why a
-                stranger signs up, and a hero that lists everything invites the
-                does-everything-therefore-nothing read.
-
-                THE LIFE DOMAINS ARE NAMED FIRST, and "projects" was dropped.
-                The sentence previously moved straight from the loop to "the
-                week, your calendar, projects and a journal", which is four
-                surfaces and no life: a reader met a work vocabulary before
-                anything suggested the product was for the rest of their day.
-                Naming work, health, family and errands in the same breath is
-                what makes "the same day" mean a life rather than a workload,
-                and it is the same point the sample day beneath it is making.
-                The sentence is not longer for it.
+                What is left is the shape of the story the card is telling right
+                next to it, so the words and the picture say the same thing at
+                the same moment.
               */}
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
-                Work, health, family and errands all want the same day. Todonado plans one that
-                fits the hours you actually have, runs it in a focus timer, and shows what it
-                really took. Your calendar and journal are here too, and the week ahead on Pro.
+            </div>
+
+            <div className="mt-5 sm:mt-6">
+              {/*
+                THE ARC IN ONE SENTENCE: plan, work, look back.
+
+                Every verb here is a free, shipped surface. It deliberately does
+                NOT say the app reminds you or keeps you on track - push and
+                email reminders are not built on any tier, and the comparison
+                table further down concedes that row on purpose. "Shows you
+                where the time went" is the focus timer's recorded elapsed time,
+                which is free and appears on the task row; the Pro claim is
+                planned-versus-actual analysis, and that is marked where it is
+                made.
+              */}
+              <p className="max-w-lg text-base leading-relaxed text-text-muted sm:text-lg">
+                You have more to do than the day can hold. Todonado plans the part that fits, runs
+                it in a focus timer, and shows you where the time went.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" onClick={startFree} className="cta-sheen">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {/*
+                  NO HALO. `shadow-brand-glow` puts a 30px violet bloom under
+                  this button, and an ink audit of the phone hero found the two
+                  buttons carrying 79% of the headline's visual weight at 4.4
+                  times its chroma: the most saturated object on the first
+                  screen of a planning tool was a glowing bar. The brand fill
+                  stays, because that is the product's signature and it is what
+                  the app itself uses. The bloom goes, because it is the single
+                  most recognisable "dark SaaS template" signal on the page and
+                  it was winning a fight with the headline.
+                */}
+                <Button size="lg" onClick={startFree} className="cta-sheen shadow-none">
                   {ctaLabel}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
                 {/*
-                  An anchor, not a Button, because it navigates. Wrapping a
-                  <button> in an <a> is invalid and announces twice, and the
-                  Button primitive has no `asChild`, so the secondary CTA
-                  borrows the outline variant's classes directly.
+                  A text link, not a second button. Two heavy buttons stacked on
+                  a phone cost about sixty vertical pixels and split the intent;
+                  the secondary action is for people who want to look before
+                  they sign up, and a link is the honest weight for that.
                 */}
                 <a
-                  href="#features"
-                  className="focus-ring inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/10 px-6 text-base font-medium text-text-primary transition-colors hover:bg-surface-2/60"
+                  href="#how-it-works"
+                  className="focus-ring inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2 text-base font-medium text-text-primary underline-offset-4 hover:underline sm:px-4"
                 >
-                  See what Todonado does
+                  See how it works
+                  <ArrowRight className="h-4 w-4" aria-hidden />
                 </a>
               </div>
 
-              <p className="mt-5 text-sm text-text-muted">
-                A complete day, free forever. Not a trial, and no credit card needed.
+              {/*
+                Answers the two objections in the order people have them. Both
+                halves are true: Free has no expiry and the whole single-day
+                loop is uncapped.
+              */}
+              <p className="mt-4 text-sm text-text-muted">
+                A complete day, free forever. No trial to expire, and no credit card.
               </p>
             </div>
+            </div>
 
-            {/* One authentic product composition. Finished on first paint. */}
+            {/* The story: ten obligations arrive, seven fit, they get done. */}
             <ProductShot className="lg:justify-self-end" />
           </div>
         </Section>

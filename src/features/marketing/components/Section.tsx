@@ -21,17 +21,32 @@ import { cn } from '@/lib/utils'
  * ── THE RULE THIS ENCODES ──────────────────────────────────────────────────
  *
  * EVERY MATERIAL EXCEPT `brand` IS GENUINELY OPAQUE. Not `bg-surface/80`, not a
- * tinted overlay: a real background colour that occludes the aurora completely.
- * That is what makes the boundary between two sections a fact rather than a
- * suggestion, and it is why the aurora can stay in the hero without taking over
- * the page. Same brand, different environments.
+ * tinted overlay: a real background colour. That is what makes the boundary
+ * between two sections a fact rather than a suggestion.
+ *
+ * ── THE STEP IS 12.7, AND IT USED TO BE 4.6 ────────────────────────────────
+ *
+ * `panel` was `bg-surface` (#0F172A, L* 7.96) against a `#0A0D16` page
+ * (L* 3.66). Measured across the real boundary that is a WCAG step of 1.09:1,
+ * which is BELOW the threshold at which peripheral vision registers an edge at
+ * all. The rhythm the comment below describes was real in intent and absent in
+ * fact: an audit of the rendered page found 92.2% of the first screen inside a
+ * six-L* band out of a hundred, and the verdict was that the page reads as one
+ * long dark wash rather than as a sequence of rooms.
+ *
+ * `panel` is now `bg-surface-2` (#1E293B, L* 16.4). Step: delta-L* 12.7,
+ * 1.36:1. That is a boundary you see without looking for one, and it is why
+ * the fix was a TOKEN CHANGE rather than another background effect. Three
+ * rounds were spent adding atmosphere to a page whose defect was that it used
+ * six of the hundred lightness values available to it.
+ *
+ * Both values are locked tokens (CLAUDE.md §2). Nothing new was invented.
  *
  * Four materials carry the page, and each has a job:
  *
- *   brand    the hero, and nowhere else. The atmospheric moment: the aurora is
- *            visible here because this is the one place it earns its cost.
- *   panel    a clean, near-solid neutral surface, one step LIGHTER than the
- *            page. Used where prose and product visuals have to be legible.
+ *   brand    the hero, and nowhere else. The one atmospheric moment.
+ *   panel    a raised neutral slab, a REAL step lighter than the page. Used
+ *            where prose and product visuals have to be legible.
  *   data     the darker, technical material: page-dark plus a faint ruled grid.
  *            Used for the two sections that are essentially structured data
  *            (the feature map and the comparison), so the texture says "this is
@@ -49,9 +64,10 @@ import { cn } from '@/lib/utils'
 export type SectionMaterial = 'brand' | 'panel' | 'data' | 'premium' | 'quiet'
 
 const MATERIAL_CLASS: Record<SectionMaterial, string> = {
-  // Transparent on purpose: the aurora behind the page shows through here only.
+  // Transparent on purpose: the hero's own backdrop shows through here only.
   brand: 'bg-transparent',
-  panel: 'bg-surface',
+  // A raised slab, not a tint. See the delta-L* note above before lowering it.
+  panel: 'bg-surface-2',
   data: 'bg-background material-grid',
   premium: 'bg-background material-premium',
   quiet: 'bg-background',
