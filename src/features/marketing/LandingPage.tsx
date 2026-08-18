@@ -212,7 +212,24 @@ export function LandingPage() {
         </Section>
 
         {/* ═══════════════ 5 · COMPARE ════════════════════════════════════ */}
-        <Section material="data" id="compare" ariaLabel="How Todonado compares">
+        {/*
+          `data` for the COLOUR, with the texture switched off.
+
+          The ruled grid is a 56px pitch anchored to the section's left edge,
+          and 1152 is not a multiple of 56, so its vertical rules can never line
+          up with the container at any width. Behind a table they ran through
+          the cells at positions matching no column, which reads as broken cell
+          borders. Dropping the material entirely was the wrong fix: this
+          section sits between two panels, so it would have left two adjacent
+          sections the same colour and destroyed the boundary between them. The
+          base colour carries the alternation; only the texture goes.
+        */}
+        <Section
+          material="data"
+          id="compare"
+          ariaLabel="How Todonado compares"
+          className="[&::before]:hidden"
+        >
           <div className={CONTAINER}>
             <TwoColumnIntro
               eyebrow="04 · Compare"

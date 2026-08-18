@@ -185,20 +185,20 @@ export function CategoryComparison({ className }: { className?: string }) {
     <div className={className}>
       <Legend />
       {/* ── Desktop ───────────────────────────────────────────────────── */}
-      <table className="hidden w-full border-collapse text-left text-sm lg:table">
+      <table className="hidden w-full table-fixed border-collapse text-left text-sm lg:table">
         <caption className="sr-only">
           How Todonado compares with the categories of tool people already use
         </caption>
         <thead>
           <tr className="border-b border-white/10">
-            <th scope="col" className="w-[30%] py-3 pr-4 font-medium text-text-muted">
+            <th scope="col" className="w-[38%] py-3 pr-4 font-mono text-[11px] uppercase tracking-[0.16em] text-text-muted">
               What you are trying to do
             </th>
             {CATEGORIES.map((category) => (
               <th
                 key={category}
                 scope="col"
-                className="px-3 py-3 text-center font-medium text-text-muted"
+                className="px-3 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-text-muted"
               >
                 {category}
               </th>
@@ -211,7 +211,7 @@ export function CategoryComparison({ className }: { className?: string }) {
             */}
             <th
               scope="col"
-              className="rounded-t-xl border-b-2 border-brand px-3 py-3 text-center font-semibold text-text-primary"
+              className="rounded-t-xl border-b-2 border-brand px-3 py-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-text-primary"
             >
               Todonado
             </th>

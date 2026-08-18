@@ -78,7 +78,7 @@ export function PricingCards({
           A complete day, permanently. Not a trial.
         </p>
         <div className="mt-5 flex items-end gap-1.5">
-          <span className="font-display text-4xl font-bold text-text-primary">{usd(0)}</span>
+          <span className="font-display text-5xl font-bold tracking-tight text-text-primary tabular-nums">{usd(0)}</span>
           <span className="pb-1.5 text-sm text-text-muted">/month</span>
         </div>
         <p className="mt-2 text-xs text-text-muted">No card, no expiry.</p>
@@ -99,7 +99,7 @@ export function PricingCards({
           For the system you keep, not just the day you are in.
         </p>
         <div className="mt-5 flex items-end gap-1.5">
-          <span className="font-display text-4xl font-bold text-text-primary">
+          <span className="font-display text-5xl font-bold tracking-tight text-text-primary tabular-nums">
             {PRO_PRICE_COPY.monthlyAmount}
           </span>
           <span className="pb-1.5 text-sm text-text-muted">{PRO_PRICE_COPY.monthlySuffix}</span>

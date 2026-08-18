@@ -150,15 +150,15 @@ export function PlanComparison({ className }: { className?: string }) {
         </caption>
         <thead>
           <tr className="border-b border-white/10">
-            <th scope="col" className="w-1/4 py-3 pr-4 font-medium text-text-muted">
+            <th scope="col" className="w-1/4 py-3 pr-4 font-mono text-[11px] uppercase tracking-[0.16em] text-text-muted">
               What changes
             </th>
-            <th scope="col" className="w-[37.5%] px-4 py-3 font-medium text-text-muted">
+            <th scope="col" className="w-[37.5%] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-muted">
               Free
             </th>
             <th
               scope="col"
-              className="w-[37.5%] rounded-t-xl bg-brand/10 px-4 py-3 font-semibold text-text-primary"
+              className="w-[37.5%] rounded-t-xl bg-brand/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-primary"
             >
               Pro
             </th>

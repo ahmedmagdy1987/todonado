@@ -84,15 +84,40 @@ export const STEPS: readonly Step[] = [
  */
 function Shot({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-background">
+    /*
+     * THE BOX AND THE FILE SHARE ONE ASPECT RATIO, AND THAT IS THE FIX.
+     *
+     * These were fixed-height boxes (132px on a phone, 220px above it) holding
+     * an image of a different shape, so `object-cover` threw away whatever did
+     * not fit. On a phone that was 38% off the bottom: the timer ring was
+     * beheaded and its "05:00" disappeared entirely, and the capacity card's
+     * numbers were sliced horizontally through the glyphs. It read as a broken
+     * product directly beneath a caption promising "the screens below are the
+     * real app".
+     *
+     * The crops are now cut to exactly what should be seen, at 712x580 device
+     * pixels, and the box is `aspect-[520/300]`, which is the same ratio. So
+     * every width shows the whole crop and nothing is ever sliced.
+     */
+    <div className="relative aspect-[520/300] w-full overflow-hidden rounded-xl border border-white/10 bg-background">
       <img
         src={src}
         alt={alt}
-        width={356}
-        height={220}
+        width={520}
+        height={300}
         loading="lazy"
         decoding="async"
-        className="h-[132px] w-full object-cover object-left-top sm:h-[220px]"
+        className="h-full w-full object-cover object-left-top"
+      />
+      {/* Both cut edges continue off screen; fading them says so rather than
+          leaving a hard line that reads as a truncated or broken screenshot. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-background via-background/70 to-transparent"
+      />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background via-background/60 to-transparent"
       />
     </div>
   )
@@ -100,7 +125,7 @@ function Shot({ src, alt }: { src: string; alt: string }) {
 
 export function HowItWorks({ className }: { className?: string }) {
   return (
-    <div className={cn('grid gap-5 lg:grid-cols-3', className)}>
+    <div className={cn('grid gap-5 sm:grid-cols-3', className)}>
       {STEPS.map((step, index) => (
         <div key={step.label} className="flex flex-col">
           <div className="flex items-baseline gap-3">
@@ -145,7 +170,7 @@ function LearnPanel() {
     { label: 'Actual', minutes: 415, width: '83%', tone: 'bg-warning' },
   ]
   return (
-    <div className="flex h-[132px] flex-col justify-center rounded-xl border border-white/10 bg-background p-4 sm:h-[220px] sm:p-5">
+    <div className="flex aspect-[520/300] w-full flex-col justify-center rounded-xl border border-white/10 bg-background p-4 sm:p-5">
       <p className="font-mono text-[11px] uppercase tracking-wider text-text-muted">
         Planned vs completed effort
       </p>
