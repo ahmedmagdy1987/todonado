@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { makeTask } from '@/test/factories'
-import { FREE_HISTORY_DAYS } from '@/lib/config'
 import {
   historyCutoffDay,
   isWithinHistoryWindow,
@@ -88,8 +87,24 @@ describe('historyCutoffDay across a DST transition', () => {
   })
 })
 
+/*
+ * A FIXED 14 HERE, DELIBERATELY, RATHER THAN THE LIVE FREE WINDOW.
+ *
+ * What these two blocks test is the WINDOWING FUNCTION: given a cutoff day, is
+ * this date inside it. That behaviour has nothing to do with how many days the
+ * Free plan happens to grant, and wiring the live constant in meant every one
+ * of these dated assertions silently re-anchored the day the commercial number
+ * changed. It did: raising the Free window from 14 to 30 days moved the cutoff
+ * from 2026-07-15 to 2026-06-29 and broke four tests that were not about
+ * pricing at all.
+ *
+ * The Free number is asserted where it belongs, in the entitlement contract
+ * test. Here the window is an argument.
+ */
+const WINDOW_DAYS = 14
+
 describe('isWithinHistoryWindow', () => {
-  const cutoff = historyCutoffDay(FREE_HISTORY_DAYS, '2026-07-28') // 2026-07-15
+  const cutoff = historyCutoffDay(WINDOW_DAYS, '2026-07-28') // 2026-07-15
 
   it('is unlimited when there is no cutoff (Pro)', () => {
     expect(isWithinHistoryWindow('2019-01-01T00:00:00.000Z', null)).toBe(true)
@@ -127,7 +142,7 @@ describe('localDay', () => {
 })
 
 describe('windowTaskHistory', () => {
-  const cutoff = historyCutoffDay(FREE_HISTORY_DAYS, '2026-07-28') // 2026-07-15
+  const cutoff = historyCutoffDay(WINDOW_DAYS, '2026-07-28') // 2026-07-15
 
   it('is an identity for Pro (no cutoff) — upgrading reveals everything', () => {
     const tasks = [doneOn('2019-01-01'), doneOn('2026-07-28')]

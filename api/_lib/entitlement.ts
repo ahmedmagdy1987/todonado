@@ -1,10 +1,25 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { isFoundingEmail, resolveEffectivePlan, type Plan } from '../../src/features/billing/planCore.js'
+import { canUseFeature, type Feature } from '../../src/features/billing/entitlements.js'
 
 /**
  * SERVER-SIDE entitlement. The client has its own `usePlan()`, but a client gate
- * is a UX affordance, not a security control — so every Pro-only endpoint
- * resolves the plan again here, from the database.
+ * is a UX affordance, not a security control, so an endpoint that guards a paid
+ * capability resolves the plan again here, from the database.
+ *
+ * ── BE PRECISE ABOUT HOW MUCH THAT COVERS ──────────────────────────────────
+ *
+ * This file used to say "every Pro-only endpoint" does so. A product audit on
+ * 2026-08-17 established that only ONE endpoint ever called it, because only one
+ * paid capability has a server path at all: the calendar proxy. Everything else
+ * Pro is either a direct browser-to-PostgREST write (the count caps, the voice
+ * note upload) or a pure computation over rows the user's own session already
+ * holds (Insights, the week board, the history window).
+ *
+ * That is a real limit of the architecture, not an oversight in this module, and
+ * it is written down in docs/ENTITLEMENTS.md with the two ways to close it and
+ * what each would cost. Do not read the sentence above as a guarantee that any
+ * given paid action is enforced; check the table in that document.
  *
  * ── WHY THIS RETURNS A RESULT AND NOT A PLAN ───────────────────────────────
  *
@@ -207,3 +222,32 @@ export async function resolveServerEntitlement(
 export const ENTITLEMENT_UNAVAILABLE_STATUS = 503
 export const ENTITLEMENT_UNAVAILABLE_CODE = 'entitlement_unavailable'
 export const ENTITLEMENT_RETRY_AFTER_SECONDS = 30
+
+/**
+ * Does this resolved entitlement include a named capability?
+ *
+ * ── WHY A FEATURE KEY AND NOT `plan !== 'pro'` ─────────────────────────────
+ *
+ * The one server-side gate that existed read `entitlement.plan !== 'pro'`
+ * directly. That works while there is exactly one paid tier and exactly one
+ * gated endpoint, and it is precisely how the client drifted: sixteen call sites
+ * each deciding what "pro" entitles you to, none of them agreeing with the
+ * pricing page.
+ *
+ * Asking for a CAPABILITY instead means the client gate and the server gate
+ * consult the same table (`src/features/billing/entitlements.ts`, imported here
+ * by relative path because it is a dependency-free leaf). A tier change is then
+ * one edit in one file that both halves observe, and `entitlementContract.test.ts`
+ * asserts the two cannot diverge.
+ *
+ * Returns a THREE-STATE verdict for the same reason the client does. An endpoint
+ * must answer 503 for `unavailable` and 403 only for a decided `no`, because
+ * telling a paying customer they are not entitled is the silent downgrade this
+ * module exists to prevent.
+ */
+export type FeatureCheck = 'allowed' | 'denied' | 'unavailable'
+
+export function checkFeature(result: EntitlementResult, feature: Feature): FeatureCheck {
+  if (result.status !== 'resolved') return 'unavailable'
+  return canUseFeature(result.plan, feature) ? 'allowed' : 'denied'
+}

@@ -5,8 +5,8 @@ import { ArrowLeft, ArrowRight, Plus, Sprout, X } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { useToast } from '@/components/common/toast-context'
 import { useAuth } from '@/features/auth/auth-context'
-import { usePlan } from '@/features/billing/usePlan'
-import { FREE_QUIT_HABITS } from '@/lib/config'
+import { useEntitlements } from '@/features/billing/useEntitlements'
+import { ProUpgradeNotice } from '@/features/billing/components/ProUpgradeNotice'
 import { todayISO } from '@/lib/date'
 import type { QuitHabit } from '@/types/database'
 import { useQuitCheckins, useQuitHabits } from './api/useQuit'
@@ -15,10 +15,8 @@ import { checkedDaysForHabit, checkinStreak } from './quitMath'
 import { replacementLink } from './presets'
 import { QuitHabitCard } from './components/QuitHabitCard'
 import { QuitHabitDialog } from './components/QuitHabitDialog'
-import { QuitLimitUpsell } from './components/QuitLimitUpsell'
 import { SlipDialog } from './components/SlipDialog'
 import { SupportNote } from './components/SupportNote'
-import { capDecision } from '@/features/billing/gate'
 
 /**
  * The Quit area — habits the user is BREAKING.
@@ -35,7 +33,7 @@ import { capDecision } from '@/features/billing/gate'
 export function QuitPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro, billingLoading } = usePlan()
+  const { limitState, limit: limitFor, plan } = useEntitlements()
   const toast = useToast()
 
   const { data: habitsData, isPending } = useQuitHabits(userId)
@@ -65,19 +63,32 @@ export function QuitPage() {
   // until the SELECT lands. Same shape as the mind-map and Vision bypasses:
   // a limit derived from data that has not arrived is not a limit. The plan is
   // the other half of the same question — see src/features/billing/gate.ts.
-  const decision = capDecision({
-    planKnown: !billingLoading,
-    countKnown: !isPending,
-    isPro,
-    count: habits.length + (creating ? 1 : 0),
-    limit: FREE_QUIT_HABITS,
-  })
-  const ready = decision !== 'unknown'
+  /*
+   * ONE CALL, ASKING THE CONTRACT. The limit is not named here on purpose.
+   *
+   * Each of the six capped surfaces used to assemble this decision itself from
+   * `usePlan()` plus a `FREE_*` constant it imported, which is six copies of one
+   * rule and six chances to get the loading states wrong. Two of them already
+   * had: `MindMapsPage` shipped a bug where a tap before the list arrived saw
+   * `maps.length === 0`, passed the cap and created a second map on a one-map
+   * plan, and the same page later folded only the COUNT into `countKnown` and
+   * never the plan, so a Pro user at the Free limit was told on every cold load
+   * that they had hit a limit they had paid to remove.
+   *
+   * `limitState` answers `resolving` until BOTH the plan and the count are in,
+   * and the limit itself comes from the entitlement table. Grandfathering is the
+   * same call's default: an account already above the ceiling is refused a NEW
+   * one and keeps everything it has.
+   */
+  const used = habits.length + (creating ? 1 : 0)
+  const decision = limitState('quitHabits', used, !isPending)
+  const limit = limitFor('quitHabits')
+  const ready = decision !== 'resolving'
   const justSlipped = habits.find((h) => h.id === justSlippedId) ?? null
 
   function openAdd() {
     if (!ready) return
-    if (decision === 'capped') {
+    if (decision === 'atLimit') {
       // The gate is a card in the flow, never a modal — and the editor must not
       // open behind it. Same contract as the personal-template limit.
       setShowLimit(true)
@@ -137,7 +148,12 @@ export function QuitPage() {
 
       <SupportNote />
 
-      {showLimit && decision === 'capped' && <QuitLimitUpsell limit={FREE_QUIT_HABITS} />}
+      {showLimit && decision === 'atLimit' && <ProUpgradeNotice
+          featureKey="quitHabits"
+          count={used}
+          limit={limit}
+          plan={plan}
+        />}
 
       {justSlipped && (
         <AfterSlipCard

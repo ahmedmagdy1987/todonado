@@ -7,22 +7,20 @@ import { newPositionForMove } from '@/lib/reorder'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { selectByProject } from '@/features/tasks/selectors'
-import { FREE_PERSONAL_TEMPLATES } from '@/lib/config'
 import { useToast } from '@/components/common/toast-context'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
+import { ProUpgradeNotice } from '@/features/billing/components/ProUpgradeNotice'
 import { useUserTemplates } from '@/features/templates/api/useUserTemplates'
 import {
   captureProjectAsTemplate,
   toUserTemplateTasks,
 } from '@/features/templates/personal'
-import { PersonalLimitUpsell } from '@/features/templates/components/PersonalLimitUpsell'
 import { windowTaskHistory } from '@/features/history/historyWindow'
 import { useHistoryWindow } from '@/features/history/useHistoryWindow'
 import { HistoryCutoffCard } from '@/features/history/components/HistoryCutoffCard'
 import { useProjects, useProjectMutations } from './api/useProjects'
 import { useSections, useSectionMutations } from './api/useSections'
 import { SectionGroup } from './components/SectionGroup'
-import { capDecision } from '@/features/billing/gate'
 import { LIMITS } from '@/lib/limits'
 
 export function ProjectDetailPage() {
@@ -39,30 +37,48 @@ export function ProjectDetailPage() {
   const { createSection, renameSection, deleteSection, reorderSection } =
     useSectionMutations(projectId)
   const { updateProject, archiveProject } = useProjectMutations(workspaceId)
-  const { cutoffDay, days: historyDays } = useHistoryWindow()
+  const { cutoffDay, days: historyDays, resolving: planResolving } = useHistoryWindow()
 
   const [newSection, setNewSection] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [showTemplateLimit, setShowTemplateLimit] = useState(false)
   const toast = useToast()
-  const { isPro, billingLoading } = usePlan()
+  const { limitState, limit: limitFor, plan } = useEntitlements()
   const {
     templates: personalRows,
     available: personalTemplatesAvailable,
     createTemplate,
     isPending: personalPending,
   } = useUserTemplates()
-  // See TemplatesPage: the cap is client-side only, so it must not be judged
-  // against an empty list while the query is still in flight.
-  const countKnown = !personalPending && !billingLoading
-  const decision = capDecision({
-    planKnown: !billingLoading,
-    countKnown: !personalPending,
-    isPro,
-    count: personalRows.length,
-    limit: FREE_PERSONAL_TEMPLATES,
-  })
+  /*
+   * Only the COUNT now. The plan half moved into `limitState`, which will not
+   * return a verdict until both are in, so folding `billingLoading` in here as
+   * well would be the same guard written twice in two places that could drift.
+   * Kept as a named value because the create affordance below is disabled on it
+   * directly: nothing may be written from a list that has not arrived.
+   */
+  const countKnown = !personalPending
+  /*
+   * ONE CALL, ASKING THE CONTRACT. The limit is not named here on purpose.
+   *
+   * Each of the six capped surfaces used to assemble this decision itself from
+   * `usePlan()` plus a `FREE_*` constant it imported, which is six copies of one
+   * rule and six chances to get the loading states wrong. Two of them already
+   * had: `MindMapsPage` shipped a bug where a tap before the list arrived saw
+   * `maps.length === 0`, passed the cap and created a second map on a one-map
+   * plan, and the same page later folded only the COUNT into `countKnown` and
+   * never the plan, so a Pro user at the Free limit was told on every cold load
+   * that they had hit a limit they had paid to remove.
+   *
+   * `limitState` answers `resolving` until BOTH the plan and the count are in,
+   * and the limit itself comes from the entitlement table. Grandfathering is the
+   * same call's default: an account already above the ceiling is refused a NEW
+   * one and keeps everything it has.
+   */
+  const used = personalRows.length
+  const decision = limitState('personalTemplates', used, countKnown)
+  const limit = limitFor('personalTemplates')
 
   const project = projects.find((p) => p.id === projectId)
 
@@ -112,7 +128,7 @@ export function ProjectDetailPage() {
   function saveAsTemplate() {
     if (!project || createTemplate.isPending || !countKnown) return
     if (sectionsPending || sectionsError) return
-    if (decision === 'capped') {
+    if (decision === 'atLimit') {
       setShowTemplateLimit(true)
       return
     }
@@ -227,8 +243,13 @@ export function ProjectDetailPage() {
         </div>
       </header>
 
-      {showTemplateLimit && decision === 'capped' && (
-        <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />
+      {showTemplateLimit && decision === 'atLimit' && (
+        <ProUpgradeNotice
+          featureKey="personalTemplates"
+          count={used}
+          limit={limit}
+          plan={plan}
+        />
       )}
 
       <SectionGroup
@@ -271,8 +292,11 @@ export function ProjectDetailPage() {
       )}
 
       {/* Quiet end-of-history marker. Renders nothing at all when the window
-          withheld nothing — so a user in their first two weeks never sees it. */}
-      <HistoryCutoffCard hiddenCount={hiddenCount} days={historyDays} />
+          withheld nothing, so a user in their first month never sees it, and
+          nothing at all until the plan is actually known: telling a paying
+          subscriber their history is behind a Free window, even for one round
+          trip, is the failure this guard exists to prevent. */}
+      {!planResolving && <HistoryCutoffCard hiddenCount={hiddenCount} days={historyDays} />}
 
       <form onSubmit={addSection} className="flex items-center gap-2">
         <Plus className="h-4 w-4 text-text-muted" aria-hidden />

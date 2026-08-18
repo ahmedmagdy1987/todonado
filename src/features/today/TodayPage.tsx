@@ -14,8 +14,7 @@ import { useCalendarBusy } from '@/features/calendar/api/useCalendarBusy'
 import { withCalendar } from '@/features/calendar/capacity'
 import { useUpdateCapacity } from '@/features/workspace/api/useUpdateCapacity'
 import { selectToday } from '@/features/tasks/selectors'
-import { useHistoryWindow } from '@/features/history/useHistoryWindow'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
 import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
 import { estimationBias } from '@/features/insights/insights'
 import { planDay } from './autoPlan'
@@ -75,11 +74,16 @@ export function TodayPage() {
   const tomorrow = isoDateOffset(1)
   const name = user?.email?.split('@')[0] ?? 'there'
 
-  // Free sees a rolling history window; Pro/Founding get null (unlimited).
-  // NOTE: this bounds HISTORY ONLY. Today's task list, the capacity meter,
-  // roll-over and auto-plan below all read the FULL task set, so an open task of
-  // any age still shows, still counts, and still plans.
-  const { cutoffDay: historyCutoff } = useHistoryWindow(today)
+  /*
+   * TODAY NO LONGER CONSULTS THE HISTORY WINDOW AT ALL, AND THAT IS CORRECT.
+   *
+   * `useHistoryWindow` was read here for exactly one purpose: to bound the
+   * planning streak, which was a bug (see the streak note below). Nothing else
+   * on this screen is a history surface. Today's task list, the capacity meter,
+   * roll-over and auto-plan all read the FULL task set, so an open task of any
+   * age still shows, still counts and still plans on either plan. The window
+   * belongs to the completed-work surfaces that import it directly.
+   */
 
   // Today's calendar busy-minutes (0 when the feature/sources are off or fail).
   const {
@@ -102,15 +106,18 @@ export function TodayPage() {
   const summary = cal.summary
   const suggestions = suggestTasksToMoveTomorrow(todayTasks, cal.effectiveCapacity)
 
-  // Planning streak — derived from the tasks cache (no new table); non-shaming.
-  // Bounded by the plan's history window so a Free streak is computed only from
-  // days that plan can actually see (never silently from hidden history).
+  /*
+   * Planning streak — derived from the tasks cache (no new table); non-shaming.
+   *
+   * UNCAPPED ON BOTH PLANS, and `historyCutoff` is deliberately NOT passed. It
+   * used to be, which meant a Free user who had planned every day for months
+   * read "14-day streak" indefinitely with nothing to explain it. The history
+   * window is a display limit on completed work; a motivation counter is not
+   * completed work. See the note on `planningStreak`.
+   */
   const streak = useMemo(
-    () =>
-      FEATURES.streak
-        ? planningStreak(tasks, today, historyCutoff)
-        : { count: 0, includesToday: false },
-    [tasks, today, historyCutoff],
+    () => (FEATURES.streak ? planningStreak(tasks, today) : { count: 0, includesToday: false }),
+    [tasks, today],
   )
 
   // capacity_viewed: once per Today mount. over_capacity_hit: once per mount, the
@@ -171,7 +178,7 @@ export function TodayPage() {
   //  from whatever is cached — a not-yet-loaded input simply means a section
   //  stays quiet, never a spinner and never a blocked page.
   // ---------------------------------------------------------------------------
-  const { isPro, billingLoading } = usePlan()
+  const { status, plan } = useEntitlements()
   const [planScope, setPlanScope] = usePlanScope(user?.id ?? '')
   const { data: focusSessions = [] } = useFocusSessions(workspaceId)
   const { dismissed: digestDismissed, dismiss: dismissDigest, reopen: reopenDigest } =
@@ -206,12 +213,16 @@ export function TodayPage() {
     () =>
       composeDigest({
         todayStr: today,
-        // Optimistic-Pro while billing loads. Today is the app's default screen,
-        // so the unfolded read here was the highest-traffic instance of it: a
-        // paying subscriber got the FREE briefing — no plan to accept, no
-        // estimation nudge, no priority alerts — plus a proTeaser block
-        // pitching Pro to someone who already bought it, on every cold load.
-        isPro: isPro || billingLoading,
+        /*
+         * The three-state entitlement, replacing `isPro || billingLoading`.
+         *
+         * That read existed to stop a subscriber being shown the Free briefing
+         * plus a pitch for the plan they already pay for. It worked, and it also
+         * made Today, the default screen, the highest-traffic place where a Free
+         * user was handed the paid layer. `composeDigest` now suppresses the
+         * upsell while resolving instead, so neither party sees the wrong thing.
+         */
+        entitlement: { status, plan },
         accountAgeDays,
         streak,
         rolloverTasks: overdue,
@@ -224,7 +235,7 @@ export function TodayPage() {
         tasks,
       }),
     [
-      today, isPro, billingLoading, accountAgeDays, streak, overdue, hasCalendar,
+      today, status, plan, accountAgeDays, streak, overdue, hasCalendar,
       cal.busyMinutes, summary.freeMinutes, summary.status, dayPlan, bias, tasks,
     ],
   )

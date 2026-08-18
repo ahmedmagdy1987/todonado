@@ -4,6 +4,7 @@ import { getSupabaseAdmin, getUserFromAuthHeader } from './_lib/supabase.js'
 import { apiError, json, withErrorBoundary } from './_lib/http.js'
 import { toNodeHandler } from './_lib/nodeAdapter.js'
 import {
+  checkFeature,
   ENTITLEMENT_RETRY_AFTER_SECONDS,
   ENTITLEMENT_UNAVAILABLE_CODE,
   ENTITLEMENT_UNAVAILABLE_STATUS,
@@ -145,7 +146,16 @@ async function calendarFetch(req: Request): Promise<Response> {
       retry_after: ENTITLEMENT_RETRY_AFTER_SECONDS,
     })
   }
-  if (entitlement.plan !== 'pro') return apiError(403, 'pro_required')
+  /*
+   * ASKS THE SHARED CONTRACT, NOT THE TIER. This read `entitlement.plan !== 'pro'`,
+   * which is correct today and is exactly how the client half drifted: a tier
+   * name tells you nothing about what it entitles you to, so every call site
+   * ends up re-deciding. `calendar.liveSync` is a row in one table that the
+   * client gate reads too (src/features/billing/entitlements.ts).
+   */
+  if (checkFeature(entitlement, 'calendar.liveSync') !== 'allowed') {
+    return apiError(403, 'pro_required')
+  }
 
   /*
    * THE CAP IS ON THE QUERY, NOT ON THE LOOP (issue #9). Selecting every row

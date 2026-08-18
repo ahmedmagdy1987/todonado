@@ -6,7 +6,7 @@ import { Badge, Button, Card, Input } from '@/components/ui'
 import { useToast } from '@/components/common/toast-context'
 import { todayISO } from '@/lib/date'
 import { useAuth } from '@/features/auth/auth-context'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
 import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
 import { MAX_CALENDAR_SOURCES_PER_USER } from '@/lib/config'
 import type { CalendarSource } from '@/types/database'
@@ -135,8 +135,10 @@ function LiveSyncUpsell({ onUpgradeClick }: { onUpgradeClick: () => void }) {
  */
 export function CalendarSettings() {
   const { sources, addSource, removeSource } = useCalendarSources()
-  const { isPro, billingLoading } = usePlan()
-  const planKnown = !billingLoading
+  const { access } = useEntitlements()
+  const syncAccess = access('calendar.liveSync')
+  const isPro = syncAccess === 'allowed'
+  const planKnown = syncAccess !== 'resolving'
   const { user } = useAuth()
   const { updatedAt, refresh, hadError } = useCalendarBusy(todayISO())
   const toast = useToast()
@@ -249,18 +251,20 @@ export function CalendarSettings() {
         </div>
       </div>
 
-      {/* Optimistic-Pro while the plan loads (the JournalPage idiom): a
-          subscriber must not watch their working calendars flash "Paused —
-          live sync is a Pro feature" on every cold load. Failing in the user's
-          favour costs nothing here, because the real enforcement is
-          server-side in /api/calendar-fetch, not in this flag. */}
+      {/* The "Paused" badge waits for a real answer rather than assuming one.
+          A subscriber must not watch their working calendars flash "Paused:
+          live sync is a Pro feature" on every cold load, and a Free user must
+          not be told their paused source is fine either. `paused` is false
+          while resolving, so the row simply says nothing until it can say
+          something true. The enforcement that matters is server-side in
+          /api/calendar-fetch; this flag is only ever the honest UI half. */}
       {sources.length > 0 && (
         <ul className="mb-4 space-y-2">
           {sources.map((s) => (
             <SourceRow
               key={s.id}
               source={s}
-              isPro={isPro || billingLoading}
+              isPro={syncAccess !== 'locked'}
               lastRefreshed={updatedAt}
               onRemove={() => removeSource.mutate(s.id)}
             />

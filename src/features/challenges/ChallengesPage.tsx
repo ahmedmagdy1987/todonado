@@ -1,35 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Check, Flag, Share2, Sparkles, X } from 'lucide-react'
+import { Check, Flag, Share2, X } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
+import { ProUpgradeNotice } from '@/features/billing/components/ProUpgradeNotice'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useFocusSessions } from '@/features/focus/api/useFocusSessions'
 import { useQuitHabits } from '@/features/wellness/quit/api/useQuit'
 import { ShareCardDialog } from '@/features/share/ShareCardDialog'
-import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
-import { FEATURES, FREE_ACTIVE_CHALLENGES } from '@/lib/config'
+import { FEATURES } from '@/lib/config'
 import { todayISO } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import type { UserChallenge } from '@/types/database'
-import {
-  type Challenge,
-  type ChallengeData,
-  type ChallengePhase,
-  type ChallengeProgress,
-  challengeFor,
-  challengeProgress,
-  challengeTerms,
-  daysLeft,
-  offerableChallenges,
-  phaseOf,
-  progressLabel,
-} from './challenges'
+import { type Challenge, type ChallengeData, type ChallengePhase, type ChallengeProgress, challengeFor, challengeProgress, challengeTerms, daysLeft, offerableChallenges, phaseOf, progressLabel } from './challenges'
 import { useChallengeMutations, useUserChallenges } from './api/useChallenges'
 import { useJournalEntries } from '@/features/journal/api/useJournal'
-import { capDecision } from '@/features/billing/gate'
 
 /**
  * Challenges — a structured push you opt into, and nothing you are opted into.
@@ -47,7 +33,7 @@ import { capDecision } from '@/features/billing/gate'
 export function ChallengesPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro, billingLoading } = usePlan()
+  const { limitState, limit: limitFor, plan } = useEntitlements()
   // `capacityMinutes` already resolves the profile value or the default, so the
   // capacity challenge and the Today meter can never disagree about what "fits".
   const { workspaceId, profile, capacityMinutes } = useWorkspace()
@@ -106,14 +92,27 @@ export function ChallengesPage() {
    * header would have reintroduced the bypass with nothing to catch it. Now the
    * decision states its own preconditions. See src/features/billing/gate.ts.
    */
-  const decision = capDecision({
-    planKnown: !billingLoading,
-    countKnown: !isPending,
-    isPro,
-    count: activeCount + (join.isPending ? 1 : 0),
-    limit: FREE_ACTIVE_CHALLENGES,
-  })
-  const ready = decision !== 'unknown'
+  /*
+   * ONE CALL, ASKING THE CONTRACT. The limit is not named here on purpose.
+   *
+   * Each of the six capped surfaces used to assemble this decision itself from
+   * `usePlan()` plus a `FREE_*` constant it imported, which is six copies of one
+   * rule and six chances to get the loading states wrong. Two of them already
+   * had: `MindMapsPage` shipped a bug where a tap before the list arrived saw
+   * `maps.length === 0`, passed the cap and created a second map on a one-map
+   * plan, and the same page later folded only the COUNT into `countKnown` and
+   * never the plan, so a Pro user at the Free limit was told on every cold load
+   * that they had hit a limit they had paid to remove.
+   *
+   * `limitState` answers `resolving` until BOTH the plan and the count are in,
+   * and the limit itself comes from the entitlement table. Grandfathering is the
+   * same call's default: an account already above the ceiling is refused a NEW
+   * one and keeps everything it has.
+   */
+  const used = activeCount + (join.isPending ? 1 : 0)
+  const decision = limitState('activeChallenges', used, !isPending)
+  const limit = limitFor('activeChallenges')
+  const ready = decision !== 'resolving'
 
   /**
    * Write the outcome once, when the derived number first reaches the target.
@@ -144,7 +143,7 @@ export function ChallengesPage() {
 
   function start(challenge: Challenge) {
     if (!ready) return
-    if (decision === 'capped') {
+    if (decision === 'atLimit') {
       setShowLimit(true)
       return
     }
@@ -170,7 +169,12 @@ export function ChallengesPage() {
         </div>
       </header>
 
-      {showLimit && decision === 'capped' && <ChallengeLimitUpsell limit={FREE_ACTIVE_CHALLENGES} />}
+      {showLimit && decision === 'atLimit' && <ProUpgradeNotice
+          featureKey="activeChallenges"
+          count={used}
+          limit={limit}
+          plan={plan}
+        />}
 
       {!available ? (
         <NotSwitchedOnCard />
@@ -436,52 +440,6 @@ function OfferCard({
   )
 }
 
-function ChallengeLimitUpsell({ limit }: { limit: number }) {
-  const { user } = useAuth()
-
-  function recordIntent() {
-    void captureUpgradeIntent({
-      tier: 'pro',
-      userId: user?.id ?? null,
-      email: user?.email ?? null,
-      source: 'challenge_limit',
-    }).catch(() => {
-      /* signal only — never block the click */
-    })
-  }
-
-  return (
-    <div
-      role="note"
-      aria-label="Challenge limit reached"
-      className="rounded-2xl border border-brand/25 bg-brand-gradient-soft p-4"
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-brand">
-          <Sparkles className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">
-            {limit === 1 ? 'One at a time on Free' : `${limit} at a time on Free`}. Pro runs as many
-            as you like
-          </p>
-          <p className="mt-1 text-xs leading-relaxed text-text-muted">
-            Only challenges still running count toward this; finished and ended ones never block a
-            new one.{' '}
-            <Link
-              to="/settings/plan"
-              onClick={recordIntent}
-              className="focus-ring rounded text-accent underline-offset-4 hover:underline"
-            >
-              Upgrade
-            </Link>{' '}
-            to stack them.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /** The honest state when `user_challenges` does not exist yet. */
 function NotSwitchedOnCard() {

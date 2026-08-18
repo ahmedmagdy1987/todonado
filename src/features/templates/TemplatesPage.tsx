@@ -4,18 +4,16 @@ import { LayoutTemplate, Plus, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button, Card, CardContent, Input } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { FREE_PERSONAL_TEMPLATES } from '@/lib/config'
 import { useToast } from '@/components/common/toast-context'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
+import { ProUpgradeNotice } from '@/features/billing/components/ProUpgradeNotice'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { TEMPLATES, TEMPLATE_CATEGORIES } from './catalog'
 import { resolveTemplateIcon } from './icons'
 import { filterTemplates } from './browse'
 import { TemplateCard } from './components/TemplateCard'
 import { PersonalTemplateEditor } from './components/PersonalTemplateEditor'
-import { PersonalLimitUpsell } from './components/PersonalLimitUpsell'
 import { useUserTemplates } from './api/useUserTemplates'
-import { capDecision } from '@/features/billing/gate'
 import {
   personalToTemplate,
   toTemplateStyle,
@@ -72,7 +70,7 @@ export function TemplatesPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showLimit, setShowLimit] = useState(false)
-  const { isPro, billingLoading } = usePlan()
+  const { limitState, limit: limitFor, plan } = useEntitlements()
   const { workspaceId } = useWorkspace()
   const {
     templates: personalRows,
@@ -83,10 +81,14 @@ export function TemplatesPage() {
     isPending: personalPending,
   } = useUserTemplates()
   const toast = useToast()
-  // The personal-template cap is client-side only — the migration has size
-  // CHECKs but no row-count constraint — so it must not be evaluated against
-  // an empty list during load.
-  const countKnown = !personalPending && !billingLoading
+  /*
+   * Only the COUNT now. The plan half moved into `limitState`, which will not
+   * return a verdict until both are in, so folding `billingLoading` in here as
+   * well would be the same guard written twice in two places that could drift.
+   * Kept as a named value because the create affordance below is disabled on it
+   * directly: nothing may be written from a list that has not arrived.
+   */
+  const countKnown = !personalPending
 
   // One adaptation at the boundary — from here on a personal template IS a
   // Template, so the card, search and preview below are the shared code path.
@@ -95,13 +97,26 @@ export function TemplatesPage() {
     () => filterTemplates(personal, category, query),
     [personal, category, query],
   )
-  const decision = capDecision({
-    planKnown: !billingLoading,
-    countKnown: !personalPending,
-    isPro,
-    count: personalRows.length + (createTemplate.isPending ? 1 : 0),
-    limit: FREE_PERSONAL_TEMPLATES,
-  })
+  /*
+   * ONE CALL, ASKING THE CONTRACT. The limit is not named here on purpose.
+   *
+   * Each of the six capped surfaces used to assemble this decision itself from
+   * `usePlan()` plus a `FREE_*` constant it imported, which is six copies of one
+   * rule and six chances to get the loading states wrong. Two of them already
+   * had: `MindMapsPage` shipped a bug where a tap before the list arrived saw
+   * `maps.length === 0`, passed the cap and created a second map on a one-map
+   * plan, and the same page later folded only the COUNT into `countKnown` and
+   * never the plan, so a Pro user at the Free limit was told on every cold load
+   * that they had hit a limit they had paid to remove.
+   *
+   * `limitState` answers `resolving` until BOTH the plan and the count are in,
+   * and the limit itself comes from the entitlement table. Grandfathering is the
+   * same call's default: an account already above the ceiling is refused a NEW
+   * one and keeps everything it has.
+   */
+  const used = personalRows.length + (createTemplate.isPending ? 1 : 0)
+  const decision = limitState('personalTemplates', used, countKnown)
+  const limit = limitFor('personalTemplates')
 
   const editing = editingId ? personalRows.find((r) => r.id === editingId) : undefined
   const editingDraft: PersonalTemplateDraft | undefined = editing
@@ -118,7 +133,7 @@ export function TemplatesPage() {
   function startNew() {
     if (!countKnown) return
     // The limit gates CREATION only — never viewing or applying what exists.
-    if (decision === 'capped') {
+    if (decision === 'atLimit') {
       setShowLimit(true)
       return
     }
@@ -222,7 +237,12 @@ export function TemplatesPage() {
         )}
       </header>
 
-      {showLimit && decision === 'capped' && <PersonalLimitUpsell limit={FREE_PERSONAL_TEMPLATES} />}
+      {showLimit && decision === 'atLimit' && <ProUpgradeNotice
+          featureKey="personalTemplates"
+          count={used}
+          limit={limit}
+          plan={plan}
+        />}
 
       <div className="relative">
         <Search

@@ -16,7 +16,7 @@ import { LoadError } from '@/components/common/LoadError'
 import { formatMinutes } from '@/lib/format'
 import { todayISO } from '@/lib/date'
 import { track } from '@/features/analytics/track'
-import { usePlan } from '@/features/billing/usePlan'
+import { useEntitlements } from '@/features/billing/useEntitlements'
 import { useWorkspace } from '@/features/workspace/workspace-context'
 import { useTasks } from '@/features/tasks/api/useTasks'
 import { useTaskMutations } from '@/features/tasks/api/useTaskMutations'
@@ -43,7 +43,17 @@ interface WeekUndo {
 }
 
 export function WeekPage() {
-  const { isPro, billingLoading } = usePlan()
+  /*
+   * The flagship paid capability, asked for by name.
+   *
+   * `access` is three-state, which this page already handled correctly by hand
+   * and is the reason it was the ONE surface the audit found doing so: it shows
+   * the upsell only on a decided `locked`, and a loader while the answer is
+   * outstanding. That behaviour is unchanged; what changed is that the question
+   * is now "may they use the week board?" rather than "is this string 'pro'?",
+   * so the answer comes from the same table the server and the pricing page read.
+   */
+  const boardAccess = useEntitlements().access('week.board')
   const { user } = useAuth()
   // The same per-user memory the day planner uses, so the two controls agree.
   const [planScope, setPlanScope] = usePlanScope(user?.id ?? '')
@@ -109,11 +119,11 @@ export function WeekPage() {
   const estimateCost = (task: Task) => suggestEffort(task.title, task.project_id)?.minutes ?? 30
 
   // Free users get the honest sample-data preview, never their own week teased.
-  if (!isPro && !billingLoading) return <WeekUpsell />
+  if (boardAccess === 'locked') return <WeekUpsell />
   // `calendarReady` is in the gate for the same reason it is on Today: until
   // the calendar has been consulted every day looks empty, and "Plan my week"
   // writes SEVEN days at once.
-  if (billingLoading || isPending || !calendarReady)
+  if (boardAccess === 'resolving' || isPending || !calendarReady)
     return <FullScreenLoader label="Loading your week…" />
   if (isError) {
     return (

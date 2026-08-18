@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Network, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Network, Plus, Trash2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@/components/ui'
 import { useAuth } from '@/features/auth/auth-context'
-import { usePlan } from '@/features/billing/usePlan'
-import { captureUpgradeIntent } from '@/features/marketing/api/upgradeIntents'
-import { FREE_MIND_MAPS } from '@/lib/config'
+import { useEntitlements } from '@/features/billing/useEntitlements'
+import { ProUpgradeNotice } from '@/features/billing/components/ProUpgradeNotice'
 import { emptyGraph } from './graph'
 import { useMindMapMutations, useMindMaps } from './api/useMindMaps'
-import { capDecision } from '@/features/billing/gate'
 
 /**
  * The list of maps.
@@ -19,7 +17,7 @@ import { capDecision } from '@/features/billing/gate'
 export function MindMapsPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
-  const { isPro, billingLoading } = usePlan()
+  const { limitState, limit: limitFor, plan } = useEntitlements()
   const navigate = useNavigate()
 
   const { data, isPending } = useMindMaps(userId)
@@ -47,18 +45,31 @@ export function MindMapsPage() {
    * had hit a limit they had paid to remove. A cap computed from data that has
    * not arrived is not a cap, whichever half is missing.
    */
-  const decision = capDecision({
-    planKnown: !billingLoading,
-    countKnown: !isPending,
-    isPro,
-    count: maps.length + pending,
-    limit: FREE_MIND_MAPS,
-  })
-  const ready = decision !== 'unknown'
+  /*
+   * ONE CALL, ASKING THE CONTRACT. The limit is not named here on purpose.
+   *
+   * Each of the six capped surfaces used to assemble this decision itself from
+   * `usePlan()` plus a `FREE_*` constant it imported, which is six copies of one
+   * rule and six chances to get the loading states wrong. Two of them already
+   * had: `MindMapsPage` shipped a bug where a tap before the list arrived saw
+   * `maps.length === 0`, passed the cap and created a second map on a one-map
+   * plan, and the same page later folded only the COUNT into `countKnown` and
+   * never the plan, so a Pro user at the Free limit was told on every cold load
+   * that they had hit a limit they had paid to remove.
+   *
+   * `limitState` answers `resolving` until BOTH the plan and the count are in,
+   * and the limit itself comes from the entitlement table. Grandfathering is the
+   * same call's default: an account already above the ceiling is refused a NEW
+   * one and keeps everything it has.
+   */
+  const used = maps.length + pending
+  const decision = limitState('mindMaps', used, !isPending)
+  const limit = limitFor('mindMaps')
+  const ready = decision !== 'resolving'
 
   function create() {
     if (!ready) return
-    if (decision === 'capped') {
+    if (decision === 'atLimit') {
       setShowLimit(true)
       return
     }
@@ -95,7 +106,12 @@ export function MindMapsPage() {
         )}
       </header>
 
-      {showLimit && decision === 'capped' && <MapLimitUpsell limit={FREE_MIND_MAPS} />}
+      {showLimit && decision === 'atLimit' && <ProUpgradeNotice
+          featureKey="mindMaps"
+          count={used}
+          limit={limit}
+          plan={plan}
+        />}
 
       {!available ? (
         <NotSwitchedOnCard />
@@ -173,51 +189,6 @@ function relativeDay(iso: string): string {
   return new Date(iso).toLocaleDateString()
 }
 
-function MapLimitUpsell({ limit }: { limit: number }) {
-  const { user } = useAuth()
-
-  function recordIntent() {
-    void captureUpgradeIntent({
-      tier: 'pro',
-      userId: user?.id ?? null,
-      email: user?.email ?? null,
-      source: 'mindmap_limit',
-    }).catch(() => {
-      /* signal only — never block the click */
-    })
-  }
-
-  return (
-    <div
-      role="note"
-      aria-label="Mind map limit reached"
-      className="rounded-2xl border border-brand/25 bg-brand-gradient-soft p-4"
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-brand">
-          <Sparkles className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-text-primary">
-            {limit === 1 ? 'One map on Free' : `${limit} maps on Free`}. Pro keeps it unlimited.
-          </p>
-          <p className="mt-1 leading-relaxed text-xs text-text-muted">
-            The map you have holds 200 ideas and keeps working exactly as it is; this only limits
-            starting another.{' '}
-            <Link
-              to="/settings/plan"
-              onClick={recordIntent}
-              className="focus-ring rounded text-accent underline-offset-4 hover:underline"
-            >
-              Upgrade
-            </Link>{' '}
-            for as many as you need.
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 /** The honest state when `mind_maps` does not exist yet. */
 function NotSwitchedOnCard() {

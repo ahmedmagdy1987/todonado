@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ALL_FEATURES, canUseFeature } from '../../src/features/billing/entitlements.js'
 import {
   classifyEntitlementFailure,
+  checkFeature,
   resolveServerEntitlement,
   type EntitlementResult,
 } from './entitlement.js'
@@ -194,5 +196,59 @@ describe('classifyEntitlementFailure', () => {
   it('classifies a bare unknown as unknown rather than guessing', () => {
     expect(classifyEntitlementFailure(null)).toBe('unknown')
     expect(classifyEntitlementFailure('a string')).toBe('unknown')
+  })
+})
+
+/**
+ * `checkFeature` — the server asking the SAME table the client asks.
+ *
+ * The one server gate that existed read `entitlement.plan !== 'pro'`. That is
+ * correct while there is one paid tier and one gated endpoint, and it is exactly
+ * how the client half drifted into sixteen call sites that each decided for
+ * themselves what "pro" entitles you to. Naming a CAPABILITY means both halves
+ * consult `src/features/billing/entitlements.ts`, and a tier change is one edit
+ * that both observe.
+ */
+describe('checkFeature', () => {
+  const resolved = (plan: 'free' | 'pro'): EntitlementResult => ({
+    status: 'resolved',
+    plan,
+    source: 'billing',
+  })
+
+  it('allows a Pro plan the capability it is entitled to', () => {
+    expect(checkFeature(resolved('pro'), 'calendar.liveSync')).toBe('allowed')
+  })
+
+  it('denies a Free plan, on evidence', () => {
+    expect(checkFeature(resolved('free'), 'calendar.liveSync')).toBe('denied')
+  })
+
+  it('reports UNAVAILABLE rather than denying when entitlement is unknown', () => {
+    /*
+     * The distinction the whole module exists for. `denied` becomes a 403, which
+     * tells a paying customer they are not entitled; `unavailable` becomes a 503,
+     * which says the server could not find out. Collapsing the second into the
+     * first is the silent downgrade that shipped once already, when a missing
+     * SELECT grant on `billing` made this exact read fail and the error was
+     * swallowed as Free.
+     */
+    for (const reason of ['not_configured', 'permission_denied', 'unreachable'] as const) {
+      expect(checkFeature({ status: 'unavailable', reason }, 'calendar.liveSync')).toBe(
+        'unavailable',
+      )
+    }
+  })
+
+  it('agrees with the client contract for every feature, on both tiers', () => {
+    // The property that makes one table worth having: if these two ever
+    // disagreed, a user would be sold something the server refuses, or refused
+    // something the UI offers.
+    for (const feature of ALL_FEATURES) {
+      for (const plan of ['free', 'pro'] as const) {
+        const server = checkFeature(resolved(plan), feature)
+        expect(server).toBe(canUseFeature(plan, feature) ? 'allowed' : 'denied')
+      }
+    }
   })
 })

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { ENTITLEMENTS } from '@/features/billing/entitlements'
 import { computePlanningStreak, planningDaysFromTasks, planningStreak } from './streak'
-import { historyCutoffDay } from '@/features/history/historyWindow'
-import { FREE_HISTORY_DAYS } from '@/lib/config'
 import { makeTask } from '@/test/factories'
 
 const TODAY = '2026-06-23'
@@ -23,9 +22,23 @@ describe('planningDaysFromTasks', () => {
   })
 })
 
-describe('planningStreak under a plan history window', () => {
-  const FREE_CUTOFF = historyCutoffDay(FREE_HISTORY_DAYS, TODAY) // 2026-06-10
-
+/*
+ * REGRESSION: THE STREAK IS NEVER WINDOWED BY PLAN.
+ *
+ * This block used to assert the OPPOSITE. `planningStreak` took a `cutoffDay`
+ * and the Free history window was passed into it, so a Free user who had planned
+ * every day for three months read "14-day streak" indefinitely, with nothing
+ * anywhere to explain why. The window is a display limit on completed work; a
+ * streak is a motivation counter over the user's own cached tasks. Conflating
+ * them made the product look like it had forgotten, and the one thing a streak
+ * has to be is believed.
+ *
+ * The parameter is gone, so the coupling cannot come back by a caller passing a
+ * cutoff it happens to have in scope, which is how it arrived. The tests below
+ * prove the streak exceeds any plausible Free window and that the two tiers get
+ * the same number.
+ */
+describe('planningStreak is uncapped on every plan', () => {
   /** Tasks scheduled on each of the `n` local days ending today. */
   function streakOfDays(n: number) {
     const days: string[] = []
@@ -40,28 +53,28 @@ describe('planningStreak under a plan history window', () => {
     return days.map((day) => makeTask({ scheduled_for: day }))
   }
 
-  it('shows the FULL streak with no window (Pro)', () => {
-    expect(planningStreak(streakOfDays(30), TODAY, null).count).toBe(30)
+  it('counts a streak far longer than the Free history window', () => {
+    // 120 days is well beyond any window this product would plausibly ship, so
+    // this fails if the window is ever reintroduced at any length.
+    const long = streakOfDays(120)
+    expect(planningStreak(long, TODAY).count).toBe(120)
+    expect(planningStreak(long, TODAY).count).toBeGreaterThan(
+      ENTITLEMENTS.free.limits.historyDays,
+    )
   })
 
-  it('caps a Free streak at the window — never counts days it cannot show', () => {
-    // 2026-06-10 .. 2026-06-23 inclusive = 14 days.
-    expect(planningStreak(streakOfDays(30), TODAY, FREE_CUTOFF).count).toBe(FREE_HISTORY_DAYS)
+  it('gives Free and Pro the identical number, because plan is not an input', () => {
+    // `planningStreak` takes tasks and a day. There is deliberately no third
+    // argument, so there is nothing a caller could pass to make these differ.
+    const tasks = streakOfDays(45)
+    expect(planningStreak(tasks, TODAY)).toEqual(planningStreak(tasks, TODAY))
+    expect(planningStreak(tasks, TODAY).count).toBe(45)
   })
 
-  it('is identical on both plans when the streak fits inside the window', () => {
-    const tasks = streakOfDays(5)
-    expect(planningStreak(tasks, TODAY, FREE_CUTOFF)).toEqual(planningStreak(tasks, TODAY, null))
-  })
-
-  it('is unchanged for a brand-new user — first run can never hit the window', () => {
-    const tasks = streakOfDays(3) // a 3-day-old account
-    expect(planningStreak(tasks, TODAY, FREE_CUTOFF).count).toBe(3)
-    expect(planningStreak(tasks, TODAY, FREE_CUTOFF).includesToday).toBe(true)
-  })
-
-  it('defaults to unlimited when no cutoff is passed (back-compatible)', () => {
-    expect(planningStreak(streakOfDays(30), TODAY).count).toBe(30)
+  it('is unchanged for a brand-new account', () => {
+    const tasks = streakOfDays(3)
+    expect(planningStreak(tasks, TODAY).count).toBe(3)
+    expect(planningStreak(tasks, TODAY).includesToday).toBe(true)
   })
 })
 

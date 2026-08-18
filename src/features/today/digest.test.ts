@@ -45,9 +45,20 @@ const dayPlan = (over: Partial<DayPlan> = {}): DayPlan => ({
   ...over,
 })
 
+/**
+ * The three entitlement states, named once.
+ *
+ * `RESOLVING` is the one worth having a name for: it is neither tier, it is the
+ * window before the billing row arrives, and it used to be silently rendered as
+ * Pro on the app's default screen.
+ */
+const FREE = { status: 'resolved', plan: 'free' } as const
+const PRO = { status: 'resolved', plan: 'pro' } as const
+const RESOLVING = { status: 'resolving', plan: 'free' } as const
+
 const input = (over: Partial<DigestInput> = {}): DigestInput => ({
   todayStr: TODAY,
-  isPro: false,
+  entitlement: FREE,
   accountAgeDays: 30,
   streak: { count: 4, includesToday: true },
   rolloverTasks: [],
@@ -150,22 +161,70 @@ describe('composeDigest — the FREE base is useful on its own', () => {
     expect(composeDigest(input({ freeMinutes: -20 })).freeMinutes).toBe(0)
   })
 
-  it('gets NO Pro rows — but does get the quiet teaser when a plan exists', () => {
-    const d = composeDigest(input({ isPro: false, bias: bias({ hasEnough: true, biasPct: 20, direction: 'under' }) }))
+  it('gets NO Pro rows, but does get the quiet teaser when a plan exists', () => {
+    const d = composeDigest(
+      input({ entitlement: FREE, bias: bias({ hasEnough: true, biasPct: 20, direction: 'under' }) }),
+    )
     expect(d.suggestion).toBeNull()
     expect(d.bias).toBeNull()
-    expect(d.alerts).toEqual([])
     expect(d.proTeaser).toBe(true)
   })
 
+  it('DOES get priority alerts, which are no longer paid', () => {
+    /*
+     * Alerts used to be Pro. A packaging audit could not defend it: an alert is
+     * "this high-priority task is overdue", computed in the browser from tasks
+     * the user already holds. It was one of the weakest lines in the paid tier,
+     * and this test is what stops it drifting back.
+     */
+    const withAlerts = composeDigest(input({ entitlement: FREE }))
+    const paid = composeDigest(input({ entitlement: PRO }))
+    expect(withAlerts.alerts).toEqual(paid.alerts)
+  })
+
   it('shows no teaser when there is nothing to suggest anyway', () => {
-    expect(composeDigest(input({ isPro: false, plan: dayPlan({ picks: [] }) })).proTeaser).toBe(false)
-    expect(composeDigest(input({ isPro: false, plan: null })).proTeaser).toBe(false)
+    expect(composeDigest(input({ entitlement: FREE, plan: dayPlan({ picks: [] }) })).proTeaser).toBe(
+      false,
+    )
+    expect(composeDigest(input({ entitlement: FREE, plan: null })).proTeaser).toBe(false)
+  })
+})
+
+describe('composeDigest while the plan is still resolving', () => {
+  /*
+   * THE STATE THAT USED TO LEAK. Today passed `isPro || billingLoading`, so for
+   * the length of every cold load on the app's DEFAULT SCREEN a Free user was
+   * served the pre-computed plan and the estimation nudge. The optimistic read
+   * was there for a real reason (a subscriber should not be pitched the plan
+   * they already pay for), so the fix has to satisfy both, and these two tests
+   * are the two halves of that.
+   */
+  const resolving = composeDigest(
+    input({
+      entitlement: RESOLVING,
+      bias: bias({ hasEnough: true, biasPct: 20, direction: 'under' }),
+    }),
+  )
+
+  it('withholds every paid row until the plan is actually known', () => {
+    expect(resolving.suggestion).toBeNull()
+    expect(resolving.bias).toBeNull()
+  })
+
+  it('also withholds the upsell, so nobody is pitched a plan they may own', () => {
+    expect(resolving.proTeaser).toBe(false)
+  })
+
+  it('still renders the free briefing, so the card is never empty', () => {
+    expect(resolving.streakCount).toBe(4)
+    expect(resolving.freeMinutes).toBe(240)
+    expect(resolving.alerts).toEqual(composeDigest(input({ entitlement: FREE })).alerts)
   })
 })
 
 describe('composeDigest — the PRO smart layer', () => {
-  const pro = (over: Partial<DigestInput> = {}) => composeDigest(input({ isPro: true, ...over }))
+  const pro = (over: Partial<DigestInput> = {}) =>
+    composeDigest(input({ entitlement: PRO, ...over }))
 
   it('pre-computes a ready-made plan to accept', () => {
     expect(pro().suggestion).toEqual({
