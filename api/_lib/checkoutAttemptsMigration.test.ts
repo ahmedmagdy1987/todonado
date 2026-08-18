@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
  */
 
 const sql = readFileSync(
-  fileURLToPath(new URL('../supabase/migrations/20260801150000_checkout_attempts.sql', import.meta.url)),
+  fileURLToPath(new URL('../../supabase/migrations/20260801150000_checkout_attempts.sql', import.meta.url)),
   'utf8',
 )
 const flat = sql.replace(/\s+/g, ' ')

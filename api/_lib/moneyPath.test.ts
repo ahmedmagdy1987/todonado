@@ -5,8 +5,8 @@ import {
   makeFakeDb,
   makeFakeStripe,
   type AttemptRow,
-} from '../src/test/stripeDoubles.js'
-import { resetRateLimitStores } from './_lib/rateLimit.js'
+} from '../../src/test/stripeDoubles.js'
+import { resetRateLimitStores } from './rateLimit.js'
 
 /**
  * THE MONEY PATH, END TO END.
@@ -29,14 +29,14 @@ const getUserFromAuthHeader = vi.fn()
 const getSupabaseAdmin = vi.fn()
 const getStripeMock = vi.fn()
 
-vi.mock('./_lib/supabase.js', () => ({
+vi.mock('./supabase.js', () => ({
   getUserFromAuthHeader: (...a: unknown[]) => getUserFromAuthHeader(...a),
   getSupabaseAdmin: (...a: unknown[]) => getSupabaseAdmin(...a),
 }))
-vi.mock('./_lib/stripe.js', () => ({ getStripe: (...a: unknown[]) => getStripeMock(...a) }))
+vi.mock('./stripe.js', () => ({ getStripe: (...a: unknown[]) => getStripeMock(...a) }))
 
-const checkout = (await import('./create-checkout-session.js')).webHandler
-const webhook = (await import('./stripe-webhook.js')).webHandler
+const checkout = (await import('../create-checkout-session.js')).webHandler
+const webhook = (await import('../stripe-webhook.js')).webHandler
 
 const UID = 'user-123'
 const MONTHLY = 'price_configuredMonthly1'

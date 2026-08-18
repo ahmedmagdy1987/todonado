@@ -8,6 +8,7 @@ import {
   ACKNOWLEDGED_LATER_MIGRATIONS,
   REQUIRED_MIGRATIONS_BEFORE_LIVE,
   checkFunctionBudget,
+  VERCEL_FUNCTION_LIMIT,
   checkMigrationChain,
   checkPricing,
   checkStripeCsp,
@@ -128,8 +129,25 @@ describe('the go-live preflight, when something is actually wrong', () => {
   })
 
   it('fails when the function budget is exceeded', () => {
-    const tooMany = [...API_FILES, 'one-more.ts', 'and-another.ts']
-    expect(checkFunctionBudget(tooMany).status).toBe('fail')
+    /*
+     * DERIVED FROM THE LIMIT, NOT FROM TODAY'S FILE COUNT.
+     *
+     * This used to append exactly two names, which worked only while `api/`
+     * sat at twelve files. Moving every test into `api/_lib/` (Vercel excludes
+     * it, and counts test files as functions otherwise) dropped the real count
+     * to five, and the negative control silently stopped controlling anything:
+     * seven is comfortably under the limit, so it passed by not failing.
+     *
+     * Generating one more than the limit keeps this honest at any headroom.
+     */
+    const filler = Array.from({ length: VERCEL_FUNCTION_LIMIT + 1 }, (_, i) => `extra-${i}.ts`)
+    expect(checkFunctionBudget([...API_FILES, ...filler]).status).toBe('fail')
+  })
+
+  it('passes with real headroom, so a new endpoint does not need a fight', () => {
+    const result = checkFunctionBudget(API_FILES)
+    expect(result.status).toBe('pass')
+    expect(API_FILES.filter((f) => f.endsWith('.ts')).length).toBeLessThan(VERCEL_FUNCTION_LIMIT)
   })
 
   it('fails when a real endpoint has been deleted to make room', () => {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetRateLimitStores } from './_lib/rateLimit.js'
-import { applyTestModeEnv, clearTestModeEnv, makeFakeDb } from '../src/test/stripeDoubles.js'
+import { resetRateLimitStores } from './rateLimit.js'
+import { applyTestModeEnv, clearTestModeEnv, makeFakeDb } from '../../src/test/stripeDoubles.js'
 
 /**
  * Where Stripe sends people back to, and how many subscriptions one person can
@@ -16,20 +16,20 @@ const getSupabaseAdmin = vi.fn()
 const createCheckoutSession = vi.fn()
 const createPortalSession = vi.fn()
 
-vi.mock('./_lib/supabase.js', () => ({
+vi.mock('./supabase.js', () => ({
   getUserFromAuthHeader: (...a: unknown[]) => getUserFromAuthHeader(...a),
   getSupabaseAdmin: (...a: unknown[]) => getSupabaseAdmin(...a),
 }))
 
-vi.mock('./_lib/stripe.js', () => ({
+vi.mock('./stripe.js', () => ({
   getStripe: () => ({
     checkout: { sessions: { create: (...a: unknown[]) => createCheckoutSession(...a) } },
     billingPortal: { sessions: { create: (...a: unknown[]) => createPortalSession(...a) } },
   }),
 }))
 
-const checkout = (await import('./create-checkout-session.js')).webHandler
-const portal = (await import('./create-portal-session.js')).webHandler
+const checkout = (await import('../create-checkout-session.js')).webHandler
+const portal = (await import('../create-portal-session.js')).webHandler
 
 const UID = 'user-123'
 const MONTHLY = 'price_configuredMonthly1'

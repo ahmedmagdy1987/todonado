@@ -57,7 +57,43 @@ verify → then apply the trigger.** Doing it the other way round caps the owner
 
 ---
 
-## 2. 🛑 BLOCKER TWO — none of this has been executed
+## 2. ✅ BLOCKER TWO IS CLEARED — it has now been executed
+
+**Resolved 2026-08-18.** The machine has no Docker and no installed PostgreSQL, but it does not
+need either: the official EnterpriseDB **binaries-only zip** requires no installer and no
+administrator rights. Extracted to a short path, `initdb` + `postgres -p 55432` on loopback gives a
+real PostgreSQL 17.6 in a couple of minutes, and it is deleted afterwards.
+
+    # binaries (no installer, no admin, ~330 MB)
+    curl -L -o pg.zip https://get.enterprisedb.com/postgresql/postgresql-17.6-1-windows-x64-binaries.zip
+    # extract bin/ lib/ share/ ONLY - pgAdmin's nested python paths exceed MAX_PATH and abort the unzip
+    # KEEP THE PATH SHORT. From a long path the server children die with
+    # 0xC0000142 (STATUS_DLL_INIT_FAILED) and the cause is not obvious.
+    initdb -D <short-path> -U postgres -E UTF8 --auth=trust
+    postgres -D <short-path> -p 55432 -c listen_addresses=127.0.0.1 &
+    psql -c 'alter schema public owner to postgres'   # PG15+ owns it as pg_database_owner;
+                                                      # Supabase and CI own it as postgres
+    DATABASE_URL=postgres://postgres@127.0.0.1:55432/postgres node supabase/test/apply.mjs
+    DATABASE_URL=postgres://postgres@127.0.0.1:55432/postgres npm run test:db
+
+**Result: 37/37 migrations applied cleanly from empty** (matching production exactly), and
+**222 DB tests pass across 7 files with zero skipped**, including the two new suites.
+
+The three things that were previously argued from reading SQL are now executed:
+
+| Claim | Evidence |
+| --- | --- |
+| The advisory lock actually serialises | Two connections race at the final Free slot: exactly one wins, one is refused with `free_limit_reached`, final count is the cap |
+| Founding Pro bypasses the Free caps | A row with `plan='pro'`, `subscription_status='founding'` and NULL Stripe ids goes past the cap on all four tables |
+| Grandfathering is real | An account seeded OVER the cap before the trigger exists keeps every row, can read, update and delete them, and is refused only the next one |
+
+The first attempt at the race test deadlocked itself by holding both transactions open, and failed
+with a statement timeout. That was the lock working correctly and the harness being wrong; each
+insert now runs in its own implicit transaction, which is the production shape.
+
+### The original text of this blocker
+
+
 
 There is **no Docker and no local Postgres** on this machine (`docker: command not found`, no `psql`,
 no `pg_ctl`, nothing listening on 5432 or 54322). The Supabase CLI is installed but `supabase start`
