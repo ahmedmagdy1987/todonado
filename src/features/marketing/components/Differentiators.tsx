@@ -50,15 +50,15 @@ export function Differentiators({ className }: { className?: string }) {
   return (
     <ol className={cn('grid gap-px overflow-hidden rounded-2xl bg-white/[0.07] lg:grid-cols-3', className)}>
       {DIFFERENTIATORS.map((item, index) => (
-        <li key={item.title} className="bg-surface p-5 lg:p-7">
+        <li key={item.title} className="bg-surface p-4 sm:p-5 lg:p-7">
           <p className="font-mono text-xs tracking-[0.18em] text-brand">
             {String(index + 1).padStart(2, '0')}
           </p>
           <h3 className="mt-3 font-display text-lg font-semibold leading-snug text-text-primary">
             {item.title}
           </h3>
-          <p className="mt-2.5 text-sm leading-relaxed text-text-muted">{item.body}</p>
-          <p className="mt-4 border-t border-white/[0.07] pt-3 text-xs text-text-primary/70">
+          <p className="mt-2 text-sm leading-relaxed text-text-muted">{item.body}</p>
+          <p className="mt-3 border-t border-white/[0.07] pt-2.5 text-xs text-text-primary/70">
             {item.proof}
           </p>
         </li>

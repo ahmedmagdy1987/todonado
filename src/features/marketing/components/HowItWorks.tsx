@@ -92,7 +92,7 @@ function Shot({ src, alt }: { src: string; alt: string }) {
         height={220}
         loading="lazy"
         decoding="async"
-        className="h-[150px] w-full object-cover object-left-top sm:h-[220px]"
+        className="h-[132px] w-full object-cover object-left-top sm:h-[220px]"
       />
     </div>
   )
@@ -111,7 +111,7 @@ export function HowItWorks({ className }: { className?: string }) {
           </div>
           <p className="mt-2 text-sm leading-relaxed text-text-muted">{step.body}</p>
 
-          <div className="mt-4">
+          <div className="mt-3.5">
             {index === 0 && (
               <Shot
                 src="/shots/today-plan.png"
@@ -145,7 +145,7 @@ function LearnPanel() {
     { label: 'Actual', minutes: 415, width: '83%', tone: 'bg-warning' },
   ]
   return (
-    <div className="flex h-[150px] flex-col justify-center rounded-xl border border-white/10 bg-background p-4 sm:h-[220px] sm:p-5">
+    <div className="flex h-[132px] flex-col justify-center rounded-xl border border-white/10 bg-background p-4 sm:h-[220px] sm:p-5">
       <p className="font-mono text-[11px] uppercase tracking-wider text-text-muted">
         Planned vs completed effort
       </p>

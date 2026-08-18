@@ -166,7 +166,7 @@ function VerdictMark({
  */
 function Legend() {
   return (
-    <ul className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-text-muted">
+    <ul className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-text-muted">
       <li className="flex items-center gap-1.5">
         <Check className="h-3.5 w-3.5 text-success" aria-hidden /> Yes
       </li>
@@ -203,9 +203,15 @@ export function CategoryComparison({ className }: { className?: string }) {
                 {category}
               </th>
             ))}
+            {/*
+              Bold, not tinted. The pricing table 900px below uses a violet
+              column to mark Pro, and when this one did too the two read as a
+              single spreadsheet spanning the seam between the sections. The
+              header carries the emphasis here instead.
+            */}
             <th
               scope="col"
-              className="rounded-t-xl bg-brand/10 px-3 py-3 text-center font-semibold text-text-primary"
+              className="rounded-t-xl border-b-2 border-brand px-3 py-3 text-center font-semibold text-text-primary"
             >
               Todonado
             </th>
@@ -224,7 +230,7 @@ export function CategoryComparison({ className }: { className?: string }) {
                   </span>
                 </td>
               ))}
-              <td className="bg-brand/[0.06] px-3 py-3.5 text-center">
+              <td className="px-3 py-3.5 text-center">
                 <span className="inline-flex flex-col items-center gap-0.5">
                   <VerdictMark verdict={row.todonado} strong />
                   {row.proNote && (
@@ -243,11 +249,11 @@ export function CategoryComparison({ className }: { className?: string }) {
       </table>
 
       {/* ── Mobile / tablet: one card per job ─────────────────────────── */}
-      <ul className="space-y-2.5 lg:hidden">
+      <ul className="space-y-2 lg:hidden">
         {JOB_ROWS.map((row) => (
-          <li key={row.job} className="rounded-xl border border-white/8 bg-surface-2/40 p-3.5">
+          <li key={row.job} className="rounded-xl border border-white/8 bg-surface-2/40 p-3">
             <p className="text-sm font-semibold text-text-primary">{row.job}</p>
-            <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
               {row.others.map((verdict, index) => (
                 <div key={index} className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-xs text-text-muted">
@@ -259,7 +265,7 @@ export function CategoryComparison({ className }: { className?: string }) {
                 </div>
               ))}
             </div>
-            <div className="mt-2.5 flex items-center justify-between gap-2 rounded-lg bg-brand/10 px-3 py-1.5">
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-brand/10 px-3 py-1">
               <span className="text-xs font-semibold text-text-primary">Todonado</span>
               <span className="flex items-center gap-2 text-xs font-medium text-text-primary">
                 {row.todonado === 'no' ? TODONADO_NO_LABEL : VERDICT_LABEL[row.todonado]}

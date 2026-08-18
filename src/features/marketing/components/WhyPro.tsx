@@ -59,24 +59,34 @@ export const PRO_REASONS: readonly Reason[] = [
 
 export function WhyPro({ className }: { className?: string }) {
   return (
-    <div className={cn('grid gap-3 sm:grid-cols-2 sm:gap-4', className)}>
+    <div className={cn('grid gap-2.5 sm:grid-cols-2 sm:gap-4', className)}>
       {PRO_REASONS.map(({ icon: Icon, ...reason }) => (
         <div
           key={reason.kicker}
           className="rounded-2xl border border-white/10 bg-surface/80 p-4 sm:p-6"
         >
+          {/*
+            EVERY CARD CARRIES THE BADGE, not just the one whose body happens
+            to mention Pro. Three of these four never said the capability was
+            paid, so a reader could finish the block having learned four nice
+            things about the product and nothing about why it costs money,
+            which is the only job this block has.
+          */}
           <div className="flex items-center gap-2.5">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand/15 text-brand">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand/15 text-brand">
               <Icon className="h-4 w-4" aria-hidden />
             </span>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-brand">
+            <p className="min-w-0 flex-1 font-mono text-[11px] uppercase tracking-[0.16em] text-brand">
               {reason.kicker}
             </p>
+            <span className="shrink-0 rounded bg-brand/25 px-1.5 py-px font-mono text-[11px] uppercase tracking-wider text-text-primary">
+              Pro
+            </span>
           </div>
-          <h3 className="mt-3 font-display text-base font-semibold leading-snug text-text-primary">
+          <h3 className="mt-2.5 font-display text-lg font-semibold leading-snug text-text-primary">
             {reason.title}
           </h3>
-          <p className="mt-2 text-sm leading-relaxed text-text-muted">{reason.body}</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{reason.body}</p>
         </div>
       ))}
     </div>

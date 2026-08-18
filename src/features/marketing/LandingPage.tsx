@@ -71,7 +71,12 @@ export function LandingPage() {
 
       <main className="flex-1">
         {/* ═══════════════ 1 · HERO ═══════════════════════════════════════ */}
-        <Section material="brand" flush className="isolate overflow-hidden">
+        <Section
+          material="brand"
+          flush
+          ariaLabel="What Todonado is"
+          className="hero-settle isolate overflow-hidden"
+        >
           {/*
             THE BRAND MOMENT, AND THE ONLY ONE.
             Both layers are scoped to this box: the aurora is `contained` rather
@@ -84,7 +89,7 @@ export function LandingPage() {
           <VortexField />
 
           <div
-            className={`${CONTAINER} relative z-10 grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2 lg:gap-14 lg:py-24`}
+            className={`${CONTAINER} relative z-10 grid items-center gap-8 py-12 sm:gap-10 sm:py-20 lg:grid-cols-2 lg:gap-14 lg:py-24`}
           >
             <div>
               <h1 className="font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
@@ -94,15 +99,28 @@ export function LandingPage() {
               </h1>
 
               {/*
-                THE CATEGORY, IN THE FIRST PARAGRAPH.
-                A visitor should not need the next section to work out what kind
-                of product this is. Plan, do, learn: the whole loop in one
-                sentence, in the order the product performs it.
+                NO CATEGORY NOUN, ON PURPOSE.
+
+                This sentence used to begin "Todonado is a daily planner". A
+                self-applied category noun is the strongest signal on a landing
+                page: it tells the reader which shelf to put you on, and
+                everything after it is read as a qualifier on that shelf. So the
+                clauses about running the plan in a timer and showing what it
+                really took, which are not planner behaviour at all, were being
+                absorbed as planner features.
+
+                It opens with a verb instead. The differentiator comes first
+                (hours, not wishes) so the claim stays sharp, and the breadth
+                comes second as four concrete nouns a reader can check two
+                screens later on the feature map. Breathwork, mind maps and
+                challenges are deliberately left out: they are why people stay,
+                not why a stranger signs up, and a hero that lists everything
+                invites the does-everything-therefore-nothing read.
               */}
               <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
-                Todonado is a daily planner that works in hours, not wishes. It plans your day
-                around the time you actually have, carries that plan into a focus timer, and uses
-                what really happened to make the next day's plan better.
+                Todonado works in hours, not wishes: it plans your day around the time you have,
+                runs it in a focus timer, and shows what it really took. The week, your calendar,
+                projects and a journal are in the same app.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -152,13 +170,21 @@ export function LandingPage() {
             <TwoColumnIntro
               eyebrow="02 · Features"
               title="One app instead of several"
-              lede="A day planner, a focus and pomodoro timer, a habit and quit tracker, a breathing coach, a journal and a mind-map canvas. Every line below is a screen you can open on the day you sign up."
+              lede="Every line below is a screen you can open on the day you sign up."
             />
-            <FeatureMap className="mt-8 sm:mt-10" />
 
-            {/* The shared category list, so this page and /pricing state the
-                breadth claim in identical words. */}
-            <ul className="mt-10 flex flex-wrap gap-2 border-t border-white/[0.07] pt-6">
+            {/*
+              THE CHIPS COME BEFORE THE MAP, NOT AFTER IT.
+
+              They are the best ten-second summary in the section, and they used
+              to sit at the BOTTOM, roughly 1,300px below the map on a phone, so
+              a reader only met the summary after scrolling past everything it
+              summarises. They also duplicated the lede word for word; the lede
+              lost that half rather than the chips, because the chips are the
+              shared constant /pricing renders too, and two surfaces stating a
+              claim in identical words is what makes it checkable.
+            */}
+            <ul className="mt-7 flex flex-wrap gap-2">
               {ALL_IN_ONE_CATEGORIES.map((category) => (
                 <li
                   key={category}
@@ -168,6 +194,8 @@ export function LandingPage() {
                 </li>
               ))}
             </ul>
+
+            <FeatureMap className="mt-8 border-t border-white/[0.07] pt-8 sm:mt-10 sm:pt-10" />
           </div>
         </Section>
 
@@ -207,7 +235,7 @@ export function LandingPage() {
 
             <WhyPro className="mt-8 sm:mt-12" />
 
-            <div className="mt-10 rounded-2xl border-white/10 bg-background/60 sm:mt-14 sm:border sm:p-8">
+            <div className="mt-10 rounded-2xl border border-white/10 bg-background/60 p-4 sm:mt-14 sm:p-8">
               <h3 className="font-display text-lg font-semibold text-text-primary">
                 What actually changes
               </h3>
@@ -230,7 +258,7 @@ export function LandingPage() {
           <div className={CONTAINER}>
             <LandingFaq />
 
-            <div className="mx-auto mt-16 max-w-xl text-center">
+            <div className="mx-auto mt-12 max-w-xl text-center sm:mt-16">
               <h2 className="font-display text-2xl font-bold sm:text-3xl">Start with today.</h2>
               <p className="mt-3 text-text-muted">
                 Not the whole year, and not a new system for your life. One day, planned in the

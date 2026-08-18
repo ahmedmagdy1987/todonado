@@ -105,8 +105,16 @@ test('landing: the feature map is real, and every surface on it is live', async 
   const section = page.getByRole('region', { name: /What is inside Todonado/i })
   await expect(section).toBeVisible()
 
-  // The five pillars of the product map.
-  for (const pillar of ['Capture', 'Plan', 'Focus', 'Learn', 'Keep going']) {
+  /*
+   * The six pillars of the product map.
+   *
+   * "Capture" and "Learn" were renamed and "Keep going" was split, because a
+   * feature inventory is the one place a heading has to be literal: a cold
+   * visitor scanning for something they already want cannot decode a
+   * motivational phrase. "Keep going" in particular held three unrelated areas
+   * (reflection, goals, and habits), so no single honest label existed for it.
+   */
+  for (const pillar of ['Organize', 'Plan', 'Focus', 'Progress', 'Reflect', 'Wellbeing']) {
     await expect(section.getByRole('heading', { name: pillar, level: 3 })).toBeVisible()
   }
 

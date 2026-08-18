@@ -1073,9 +1073,51 @@ html {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    /*
+     *  BOTH RADIALS REACH THE SECTION'S EDGES, AND THAT IS THE WHOLE POINT.
+     *
+     *  Measured on the built page: the bottom radial used to sit at
+     *  `60% 50% at 85% 100%`, so it lit the bottom-RIGHT corner and had faded
+     *  to nothing everywhere else. The pricing section therefore ENDED at
+     *  exactly the colour the FAQ section BEGINS at: rgb(10,13,22) against
+     *  rgb(10,13,22), a contrast ratio of 1.000:1, with 56% of the page width
+     *  measuring below a just-noticeable lightness step. That was the one
+     *  boundary left that still reproduced the "one dark page" complaint, and
+     *  it landed at the worst possible moment, leaving the paid pitch.
+     *
+     *  Widening the bottom radius to the full width fixes it without adding a
+     *  colour: measured mean delta-L* across that seam goes 2.56 to 6.54 at
+     *  1280 and 2.81 to 6.75 at 390, with no part of the width left below the
+     *  threshold. The top radial is widened for the same reason at the other
+     *  end, where the outer gutters were dropping to delta-L* 0.87.
+     */
     background:
-      radial-gradient(80% 60% at 50% 0%, rgb(108 92 231 / 0.22), transparent 70%),
-      radial-gradient(60% 50% at 85% 100%, rgb(78 168 255 / 0.12), transparent 70%);
+      radial-gradient(120% 60% at 50% 0%, rgb(108 92 231 / 0.22), transparent 70%),
+      radial-gradient(120% 45% at 50% 100%, rgb(78 168 255 / 0.14), transparent 72%);
+  }
+
+  /*
+   *  THE HERO SETTLES TO PAGE DARK BEFORE IT ENDS.
+   *
+   *  The hero/panel seam was healthy on average and PATCHY in fact: the panel
+   *  below is a flat plane, while the hero's last rows vary with wherever the
+   *  aurora happens to have drifted, so the step measured anywhere from
+   *  delta-L* 0.00 to 6.26 across the width and even INVERTED direction, going
+   *  lighter at one edge and darker at the other. Fading the hero's final
+   *  160px to the page colour makes the step uniform no matter what the
+   *  aurora is doing. Measured minimum across the width: 0.00 to 3.06.
+   *
+   *  z-index 1 puts it above the aurora (which sits at 0) and below the hero
+   *  content (which sits at 10), so nothing readable is touched.
+   */
+  .hero-settle::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 160px;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(to top, #0A0D16, rgb(10 13 22 / 0));
   }
 
   /*  Content sits above both decorative layers.  */

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { FREE_HISTORY_DAYS } from '@/lib/config'
 
 /**
  * WHAT IS ACTUALLY INSIDE TODONADO, VISIBLE IN ONE SCREEN.
@@ -34,6 +35,24 @@ import { cn } from '@/lib/utils'
  * invention: it is "Quit tracker", not "quit habits"; "My templates", not
  * "personal templates"; "Day Capacity", not "time budget". A visitor who signs
  * up should recognise every word from this list inside the app.
+ *
+ * ── THE LABELS ARE PLAIN, NOT ELEGANT ──────────────────────────────────────
+ *
+ * The fifth column was called "Keep going", which reads nicely and tells a
+ * stranger nothing. A feature inventory is the one place on a landing page
+ * where a heading has to be literal, because the reader is scanning for
+ * something they already want rather than being told a story. "Capture" went
+ * the same way: it named the first thing you do rather than what the column
+ * contains, which is the whole structure of your work. So the columns are now
+ * Organize, Plan, Focus, Learn, Reflect and Wellbeing.
+ *
+ * ── AND THEY HOLD WHAT THEY SAY THEY HOLD ──────────────────────────────────
+ *
+ * Two items were filed by accident rather than by meaning: calendar file import
+ * sat under Focus and live calendar sync under Learn, when both are how
+ * meetings take real time out of a plan. They are one Plan item now. Six
+ * columns rather than five also stop the grid squeezing to 215px a column on a
+ * desktop, which was making the longer labels wrap.
  */
 
 interface Pillar {
@@ -45,8 +64,8 @@ interface Pillar {
 
 export const PILLARS: readonly Pillar[] = [
   {
-    name: 'Capture',
-    summary: 'Get it out of your head and into shape.',
+    name: 'Organize',
+    summary: 'Everything you owe, in a shape you can work from.',
     items: [
       { label: 'Inbox' },
       { label: 'Projects, sections and subtasks' },
@@ -65,6 +84,8 @@ export const PILLARS: readonly Pillar[] = [
       { label: 'Overbooking guard' },
       { label: 'Plan my day' },
       { label: 'Roll-over, with undo' },
+      { label: 'Calendar file import' },
+      { label: 'Live calendar sync', pro: true },
       { label: 'Week board and Plan my week', pro: true },
     ],
   },
@@ -77,31 +98,40 @@ export const PILLARS: readonly Pillar[] = [
       { label: 'Pomodoro rhythm' },
       { label: 'Interruption log' },
       { label: 'Time actually spent' },
-      { label: 'Calendar file import' },
+      { label: 'Sounds and end chime' },
     ],
   },
   {
-    name: 'Learn',
-    summary: 'Let what really happened shape the next plan.',
+    name: 'Progress',
+    summary: 'The numbers, computed from what you actually did.',
     items: [
       { label: 'Daily briefing' },
       { label: 'Planning streak and points' },
-      { label: 'Completed history' },
+      { label: `Completed history, ${FREE_HISTORY_DAYS} days free` },
       { label: 'Insights', pro: true },
       { label: 'Estimation accuracy', pro: true },
-      { label: 'Live calendar sync', pro: true },
+      { label: 'Weekly review', pro: true },
     ],
   },
   {
-    name: 'Keep going',
-    summary: 'The parts that keep the system worth returning to.',
+    name: 'Reflect',
+    summary: 'Your own words, and the goals behind the work.',
     items: [
       { label: 'Journal' },
       { label: 'Voice notes', pro: true },
-      { label: 'Vision and mind maps' },
-      { label: 'Challenges' },
+      { label: 'Vision' },
+      { label: 'Mind maps' },
+    ],
+  },
+  {
+    name: 'Wellbeing',
+    summary: 'Habits you are breaking, and a way to wind down.',
+    items: [
       { label: 'Quit tracker' },
-      { label: 'Breathwork and sleep noise' },
+      { label: 'Challenges' },
+      { label: 'Breathwork' },
+      { label: 'Sleep noise' },
+      { label: 'Supplement and medication log' },
     ],
   },
 ] as const
@@ -113,7 +143,7 @@ export function FeatureMap({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
+        'grid gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-3',
         className,
       )}
     >
@@ -125,20 +155,36 @@ export function FeatureMap({ className }: { className?: string }) {
            * share one row. Below that the columns wrap, and a left border on a
            * wrapped item draws a rule in the middle of nothing.
            */
-          className="xl:border-l xl:border-white/[0.07] xl:pl-5 xl:first:border-l-0 xl:first:pl-0"
+          className="lg:border-l lg:border-white/[0.07] lg:pl-6 lg:[&:nth-child(3n+1)]:border-l-0 lg:[&:nth-child(3n+1)]:pl-0"
         >
           <h3 className="font-display text-base font-semibold text-text-primary">{pillar.name}</h3>
           <p className="mt-1 text-xs leading-relaxed text-text-muted">{pillar.summary}</p>
-          <ul className="mt-3 space-y-2 border-t border-white/[0.07] pt-3">
+          <ul className="mt-3 grid grid-cols-2 gap-x-3.5 gap-y-1.5 border-t border-white/[0.07] pt-3 sm:block sm:space-y-1.5">
             {pillar.items.map((item) => (
               <li key={item.label} className="flex items-baseline gap-2 text-sm text-text-primary">
                 <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand/70" />
                 <span className="min-w-0">
                   {item.label}
                   {item.pro && (
-                    <span className="ml-1.5 font-mono text-[10px] uppercase tracking-wider text-brand">
-                      Pro
-                    </span>
+                    <>
+                      {/*
+                        A REAL SPACE, then a pill.
+
+                        Without the explicit space the accessible name of the
+                        row concatenates to "InsightsPro". And the badge used to
+                        be 10px brand violet directly on the page background,
+                        which measures 4.00:1 against #0A0D16 and fails WCAG AA
+                        for normal text. It is the text that separates included
+                        from costs-extra, so it is the last thing that should be
+                        hard to read. Raising the local background keeps the
+                        brand identity and clears the ratio comfortably.
+                      */}
+                      {' '}
+                      <span className="ml-0.5 whitespace-nowrap rounded bg-brand/25 px-1.5 py-px font-mono text-[11px] uppercase tracking-wider text-text-primary">
+                        Pro
+                        <span className="sr-only"> plan only</span>
+                      </span>
+                    </>
                   )}
                 </span>
               </li>

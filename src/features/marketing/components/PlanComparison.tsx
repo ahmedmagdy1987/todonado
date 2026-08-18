@@ -53,9 +53,16 @@ interface PlanRow {
 const { historyDays, personalTemplates, visionCards, mindMaps, quitHabits, activeChallenges } =
   ENTITLEMENTS.free.limits
 
-/** Stated once, above the table, so no row has to say it twice. */
+/**
+ * Stated once, above the table, so no row has to say it twice.
+ *
+ * "templates" became "the template catalog" because the cap row four rows below
+ * says Free gets five templates. Both are true (the built-in catalog is
+ * unlimited, your OWN saved templates are capped) and a reader scanning for
+ * spin would have landed on the apparent contradiction.
+ */
 export const SHARED_LINE =
-  'Both plans include unlimited tasks, projects and subtasks, the Day Capacity meter and its overbooking guard, Plan my day, roll-over, repeating tasks, focus and Pomodoro, templates, the written journal, and the quit tracker.'
+  'Both plans include unlimited tasks, projects and subtasks, the Day Capacity meter and its overbooking guard, Plan my day, roll-over, repeating tasks, focus and Pomodoro, the template catalog, the written journal, and the quit tracker.'
 
 export const PLAN_ROWS: readonly PlanRow[] = [
   {
@@ -65,9 +72,11 @@ export const PLAN_ROWS: readonly PlanRow[] = [
     headline: true,
   },
   {
-    capability: 'Insights',
+    // Named to match the reason card selling it ("Your patterns"), so a reader
+    // persuaded upstairs can find the confirmation downstairs.
+    capability: 'Your patterns',
     free: 'Not included',
-    pro: 'Planned time against actual time, and how your estimates are improving',
+    pro: 'Insights: planned time against actual time, and how your estimates are improving',
     headline: true,
   },
   {
@@ -82,20 +91,35 @@ export const PLAN_ROWS: readonly PlanRow[] = [
     pro: 'A calendar link that keeps itself up to date',
     headline: true,
   },
+  /*
+   * THE CAP ROW SITS IN THE MIDDLE, NOT LAST.
+   *
+   * It was the final row, so the last Pro argument a buyer read before the
+   * price was "more mind maps" rather than the week or their history. It was
+   * also the heaviest row on the table: its Free cell alone carried seven times
+   * the ink of the week's, purely because it enumerates five numbers. Shorter
+   * cells and an earlier position put it back behind the four that matter.
+   */
+  {
+    capability: 'Personal limits',
+    free: `${personalTemplates} templates · ${visionCards} goals · ${mindMaps} mind maps · ${quitHabits} habits · ${activeChallenges} challenge`,
+    pro: 'No limits on any of them',
+  },
   {
     capability: 'Daily briefing',
-    free: 'Your day, your streak and what carried over',
+    free: 'Your day, your meetings, your streak and what carried over',
     pro: 'Arrives with the day already planned, ready to accept',
   },
   {
     capability: 'Journal',
-    free: 'Written entries, one a day',
+    /*
+     * "one a day" was here and had to go: this table is captioned as the
+     * DIFFERENCES, so a limit stated only in the Free cell reads as one Pro
+     * lifts. It does not. One entry per day is a UNIQUE constraint that applies
+     * to both plans, and the real difference is already in the Pro cell.
+     */
+    free: 'Written entries',
     pro: 'Written entries and voice notes',
-  },
-  {
-    capability: 'My templates, Vision, mind maps, quit habits, challenges',
-    free: `${personalTemplates} templates · ${visionCards} goals · ${mindMaps} mind maps · ${quitHabits} habits · ${activeChallenges} challenge at a time`,
-    pro: 'No limits on any of them',
   },
 ] as const
 
@@ -117,7 +141,7 @@ function Value({ text, pro = false }: { text: string; pro?: boolean }) {
 export function PlanComparison({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <p className="max-w-3xl text-sm leading-relaxed text-text-muted">{SHARED_LINE}</p>
+      <p className="max-w-3xl text-base leading-relaxed text-text-primary/90">{SHARED_LINE}</p>
 
       {/* ── Desktop: label | Free | Pro ────────────────────────────────── */}
       <table className="mt-8 hidden w-full border-collapse text-left text-sm md:table">
@@ -164,7 +188,7 @@ export function PlanComparison({ className }: { className?: string }) {
       </table>
 
       {/* ── Mobile: label above, two equal value columns ───────────────── */}
-      <div className="mt-6 md:hidden">
+      <div className="mt-5 md:hidden">
         {/*
           Pinned under the header. Seven rows is more than one screen, and a
           column header that scrolls away leaves a reader deciding which of two
@@ -176,7 +200,7 @@ export function PlanComparison({ className }: { className?: string }) {
         </div>
         <dl className="divide-y divide-white/5">
           {PLAN_ROWS.map((row) => (
-            <div key={row.capability} className="py-3">
+            <div key={row.capability} className="py-2.5">
               <dt
                 className={cn(
                   'text-sm font-semibold',

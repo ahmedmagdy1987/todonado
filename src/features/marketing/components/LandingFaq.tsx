@@ -30,21 +30,23 @@ export function LandingFaq() {
       </h2>
 
       <div className="mt-6 divide-y divide-white/5 border-y border-white/5 sm:mt-8">
-        {HOMEPAGE_FAQ.map((item, index) => (
+        {HOMEPAGE_FAQ.map((item) => (
           /*
-           * THE FIRST ONE IS OPEN.
+           * ALL CLOSED, AND THAT IS A DECISION RATHER THAN THE DEFAULT.
            *
-           * An audit of the live page found that the FAQ rendered three
-           * question titles and not one word of an answer, so a visitor who
-           * never clicks anything learns only that questions exist. Opening the
-           * first one costs about a hundred pixels and proves there are real
-           * answers behind the other two, which is the whole reason the section
-           * is on the page.
+           * The first answer was briefly open, because an audit of the old page
+           * found the FAQ rendering three question titles and not one word of an
+           * answer. On the old page that was a real gap. It is not on this one:
+           * the first question is "Is Todonado free?", and the section directly
+           * above now answers it at length, listing every free capability in one
+           * sentence, showing the seven differences in a table, and putting "A
+           * complete day, permanently. Not a trial." on the Free card.
            *
-           * `open` on `details` is the native attribute, so this stays
-           * keyboard-operable and collapsible exactly as before.
+           * So the open state cost about 250px on a phone to repeat a point the
+           * page had just made properly. Closed, the three questions still show
+           * that the answers exist, and anyone who wants one is one tap away.
            */
-          <details key={item.q} className="group" open={index === 0}>
+          <details key={item.q} className="group">
             <summary className="focus-ring flex min-h-[56px] cursor-pointer list-none items-center gap-3 py-4 text-left font-display text-base font-semibold text-text-primary marker:content-['']">
               <span className="flex-1">{item.q}</span>
               {/* Rotates on open. Decorative: `details` already reports its own

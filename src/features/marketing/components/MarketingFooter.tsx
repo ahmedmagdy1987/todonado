@@ -26,8 +26,6 @@ const SECTIONS: { heading: string; links: FooterLink[] }[] = [
     links: [
       { label: 'Home', to: '/welcome' },
       { label: 'Features', to: '/welcome#features' },
-      { label: 'How it works', to: '/welcome#how-it-works' },
-      { label: 'Compare', to: '/welcome#compare' },
       { label: 'Pricing', to: '/pricing' },
     ],
   },
@@ -63,8 +61,8 @@ export function MarketingFooter() {
   const year = new Date().getFullYear()
   return (
     <footer className="border-t border-white/5 bg-surface/40">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
+        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="flex flex-col gap-3">
             <Link
@@ -85,7 +83,7 @@ export function MarketingFooter() {
             600px tower of links at the very bottom of a phone page, which is
             where a reader has the least patience for one.
           */}
-          <div className="grid grid-cols-2 gap-8 sm:col-span-1 sm:grid-cols-1 lg:col-span-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-7 sm:col-span-1 sm:grid-cols-1 lg:col-span-4 lg:grid-cols-4">
           {SECTIONS.map((section) => (
             <nav
               key={section.heading}
@@ -118,7 +116,7 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/5 pt-6 text-xs text-text-muted sm:flex-row sm:justify-between">
+        <div className="mt-8 flex flex-col items-center gap-2 border-t border-white/5 pt-5 text-xs text-text-muted sm:flex-row sm:justify-between">
           <p>© {year} Todonado</p>
           {/* Studio credit — deliberately plain text; a link is wired later.
               Uses the full muted token: at /60 it fell to ~3.5:1 contrast,
