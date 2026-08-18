@@ -1,5 +1,11 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query'
 import { notifyToast } from '@/components/common/toastBridge'
+import { readEntitlements } from '@/features/billing/entitlementBridge'
+import {
+  driftDiagnostics,
+  resolveFreeLimitOutcome,
+} from '@/features/billing/freeLimitRecovery'
+import { UPGRADE_CTA, UPGRADE_ROUTE } from '@/features/billing/upgradeCopy'
 import { STILL_SAVING_ERROR } from './optimistic'
 
 /** Compile-time-checked keys for a mutation's `meta` (used by the global onError). */
@@ -55,6 +61,49 @@ export const queryClient = new QueryClient({
     onError: (_error, variables, _context, mutation) => {
       const meta = mutation.meta
       if (meta?.skipErrorToast) return
+
+      /*
+       * COMMERCIAL REJECTIONS ARE ANSWERED BEFORE ORDINARY FAILURES.
+       *
+       * The count triggers refuse a create with a structured message, and until
+       * this branch existed the user got "Something went wrong saving your
+       * changes" — which reads as a bug in a moment when nothing is broken. The
+       * parser is strict and returns null for everything it does not positively
+       * recognise, so a genuine database or network error still falls through to
+       * the generic path below and is never dressed up as a sales message.
+       *
+       * The plan is read from the entitlement bridge rather than the error,
+       * because a Free ceiling and entitlement drift produce the SAME message on
+       * the wire and only the client knows which one it is looking at.
+       */
+      const limit = resolveFreeLimitOutcome(_error, readEntitlements())
+      if (limit?.kind === 'upgrade') {
+        notifyToast(limit.message, {
+          variant: 'error',
+          /*
+           * The CTA replaces Retry, which is the correct behaviour rather than a
+           * side effect: re-running a mutation the server refused on entitlement
+           * grounds can only be refused again. (These four inserts also carry
+           * `meta.noRetry`, so nothing offers one anyway.)
+           *
+           * No `upgrade_intents` row is written here. The notice on the page
+           * records intent because a user opened that page and clicked; this
+           * toast is raised automatically by a failure, and that table has no
+           * delete policy, so a row written from here could never be taken back
+           * if the attribution turned out to be wrong.
+           */
+          action: { label: UPGRADE_CTA, to: UPGRADE_ROUTE },
+          // Three sentences and a link need longer than a six-second glance.
+          durationMs: 12_000,
+        })
+        return
+      }
+      if (limit?.kind === 'inconsistent') {
+        // A paying customer is never told to buy what they already have. This
+        // is a fault on our side, so it is reported as one and logged loudly.
+        const { message, detail } = driftDiagnostics(limit)
+        console.error(message, detail)
+      }
       // "That's still being saved" is an answer; "Something went wrong" is not.
       // The guards in src/lib/optimistic.ts throw a message written FOR the
       // user, so let it through instead of flattening it to the generic text.
