@@ -31,6 +31,21 @@ export function LandingFaq() {
 
       <div className="mt-6 divide-y divide-white/5 border-y border-white/5 sm:mt-8">
         {HOMEPAGE_FAQ.map((item) => (
+          /*
+           * ALL CLOSED, AND THAT IS A DECISION RATHER THAN THE DEFAULT.
+           *
+           * The first answer was briefly open, because an audit of the old page
+           * found the FAQ rendering three question titles and not one word of an
+           * answer. On the old page that was a real gap. It is not on this one:
+           * the first question is "Is Todonado free?", and the section directly
+           * above now answers it at length, listing every free capability in one
+           * sentence, showing the seven differences in a table, and putting "A
+           * complete day, permanently. Not a trial." on the Free card.
+           *
+           * So the open state cost about 250px on a phone to repeat a point the
+           * page had just made properly. Closed, the three questions still show
+           * that the answers exist, and anyone who wants one is one tap away.
+           */
           <details key={item.q} className="group">
             <summary className="focus-ring flex min-h-[56px] cursor-pointer list-none items-center gap-3 py-4 text-left font-display text-base font-semibold text-text-primary marker:content-['']">
               <span className="flex-1">{item.q}</span>

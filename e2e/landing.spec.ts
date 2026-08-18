@@ -255,30 +255,49 @@ test('vortex: reduced motion keeps the funnel and stops only the movement', asyn
   expect(vx, 'no pointer parallax under reduced motion').toBe('')
 })
 
-test('hero: the staggered entrance always resolves to fully visible', async ({ page }) => {
+test('hero: everything a visitor needs is painted on the first frame', async ({ page }) => {
   /*
-   * The failure this exists to catch is a delayed element that never arrives —
-   * `fill-mode: both` holds it at `from` (opacity 0) for the whole delay, so a
-   * broken animation name or a stripped keyframe leaves the hero permanently
-   * blank while the build stays green.
+   * WHAT REPLACED THE STAGGER TEST, AND WHY.
+   *
+   * The hero used to animate five elements in with `fill-mode: both`, and this
+   * test existed to catch the failure where a delayed element never arrives:
+   * a stripped keyframe holds it at opacity 0 forever while the build stays
+   * green. The hero no longer staggers, so that failure mode is gone, and the
+   * stronger rule took its place: nothing in the hero is revealed over time at
+   * all. Headline, category sentence, both calls to action and a FINISHED
+   * product composition are all present and opaque immediately.
+   *
+   * The old page failed exactly this: its capacity meter began empty and filled
+   * itself over about four seconds, so anybody who scrolled in the first two
+   * saw a product with nothing in it.
    */
   for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     await page.emulateMedia({ reducedMotion })
     await page.goto('/welcome')
-    await page.waitForTimeout(1600) // longest delay + duration, comfortably
 
-    const states = await page.locator('.hero-rise').evaluateAll((els) =>
-      els.map((el) => {
-        const cs = getComputedStyle(el)
-        return { opacity: Number(cs.opacity), transform: cs.transform }
-      }),
+    const hero = page.locator('main > section').first()
+    await expect(hero.getByRole('heading', { level: 1 })).toBeVisible()
+
+    // The meter is already at its finished value, with no waiting.
+    await expect(hero.getByText('92% planned')).toBeVisible()
+    await expect(hero.getByText(/Nearly full/)).toBeVisible()
+
+    /*
+     * Every CONTENT element in the hero is fully opaque.
+     *
+     * The decorative layers are excluded deliberately: the vortex's motes and
+     * rings and the aurora's specks genuinely start at zero opacity and fade
+     * up, which is what makes them atmosphere. They are `aria-hidden`, they
+     * carry no information, and a visitor who never sees them has missed
+     * nothing. The rule is about the words and the product shot.
+     */
+    const faded = await hero.locator('*').evaluateAll((els) =>
+      els.filter(
+        (el) =>
+          Number(getComputedStyle(el).opacity) === 0 && !el.closest('[aria-hidden="true"]'),
+      ).length,
     )
-    expect(states.length, 'the hero staggers at least five elements').toBeGreaterThanOrEqual(5)
-    for (const s of states) {
-      expect(s.opacity, `every hero element ends visible (${reducedMotion})`).toBe(1)
-      expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(s.transform)
-    }
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    expect(faded, `nothing in the hero is hidden waiting to animate (${reducedMotion})`).toBe(0)
   }
 })
 
@@ -286,18 +305,18 @@ test('hero: both CTAs still go where they claim', async ({ page }) => {
   await page.goto('/welcome')
 
   /*
-   * The secondary CTA became "See how it works" in Homepage V2 and points at
-   * the problem section rather than at /pricing: asking a stranger to evaluate
-   * cost before they have been told what the product does is the wrong second
-   * step. It is still a REAL anchor rather than a scroll handler, so it works
-   * from the keyboard and without JavaScript, and that is what is asserted.
+   * The secondary CTA points at the FEATURES section rather than at /pricing:
+   * asking a stranger to evaluate cost before they have been told what the
+   * product does is the wrong second step. It is still a REAL anchor rather
+   * than a scroll handler, so it works from the keyboard and without
+   * JavaScript, and that is what is asserted.
    */
-  const explore = page.getByRole('link', { name: 'See how it works' })
-  await expect(explore).toHaveAttribute('href', '#why-days-slip')
+  const explore = page.getByRole('link', { name: 'See what Todonado does' })
+  await expect(explore).toHaveAttribute('href', '#features')
   await explore.click()
-  await expect(page).toHaveURL(/#why-days-slip$/)
+  await expect(page).toHaveURL(/#features$/)
   // The target exists, so the link cannot rot into a no-op.
-  await expect(page.locator('#why-days-slip')).toHaveCount(1)
+  await expect(page.locator('#features')).toHaveCount(1)
 
   // Primary CTA sends a signed-out visitor to the auth page.
   await page.goto('/welcome')
@@ -359,11 +378,27 @@ test('the landing FAQ link still points at the full set on /pricing', async ({ p
 })
 
 test('hero: pricing is still one click away from the top of the page', async ({ page }) => {
-  // The hero stopped linking to /pricing, so the header link is now the
-  // above-the-fold route to it. If that is ever removed, a visitor who wants
-  // the price has to scroll the entire story to find it.
+  /*
+   * The rule is unchanged: a visitor who wants the price must never have to
+   * scroll the whole page to find it. What changed is where that click lands.
+   *
+   * The landing now carries the price itself, so the header's "Pricing" is an
+   * anchor to that section rather than a navigation to /pricing. Both still
+   * exist and both are asserted here: one click from the top reveals the real
+   * price, and the full comparison page is still reachable from the page.
+   */
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto('/welcome')
+
   await page.getByRole('link', { name: 'Pricing' }).first().click()
-  await expect(page).toHaveURL(/\/pricing$/)
+  await expect(page).toHaveURL(/#pricing$/)
+
+  const pricing = page.locator('#pricing')
+  await expect(pricing).toHaveCount(1)
+  await expect(pricing.getByText('$5').first()).toBeVisible()
+
+  // /pricing is not orphaned: the section links on to the full comparison.
+  await expect(
+    page.getByRole('link', { name: /See the full plan comparison/i }),
+  ).toHaveAttribute('href', '/pricing')
 })
