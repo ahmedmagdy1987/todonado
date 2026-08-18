@@ -128,9 +128,9 @@ export function LandingPage() {
                 The sentence is not longer for it.
               */}
               <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
-                Todonado works in hours, not wishes: work, health, family and errands compete for
-                the same day, so it plans one that fits, runs it in a focus timer, and shows what
-                it really took. Your week, calendar and journal are here too.
+                Work, health, family and errands all want the same day. Todonado plans one that
+                fits the hours you actually have, runs it in a focus timer, and shows what it
+                really took. Your calendar and journal are here too, and the week ahead on Pro.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -153,7 +153,7 @@ export function LandingPage() {
               </div>
 
               <p className="mt-5 text-sm text-text-muted">
-                Free forever for a complete day. No card to start.
+                A complete day, free forever. Not a trial, and no credit card needed.
               </p>
             </div>
 
@@ -167,8 +167,8 @@ export function LandingPage() {
           <div className={CONTAINER}>
             <TwoColumnIntro
               eyebrow="01 · The difference"
-              title="Most planners track what you owe. This one tracks what you have."
-              lede="A list will happily let you plan fourteen hours into an eight hour day. These three things are what stop that, and they are the same system rather than three features."
+              title="Most planners track what you owe. This one tracks the time you have."
+              lede="A list will happily let you plan fourteen hours into an eight-hour day. These three are what stop it, and each one is what makes the next one possible."
             />
             <Differentiators className="mt-8 sm:mt-10" />
           </div>
@@ -180,7 +180,7 @@ export function LandingPage() {
             <TwoColumnIntro
               eyebrow="02 · Features"
               title="One app instead of several"
-              lede="Every line below is a screen you can open on the day you sign up."
+              lede="Your day planner, focus timer, habit tracker and journal are all the same app. Everything below is live today, and the paid parts are marked Pro."
             />
 
             {/*
@@ -244,7 +244,7 @@ export function LandingPage() {
             <TwoColumnIntro
               eyebrow="04 · Compare"
               title="Where this sits next to what you already use"
-              lede="Most people are running three of these at once. None of them are bad tools, they simply answer a different question."
+              lede="Most people are running three of these at once. None of them are bad tools; they just answer a different question."
             />
             <CategoryComparison className="mt-8 sm:mt-10" />
           </div>
@@ -255,8 +255,8 @@ export function LandingPage() {
           <div className={CONTAINER}>
             <SectionIntro
               eyebrow="05 · Free and Pro"
-              title="Free is enough to run today. Pro is for the system you keep."
-              lede="Everything that makes one day work is free, permanently, and always will be. Pro is what you buy when one day stops being the unit you think in."
+              title="Free is enough to run today. Pro adds the week ahead, and the look back."
+              lede="Everything that makes one day work is free, and always will be. Pro is for planning further out than today, and seeing how your days really went."
               centered
             />
 

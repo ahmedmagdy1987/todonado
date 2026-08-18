@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Check } from 'lucide-react'
 import { formatMinutes } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -6,96 +6,162 @@ import { usePrefersReducedMotion } from '../demo/useReveal'
 import {
   HERO_DAY,
   HERO_DAY_MINUTES,
+  HERO_LATER,
   HERO_OPEN_MINUTES,
   HERO_PLANNED_MINUTES,
   heroProgressPercent,
 } from '../demo/heroDay'
 
 /**
- * THE HERO: A DAY THAT FITS, AND THEN GETS FINISHED.
+ * THE HERO: TEN THINGS WANT TODAY, SEVEN FIT, AND THEY GET DONE.
  *
- * ── WHAT IT REPLACES, AND WHY THAT VERSION WAS WRONG ───────────────────────
+ * ── THE STORY, IN FOUR ACTS ────────────────────────────────────────────────
  *
- * The live hero was a static card reading "Today's capacity / 92% planned",
- * amber, over the sentence "Nearly full. Add only what really matters today."
- * Every one of its five tasks was work.
+ *   1  STORM     ten obligations from nine parts of a life, scattered.
+ *   2  SETTLED   they land in one plan, and the time appears: 5h 30m of 6h.
+ *                The three that do not fit are demoted, not deleted.
+ *   3  WORKING   the plan gets worked. Tasks tick off, progress rises.
+ *   4  DONE      it rests at 100%.
  *
- * Two things were wrong with that, and they compound.
+ * ── WHY THE SAME ELEMENTS SCATTER AND LAND ─────────────────────────────────
  *
- * FIRST, THE NUMBER COULD ONLY EVER END IN A WARNING. 92% is 330 minutes
- * planned over a 360 minute day: PLANNING LOAD. It is a real and important
- * figure, but as the headline of a hero it has no happy ending, because the
- * best it can do is approach "full". A visitor watched a day get booked up and
- * then nothing happened. The card's final emotional state was caution.
+ * The rows a viewer watches fly in ARE the rows that end up in the plan. They
+ * never leave normal flow; they only ever carry a `transform`. Two things
+ * follow, and both matter more than they look.
  *
- * SECOND, THE DAY WAS ALL WORK, so the first impression of a product meant for
- * organising a life was a business tool.
+ * The card's geometry is IDENTICAL in every act, so nothing on the page can
+ * shift while the story plays. And the metaphor stays honest: this is one set
+ * of obligations being organised, not a mess swapped for a screenshot of a tidy
+ * list. Built as two separate compositions, the viewer would be watching a
+ * slideshow and would have to take the connection on trust.
  *
- * ── TWO METRICS, KEPT SEPARATE ─────────────────────────────────────────────
+ * ── THE THREE THAT DO NOT FIT ARE THE POINT ────────────────────────────────
  *
- * The bar now measures PROGRESS, counted in tasks, and it lands on exactly 100.
+ * Ten things arrive and seven fit. The other three do not evaporate; they
+ * settle into one quiet line saying where they went, because a product whose
+ * whole argument is that a day has a limit cannot show a day absorbing
+ * everything. It is also what the app really does: unscheduled work waits in
+ * the Inbox.
  *
- * The load figure has NOT been dropped, because it is the product's whole
- * argument: it is the "Today's plan" line above the bar, stating what the day
- * held, what was promised to it, and what was deliberately left open. That line
- * never moves. A plan you committed to once should not appear to shrink while
- * you work it, and freezing it is what lets both ideas sit on one card without
- * contradicting each other. The day gets finished BECAUSE it was a day that
- * fit, and both numbers are on screen saying so.
+ * ── THE TORNADO, WITHOUT THE WEATHER ───────────────────────────────────────
  *
- * (In the real app the capacity meter counts REMAINING incomplete effort, so a
- * finished day empties it to zero. That is the correct behaviour in the product
- * and the wrong story for a hero, which is exactly why the hero labels this
- * line "Today's plan" rather than borrowing the meter.)
+ * The product is called Todonado and the owner asked for "a tornado of tasks".
+ * What is built is an authored scatter that settles: trajectories from
+ * different angles, a little rotation, a slight scale, resolving into one calm
+ * column. No funnel, no spinning, no clouds. The storm is in the arrival rather
+ * than in a picture of a storm, and every label stays upright enough to read,
+ * because a viewer has to recognise these as their own obligations rather than
+ * as particles.
  *
- * ── IT RUNS ONCE AND STOPS ON THE PAYOFF ───────────────────────────────────
- *
- * No loop. A hero that keeps resetting is a GIF advert, and the reset undoes
- * the exact feeling the sequence exists to produce. It plays, it finishes, it
- * rests at a completed day. Under reduced motion it is already at that state on
- * the first frame, which is the right static answer for this hero: the
- * meaningful state is the finished one, never an empty list at 0%.
- *
- * ── NOTHING MOVES WHEN A TASK COMPLETES ────────────────────────────────────
- *
- * Every row is a fixed height and the trailing cell is a fixed width, so the
- * duration swapping for a tick cannot reflow the card. The strike-through and
- * the muted text are colour changes, not layout changes. A hero that shifts
- * while a visitor reads it is worse than a hero that does not move at all.
+ * Transform and opacity only, no dependency, and no blur on anything that
+ * moves: this page already paid for that lesson once, when a blurred moving
+ * layer took scrolling from 60fps to 21.
  */
 
-/** Milliseconds between two tasks completing. */
-const STEP_MS = 620
-/** A beat before the first one, so the visitor sees the starting state. */
-const LEAD_MS = 900
+/** Act boundaries in ms from mount. Storm 0-1.5s, settle, work, done by ~5.6s. */
+const SETTLE_AT = 1500
+const FIRST_TICK_AT = 2900
+const TICK_EVERY = 380
+
+/**
+ * Authored scatter per row. Deterministic, so every visit sees the same storm.
+ *
+ * THE HORIZONTAL RANGE IS DELIBERATELY NARROW. The first version threw rows
+ * out to +/-52%, and the card clips its overflow, so half the labels were cut
+ * mid-word at the frame edge: it read as a broken component rather than as a
+ * storm. The disorder now lives mostly in the VERTICAL offset and the rotation,
+ * where it costs no legibility, because the whole requirement is that a viewer
+ * recognises these as their own obligations rather than as particles.
+ */
+const SCATTER: readonly { dx: string; dy: string; rot: string; scale: number }[] = [
+  { dx: '-14%', dy: '-124%', rot: '-7deg', scale: 0.93 },
+  { dx: '18%', dy: '-56%', rot: '5deg', scale: 0.95 },
+  { dx: '-20%', dy: '22%', rot: '6deg', scale: 0.94 },
+  { dx: '15%', dy: '88%', rot: '-5deg', scale: 0.96 },
+  { dx: '-11%', dy: '136%', rot: '4deg', scale: 0.93 },
+  { dx: '19%', dy: '-100%', rot: '-6deg', scale: 0.95 },
+  { dx: '-17%', dy: '80%', rot: '7deg', scale: 0.94 },
+  /*
+   * The last three are the ones that will not fit, and their resting place is a
+   * single 36px box at the BOTTOM of the card, so they all share one anchor.
+   * Scattering them by the same modest offsets as the rows above piled them on
+   * top of each other in a heap. They need to travel much further up to join
+   * the storm at all, which is why their offsets are an order of magnitude
+   * larger than everything above.
+   */
+  { dx: '12%', dy: '-560%', rot: '5deg', scale: 0.92 },
+  { dx: '-16%', dy: '-330%', rot: '-6deg', scale: 0.95 },
+  { dx: '14%', dy: '-140%', rot: '6deg', scale: 0.93 },
+]
+
+/** The phone gets a vertical drop from alternating sides, never a vortex. */
+const MOBILE_SCATTER = SCATTER.map((_, i) => ({
+  mdx: i % 2 === 0 ? '-11%' : '11%',
+  // The seven planned rows drop from alternating sides; the three that will not
+  // fit share one anchor at the bottom, so they get their own wider spread or
+  // they land in a heap.
+  mdy: i < 7 ? `${-58 + i * 14}%` : `${-520 + (i - 7) * 190}%`,
+  mrot: i % 2 === 0 ? '-3deg' : '3deg',
+}))
+
+type Act = 'storm' | 'settled' | 'working' | 'done'
+
+function scatterVars(index: number, delayMs: number): CSSProperties {
+  return {
+    '--dx': SCATTER[index].dx,
+    '--dy': SCATTER[index].dy,
+    '--rot': SCATTER[index].rot,
+    '--scale': SCATTER[index].scale,
+    '--mdx': MOBILE_SCATTER[index].mdx,
+    '--mdy': MOBILE_SCATTER[index].mdy,
+    '--mrot': MOBILE_SCATTER[index].mrot,
+    transitionDelay: `${delayMs}ms`,
+  } as CSSProperties
+}
 
 export function ProductShot({ className }: { className?: string }) {
   const reduced = usePrefersReducedMotion()
   const total = HERO_DAY.length
+  const [act, setAct] = useState<Act>(reduced ? 'done' : 'storm')
   const [done, setDone] = useState(reduced ? total : 0)
 
   useEffect(() => {
     if (reduced) {
+      setAct('done')
       setDone(total)
       return
     }
+    setAct('storm')
     setDone(0)
-    let step = 0
-    let interval = 0
-    const lead = window.setTimeout(() => {
-      interval = window.setInterval(() => {
-        step += 1
-        setDone(step)
-        // Runs once. There is no restart: the finished day is the resting state.
-        if (step >= total) window.clearInterval(interval)
-      }, STEP_MS)
-    }, LEAD_MS)
-    return () => {
-      window.clearTimeout(lead)
-      if (interval) window.clearInterval(interval)
-    }
+
+    const timers: number[] = []
+    timers.push(window.setTimeout(() => setAct('settled'), SETTLE_AT))
+    timers.push(
+      window.setTimeout(() => {
+        setAct('working')
+        let step = 0
+        const interval = window.setInterval(() => {
+          step += 1
+          setDone(step)
+          // Runs ONCE. The finished plan is the resting state, never a loop.
+          if (step >= total) {
+            window.clearInterval(interval)
+            setAct('done')
+          }
+        }, TICK_EVERY)
+        timers.push(interval)
+      }, FIRST_TICK_AT),
+    )
+    /*
+     * `clearTimeout` clears the interval too: the HTML spec gives timeouts and
+     * intervals one handle space, so one teardown loop covers both. Collecting
+     * them in an array is what stops a later act's timer being the one nobody
+     * remembers to clear.
+     */
+    return () => timers.forEach((t) => window.clearTimeout(t))
   }, [reduced, total])
 
+  const scattered = act === 'storm'
   const percent = heroProgressPercent(done)
   const finished = done >= total
 
@@ -106,8 +172,6 @@ export function ProductShot({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* Window chrome. Names the screen, so this reads as the product rather
-          than a diagram drawn for a marketing page. */}
       <div className="flex items-center justify-between border-b border-white/5 bg-surface-2/60 px-4 py-2.5">
         <p className="font-display text-sm font-semibold text-text-primary">Today</p>
         <p className="font-mono text-[11px] uppercase tracking-wider text-text-muted">
@@ -115,19 +179,25 @@ export function ProductShot({ className }: { className?: string }) {
         </p>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className={cn('space-y-4 p-4', scattered ? 'storm--chaos' : 'storm--settled')}>
         {/*
-          ── TWO NUMBERS, TWO LINES, ONE BAR ──────────────────────────────
-          "Today's plan" is the commitment: what the day holds, what was
-          promised to it, and what was deliberately left alone. It does not
-          move, because a plan you made once should not appear to shrink while
-          you work it.
-          "Today's progress" is the bar, and it is the only thing that moves.
+          TWO NUMBERS, KEPT SEPARATE.
+          "Today's plan" is the commitment and never moves. "Today's progress"
+          is the only thing that fills. The version before this asked both
+          questions with one bar labelled "92% planned", which could only ever
+          end in a warning.
         */}
         <div className="space-y-2.5">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-medium text-text-primary">Today’s plan</p>
-            <p className="font-mono text-xs tabular-nums text-text-muted">
+            <p
+              className={cn(
+                'font-mono text-xs tabular-nums text-text-muted transition-opacity duration-500 motion-reduce:transition-none',
+                // The time appears as the storm settles, because that IS what
+                // just happened: a pile of obligations became an amount of time.
+                scattered ? 'opacity-0' : 'opacity-100',
+              )}
+            >
               {formatMinutes(HERO_PLANNED_MINUTES)} of {formatMinutes(HERO_DAY_MINUTES)} ·{' '}
               {formatMinutes(HERO_OPEN_MINUTES)} left
             </p>
@@ -160,11 +230,13 @@ export function ProductShot({ className }: { className?: string }) {
               />
             </div>
 
-            {/* Fixed height, so the closing line replacing the count cannot
-                move a single pixel of the card. */}
+            {/* Fixed height: the closing line replaces the count without
+                moving a pixel. */}
             <p className="mt-2 h-[18px] overflow-hidden text-xs leading-[18px]">
               {finished ? (
-                <span className="text-success">Plan complete. {total} of {total} done.</span>
+                <span className="text-success">
+                  Plan complete. {total} of {total} done.
+                </span>
               ) : (
                 <span className="text-text-muted">
                   {done} of {total} done
@@ -182,13 +254,13 @@ export function ProductShot({ className }: { className?: string }) {
               <li
                 key={task.id}
                 className={cn(
-                  'flex h-9 items-center gap-2.5 rounded-xl border px-3 transition-colors duration-300 motion-reduce:transition-none',
+                  'storm-item flex h-9 items-center gap-2.5 rounded-xl border px-3 transition-colors duration-300 motion-reduce:transition-none',
                   complete
                     ? 'border-success/25 bg-success/[0.07]'
                     : 'border-white/5 bg-surface-2/40',
                 )}
+                style={scatterVars(index, scattered ? 0 : index * 55)}
               >
-                {/* Fixed box, so a tick appearing cannot move the title. */}
                 <span
                   aria-hidden
                   className={cn(
@@ -202,24 +274,14 @@ export function ProductShot({ className }: { className?: string }) {
                 <span
                   className={cn(
                     'min-w-0 flex-1 truncate text-sm transition-colors duration-300 motion-reduce:transition-none',
+                    // Completed text stays at `text-muted`, not fainter: a
+                    // crossed-off task still has to be readable.
                     complete ? 'text-text-muted line-through' : 'text-text-primary',
                   )}
                 >
                   {task.title}
                 </span>
 
-                {/*
-                  The quiet category label. It is what makes the day read as a
-                  life at a glance rather than a workload, and it is one muted
-                  word rather than a colour per row: six tinted chips in a card
-                  this size is a rainbow.
-
-                  Shown at EVERY width, including 390. It was `sm:` only, which
-                  hid the life signal on the surface where the complaint
-                  started; the titles alone carry it, but the labels are what
-                  make the spread obvious in a glance, and they measure well
-                  inside the row even at 320.
-                */}
                 <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted/70">
                   {task.category}
                 </span>
@@ -237,6 +299,46 @@ export function ProductShot({ className }: { className?: string }) {
           })}
         </ul>
 
+        {/*
+          THE THREE THAT DID NOT FIT.
+
+          They are real rows during the storm and one quiet line afterwards. Not
+          deleted: a product built on "a day has a limit" has to show something
+          being left out, and it must never look like the app lost it.
+
+          One fixed-height box holds both states, so the demotion costs no
+          layout. The scattered copies are `aria-hidden` and the summary line is
+          not, so a screen reader meets this idea exactly once.
+        */}
+        <div className="relative h-9">
+          <ul aria-hidden className="absolute inset-0 list-none">
+            {HERO_LATER.map((task, index) => (
+              <li
+                key={task.id}
+                className="storm-item storm-later absolute inset-x-0 top-0 flex h-9 items-center gap-2.5 rounded-xl border border-white/5 bg-surface-2/40 px-3 transition-opacity duration-500"
+                style={scatterVars(total + index, 0)}
+              >
+                <span className="h-4 w-4 shrink-0 rounded-full border border-white/20" />
+                <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+                  {task.title}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted/70">
+                  {task.category}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <p
+            className={cn(
+              'absolute inset-x-0 top-0 flex h-9 items-center justify-center rounded-xl border border-dashed border-white/10 px-3 text-center text-xs text-text-muted transition-opacity duration-500 motion-reduce:transition-none',
+              scattered ? 'opacity-0' : 'opacity-100',
+            )}
+          >
+            {HERO_LATER.length} more didn’t fit today. They’re waiting in your inbox.
+          </p>
+        </div>
+
         {/* The week the day sits inside. Orientation, not a second screen. */}
         <div className="rounded-xl border border-white/5 bg-background/60 px-3 py-2.5">
           <div className="flex items-end justify-between gap-1.5">
@@ -248,11 +350,8 @@ export function ProductShot({ className }: { className?: string }) {
                   <div className="flex h-8 w-full items-end overflow-hidden rounded bg-surface-2/60">
                     <div
                       className={cn(
-                        'w-full rounded',
-                        // Mint for today because today is finished; softened so
-                        // it reinforces the completion rather than competing
-                        // with the progress bar above it.
-                        isToday ? 'bg-success/75' : 'bg-brand/40',
+                        'w-full rounded transition-colors duration-500 motion-reduce:transition-none',
+                        isToday && finished ? 'bg-success/75' : 'bg-brand/40',
                       )}
                       style={{ height: `${Math.max(pct, 4)}%` }}
                     />

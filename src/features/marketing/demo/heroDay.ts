@@ -34,10 +34,28 @@
 export interface HeroTask {
   id: string
   title: string
-  /** One word, shown as a quiet label. Six of them, so the day reads as a life. */
+  /** One word, shown as a quiet label, so the day reads as a life. */
   category: string
   minutes: number
 }
+
+/**
+ * The things that DID NOT fit, and why they are in the hero.
+ *
+ * Ten obligations arrive in the opening; seven of them fit the day. These three
+ * are the rest, and they are shown settling into a quiet "left for later" line
+ * rather than fading away, because fading them away would say the app loses
+ * what you give it. It does not: unscheduled work waits in the Inbox.
+ *
+ * They are also what makes the opening honest. A day with a limit is a day that
+ * something gets left out of, and pretending otherwise would be the exact lie
+ * this product exists to refuse.
+ */
+export const HERO_LATER: readonly HeroTask[] = [
+  { id: 'l1', title: 'Dentist at 3:00', category: 'Appointment', minutes: 60 },
+  { id: 'l2', title: 'Morning routine', category: 'Routine', minutes: 30 },
+  { id: 'l3', title: 'Breathing session', category: 'Wellbeing', minutes: 10 },
+] as const
 
 /** Minutes in the demo day. The same 6h a real new account starts with. */
 export const HERO_DAY_MINUTES = 360
@@ -55,6 +73,13 @@ export const HERO_DAY: readonly HeroTask[] = [
   { id: 'h6', title: 'Review the budget', category: 'Money', minutes: 45 },
   { id: 'h7', title: 'Read before bed', category: 'Personal', minutes: 60 },
 ] as const
+
+/**
+ * Every obligation the opening throws at the viewer: the seven that fit and the
+ * three that do not. Nine different parts of a life between them, which is the
+ * point of the shot.
+ */
+export const HERO_STORM: readonly HeroTask[] = [...HERO_DAY, ...HERO_LATER]
 
 /** 330 of 360. Computed, never written down twice. */
 export const HERO_PLANNED_MINUTES = HERO_DAY.reduce((n, task) => n + task.minutes, 0)

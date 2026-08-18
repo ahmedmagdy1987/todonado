@@ -345,9 +345,18 @@ test('hero: completing a task never moves the layout', async ({ page }) => {
   const rows = card.locator('li')
   await expect(rows.first()).toBeVisible()
 
+  /*
+   * `offsetHeight`, not `getBoundingClientRect().height`, and the difference is
+   * the whole point of this test. The opening act scatters the rows with a
+   * `transform`, and a transform changes the bounding RECT while leaving the
+   * LAYOUT box untouched. Measuring the rect would report the scale as a height
+   * change and fail on the very mechanism that guarantees there is no reflow.
+   * `offsetHeight` ignores transforms, so it answers the question actually
+   * being asked: did anything move the layout?
+   */
   const measure = async () => ({
-    card: await card.evaluate((el) => el.getBoundingClientRect().height),
-    rows: await rows.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)),
+    card: await card.evaluate((el) => (el as HTMLElement).offsetHeight),
+    rows: await rows.evaluateAll((els) => els.map((el) => (el as HTMLElement).offsetHeight)),
   })
 
   const before = await measure()

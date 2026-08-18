@@ -62,7 +62,7 @@ const { historyDays, personalTemplates, visionCards, mindMaps, quitHabits, activ
  * spin would have landed on the apparent contradiction.
  */
 export const SHARED_LINE =
-  'Both plans include unlimited tasks, projects and subtasks, the Day Capacity meter and its overbooking guard, Plan my day, roll-over, repeating tasks, focus and Pomodoro, the template catalog, the written journal, and the quit tracker.'
+  'Both plans include unlimited tasks, projects and subtasks, the Day Capacity meter and its overbooking guard, Plan my day, moving unfinished work to tomorrow, repeating tasks, focus and Pomodoro, the template catalog, the written journal, and the quit tracker.'
 
 export const PLAN_ROWS: readonly PlanRow[] = [
   {
@@ -72,9 +72,9 @@ export const PLAN_ROWS: readonly PlanRow[] = [
     headline: true,
   },
   {
-    // Named to match the reason card selling it ("Your patterns"), so a reader
+    // Named to match the reason card selling it ("Your estimates"), so a reader
     // persuaded upstairs can find the confirmation downstairs.
-    capability: 'Your patterns',
+    capability: 'Your estimates',
     free: 'Not included',
     pro: 'Insights: planned time against actual time, and how your estimates are improving',
     headline: true,
@@ -101,13 +101,13 @@ export const PLAN_ROWS: readonly PlanRow[] = [
    * cells and an earlier position put it back behind the four that matter.
    */
   {
-    capability: 'Personal limits',
+    capability: 'How many you can keep',
     free: `${personalTemplates} templates · ${visionCards} goals · ${mindMaps} mind maps · ${quitHabits} habits · ${activeChallenges} challenge`,
     pro: 'No limits on any of them',
   },
   {
     capability: 'Daily briefing',
-    free: 'Your day, your meetings, your streak and what carried over',
+    free: 'Your day, meetings, streak and what carried over',
     pro: 'Arrives with the day already planned, ready to accept',
   },
   {

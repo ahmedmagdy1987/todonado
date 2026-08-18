@@ -199,18 +199,25 @@ describe('the hero keeps its semantics while it animates', () => {
    * survives: the meaningful state must be reachable without waiting, the
    * sequence must end, and it must end on the payoff rather than resetting.
    */
-  it('shows the FINISHED day under reduced motion, never an empty one', () => {
+  it('shows the FINISHED day under reduced motion, never a frozen storm', () => {
     const shot = stripComments(read('./components/ProductShot.tsx'))
-    // The initial state is the complete state when motion is reduced, so the
-    // first frame is already the meaningful one.
+    /*
+     * Both pieces of state open at their finished values when motion is
+     * reduced: the act is `done` (so the storm never happens and no scatter
+     * transform is applied) and every task is complete. A frozen tornado would
+     * explain nothing; the composed, finished plan is the state that actually
+     * describes the product.
+     */
+    expect(shot).toMatch(/useState<Act>\(reduced \? 'done' : 'storm'\)/)
     expect(shot).toMatch(/useState\(reduced \? total : 0\)/)
-    expect(shot).toMatch(/if \(reduced\) \{\s*setDone\(total\)/)
+    expect(shot).toMatch(/if \(reduced\) \{[\s\S]{0,120}setAct\('done'\)[\s\S]{0,60}setDone\(total\)/)
   })
 
   it('runs the completion sequence ONCE and rests on the finished state', () => {
     const shot = stripComments(read('./components/ProductShot.tsx'))
-    // The interval clears itself at the end of the day.
-    expect(shot).toMatch(/if \(step >= total\) window\.clearInterval\(interval\)/)
+    // The interval clears itself at the end of the day and settles the act.
+    expect(shot).toMatch(/if \(step >= total\) \{[\s\S]{0,120}clearInterval\(interval\)/)
+    expect(shot).toMatch(/setAct\('done'\)/)
     /*
      * And nothing restarts it. Counting the timers is the precise way to say
      * that: ONE lead delay before the first completion and ONE interval driving
@@ -220,10 +227,14 @@ describe('the hero keeps its semantics while it animates', () => {
      * which is exactly that pair.)
      */
     expect(shot.match(/window\.setInterval\(/g) ?? []).toHaveLength(1)
-    expect(shot.match(/window\.setTimeout\(/g) ?? []).toHaveLength(1)
+    // Two timeouts, and only two: one to settle the storm, one to start the
+    // work. A replay would need a third, or a wrap; both are excluded.
+    expect(shot.match(/window\.setTimeout\(/g) ?? []).toHaveLength(2)
     expect(shot).not.toMatch(/%\s*total/)
-    // Both timers are torn down, so a navigation cannot leave one running.
-    expect(shot).toMatch(/window\.clearTimeout\(lead\)/)
+    // Every timer is torn down on unmount, so a navigation mid-storm cannot
+    // leave one running. They are collected in one array and cleared together,
+    // which is what stops a new act's timer being the one that gets forgotten.
+    expect(shot).toMatch(/timers\.forEach\(\(t\) => window\.clearTimeout\(t\)\)/)
   })
 
   it('ends at exactly 100 percent, not at a rounded 99', () => {

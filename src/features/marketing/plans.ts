@@ -99,7 +99,7 @@ export const PLANS: Plan[] = [
       '“Plan my day”: one tap fills today without going over',
       'Focus mode with Pomodoro, and one-tap “Get to work”',
       'Unlimited tasks: projects, sections, subtasks, priorities',
-      'Recurring tasks (daily / weekly / monthly / yearly)',
+      'Repeating tasks (daily / weekly / monthly / yearly)',
       'Ready-made templates and checklists, each with time estimates',
       'Daily briefing: what carried over and how much time you have left',
       // Templated from the constants so the copy can never drift from behaviour.

@@ -42,7 +42,7 @@ export const DIFFERENTIATORS: readonly Differentiator[] = [
   {
     title: 'What really happened shapes the next plan',
     body: 'Planned time and actual time sit side by side, so you find out your thirty minutes is really fifty. Unfinished work rolls forward on purpose instead of piling up.',
-    proof: 'Roll-over free, Insights on Pro',
+    proof: 'Roll-over is free · Insights on Pro',
   },
 ] as const
 

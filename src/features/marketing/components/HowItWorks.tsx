@@ -41,7 +41,7 @@ export const STEPS: readonly Step[] = [
   {
     label: 'Plan',
     title: 'See what actually fits',
-    body: 'Give the day a capacity, put minutes on the work, and let the meter tell you the truth before you commit to it.',
+    body: 'Tell it how many hours you really have, put minutes on the work, and let the meter tell you the truth before you commit.',
   },
   {
     label: 'Do',
@@ -50,7 +50,7 @@ export const STEPS: readonly Step[] = [
   },
   {
     label: 'Learn',
-    title: 'Let today correct tomorrow',
+    title: 'See where your estimates were wrong',
     body: 'The time you planned and the time you spent end up side by side, so the next estimate is better than the last one.',
   },
 ] as const
