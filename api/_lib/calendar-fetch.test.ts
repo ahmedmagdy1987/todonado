@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetRateLimitStores } from './_lib/rateLimit.js'
+import { resetRateLimitStores } from './rateLimit.js'
 import {
   AGGREGATE_DEADLINE_MS,
   DB_QUERY_LIMIT,
@@ -7,7 +7,7 @@ import {
   MAX_EVENTS_PER_REQUEST,
   MAX_SOURCES_PER_REQUEST,
   PER_SOURCE_TIMEOUT_MS,
-} from './_lib/calendarLimits.js'
+} from './calendarLimits.js'
 
 /**
  * /api/calendar-fetch — auth, the SERVER-SIDE Pro gate, and the open-proxy guard.
@@ -22,18 +22,18 @@ const getUserFromAuthHeader = vi.fn()
 const getSupabaseAdmin = vi.fn()
 const fetchIcsGuarded = vi.fn()
 
-vi.mock('./_lib/supabase.js', () => ({
+vi.mock('./supabase.js', () => ({
   getUserFromAuthHeader: (...a: unknown[]) => getUserFromAuthHeader(...a),
   getSupabaseAdmin: (...a: unknown[]) => getSupabaseAdmin(...a),
 }))
-vi.mock('./_lib/ssrf.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./_lib/ssrf.js')>()
+vi.mock('./ssrf.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./ssrf.js')>()
   return { ...actual, fetchIcsGuarded: (...a: unknown[]) => fetchIcsGuarded(...a) }
 })
 
-const mod = await import('./calendar-fetch.js')
+const mod = await import('../calendar-fetch.js')
 const handler = mod.webHandler
-const { SsrfError } = await import('./_lib/ssrf.js')
+const { SsrfError } = await import('./ssrf.js')
 
 const ENV_KEYS = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
 const configure = () => {

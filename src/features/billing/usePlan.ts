@@ -4,6 +4,7 @@ import { qk } from '@/lib/queryKeys'
 import { useAuth } from '@/features/auth/auth-context'
 import type { BillingRow } from '@/types/database'
 import { isFoundingEmail, readPlanOverride, resolveEffectivePlan, type Plan } from './plan'
+import { FOUNDING_STATUS } from './entitlements'
 
 /**
  * The current user's effective plan. Source of truth is the `billing` row
@@ -58,10 +59,29 @@ export function usePlan(): {
   return {
     plan,
     isPro,
-    // Founding only counts when the effective plan is Pro (so a founder previewing
-    // Free reads as Free), AND only when it's the founding grant driving it — not a
-    // paid subscription (a paying founder should read as a normal Pro subscriber).
-    isFounding: isPro && billing?.plan !== 'pro' && isFoundingEmail(email),
+    /*
+     * Founding only counts when the effective plan is Pro (so a founder
+     * previewing Free reads as Free), and only when it is the FOUNDING grant
+     * driving it rather than a paid subscription — a paying founder should read
+     * as a normal Pro subscriber.
+     *
+     * TWO SOURCES, BECAUSE THE SEED CHANGES WHICH ONE APPLIES.
+     *
+     * Today founding Pro exists only as an email allowlist, so `billing.plan` is
+     * not 'pro' and the second clause is what identifies it. Once the founding
+     * accounts are seeded into `billing` (see docs/proposals/), `billing.plan`
+     * BECOMES 'pro' and that clause would go false, silently reclassifying the
+     * owner as an ordinary subscriber and offering them a Stripe portal they
+     * have no customer for.
+     *
+     * `subscription_status = 'founding'` is the marker the seed writes, and it
+     * is what keeps this true on both sides of that change. Written now, before
+     * the seed, so the seed cannot introduce the regression.
+     */
+    isFounding:
+      isPro &&
+      (billing?.subscription_status === FOUNDING_STATUS ||
+        (billing?.plan !== 'pro' && isFoundingEmail(email))),
     billing,
     billingLoading: billingQuery.isPending,
     refetchBilling: () => void billingQuery.refetch(),

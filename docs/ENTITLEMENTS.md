@@ -116,6 +116,42 @@ creating a new recording asks about entitlement.**
 **What is still open:** a client can talk to Storage and PostgREST directly with its own session.
 The storage policy authorises on the `<user_id>` path segment — ownership, never plan.
 
+> **UPDATE, 2026-08-18 (later) — SPLIT OUT. Voice notes remain UI-GATED; server/storage hardening
+> is a DEFERRED FOLLOW-UP.**
+>
+> The endpoint, its 16 tests, the storage-policy migration and its 7 DB tests are parked whole in
+> `docs/followups/voice-note-hardening/`. None of it is deployed, and the live behaviour is
+> unchanged: the recorder is gated in the client and on the save path, and the bucket's INSERT
+> policy authorises on ownership alone.
+>
+> It was split because the missing half is served by the **Supabase Storage API, not Postgres**. A
+> disposable PostgreSQL proved what the policy does; it cannot execute `uploadToSignedUrl` or run
+> the journal E2E. Shipping any single piece would either deploy a dead endpoint that enforces
+> nothing, or break recording for everyone including subscribers. The change is atomic or it is
+> nothing, and it must not hold the count-limit enforcement hostage.
+>
+> **This table therefore still says "client" for voice notes, and that is the truth.**
+>
+> The superseded note below records what was built, and remains accurate about the design:
+>
+> `api/journal-audio-upload-url.ts` verifies the JWT, resolves entitlement from the database and
+> mints a short-lived signed upload URL. **The server chooses the object path** from the id in the
+> verified JWT, so a token cannot be aimed at another user's folder however the request is shaped.
+> 16 direct-bypass tests cover it: Free denied, no-billing-row denied, unverified founding address
+> denied, unresolved entitlement 503 (never 403, never a token), Pro allowed, founding allowed,
+> path never caller-chosen, never `upsert`.
+>
+> **`uploadJournalAudio` still uploads directly, on purpose.** Rewiring it now would break
+> `journal-audio.spec.ts` twice over: the E2E job exports no `SUPABASE_SERVICE_ROLE_KEY` (only the
+> `supabase` job does), so the endpoint would answer `503 not_configured`; and the suite grants Pro
+> with the `todonado.plan` localStorage override, which the server ignores by design. Shipping the
+> rewire alone would also enforce nothing, because the direct path stays open until the storage
+> policy narrows — which is a migration.
+>
+> The client rewire and `docs/proposals/20260818130000_journal_audio_pro_only.sql` must ship
+> **together**, after review and a real DB test. Until then this endpoint is the *sanctioned* path,
+> not the *only* one, and the table above still says "client" for voice notes.
+
 ### 🛑 STOP: closing the remaining gap needs a decision, and one of two costs
 
 Neither option is taken in this PR. **Migrations in this PR: 0.**
@@ -135,9 +171,26 @@ policy — RLS is row ownership and must not become a price list.
 rows are never examined, so grandfathering is preserved.
 *Rollback:* `drop trigger`, single statement, no data touched.
 
-**Recommendation:** Option B for the count caps and the storage policy, as one small reviewed
-migration, *after* this PR is merged. Option A is not worth its cost for limits whose worst-case
-abuse is a sixth mind map.
+**Recommendation:** Option B for the count caps, as one small reviewed migration, *after* this PR is
+merged. Option A is not worth its cost for limits whose worst-case abuse is a sixth mind map.
+
+> **UPDATE, 2026-08-18 — Option B was reviewed in detail and is DESIGNED BUT NOT APPLIED.**
+> `docs/proposals/SERVER_ENFORCEMENT_OPTION_B.md` carries the full review and the SQL. Three
+> findings sharpen the sentence above, and two of them contradict it:
+>
+> - **It covers FOUR of the five count caps, not five.** `activeChallenges` counts challenges whose
+>   *derived phase* is active, which needs the per-challenge `durationDays` from the TypeScript
+>   catalog, a progress computation over four other tables, and the user's local calendar day. The
+>   database has none of the three, and a trigger counting `status = 'active'` would be *stricter*
+>   than the UI. It stays client-side.
+> - **It does NOT cover the storage policy.** The audio object is uploaded *before* the row is
+>   written, so a trigger on `journal_entries` would reject the row and leave an orphaned
+>   unauthorised object. Voice notes need a narrow server-mediated signed upload instead, which is
+>   designed and not built.
+> - **It cannot be applied until `billing` is authoritative.** The table is EMPTY in production
+>   (16 users, 0 rows, verified read-only), and the only thing making anyone Pro is a TypeScript
+>   email allowlist the database cannot see. Applying the trigger first would cap the owner's own
+>   founding account.
 
 Until then: the table above is honest about which column says "client", and no marketing surface
 claims otherwise.

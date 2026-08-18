@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { applyTestModeEnv, clearTestModeEnv } from '../src/test/stripeDoubles.js'
+import { applyTestModeEnv, clearTestModeEnv } from '../../src/test/stripeDoubles.js'
 
 /**
  * Status/body mapping for the billing endpoints. Every failure must be a
@@ -9,16 +9,16 @@ import { applyTestModeEnv, clearTestModeEnv } from '../src/test/stripeDoubles.js
 const getUserFromAuthHeader = vi.fn()
 const getSupabaseAdmin = vi.fn()
 
-vi.mock('./_lib/supabase.js', () => ({
+vi.mock('./supabase.js', () => ({
   getUserFromAuthHeader: (...a: unknown[]) => getUserFromAuthHeader(...a),
   getSupabaseAdmin: (...a: unknown[]) => getSupabaseAdmin(...a),
 }))
 
 // The DEFAULT export is the Node-contract adapter Vercel invokes; the Web-shaped
 // handler is exported separately so the logic can be tested with plain Requests.
-const checkoutMod = await import('./create-checkout-session.js')
-const portalMod = await import('./create-portal-session.js')
-const webhookMod = await import('./stripe-webhook.js')
+const checkoutMod = await import('../create-checkout-session.js')
+const portalMod = await import('../create-portal-session.js')
+const webhookMod = await import('../stripe-webhook.js')
 const checkout = checkoutMod.webHandler
 const portal = portalMod.webHandler
 const webhook = webhookMod.webHandler

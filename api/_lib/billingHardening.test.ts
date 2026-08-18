@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetRateLimitStores } from './_lib/rateLimit.js'
-import { applyTestModeEnv, clearTestModeEnv, makeFakeDb } from '../src/test/stripeDoubles.js'
-import { resolveEffectivePlan, isFoundingEmail } from '../src/features/billing/planCore.js'
+import { resetRateLimitStores } from './rateLimit.js'
+import { applyTestModeEnv, clearTestModeEnv, makeFakeDb } from '../../src/test/stripeDoubles.js'
+import { resolveEffectivePlan, isFoundingEmail } from '../../src/features/billing/planCore.js'
 
 /**
  * Rate limiting on the money and outbound-request endpoints (audit FLAG-10),
@@ -17,19 +17,19 @@ const getUserFromAuthHeader = vi.fn()
 const getSupabaseAdmin = vi.fn()
 const createCheckoutSession = vi.fn()
 
-vi.mock('./_lib/supabase.js', () => ({
+vi.mock('./supabase.js', () => ({
   getUserFromAuthHeader: (...a: unknown[]) => getUserFromAuthHeader(...a),
   getSupabaseAdmin: (...a: unknown[]) => getSupabaseAdmin(...a),
 }))
 
-vi.mock('./_lib/stripe.js', () => ({
+vi.mock('./stripe.js', () => ({
   getStripe: () => ({
     checkout: { sessions: { create: (...a: unknown[]) => createCheckoutSession(...a) } },
     billingPortal: { sessions: { create: async () => ({ url: 'https://billing.stripe.com/x' }) } },
   }),
 }))
 
-const checkout = (await import('./create-checkout-session.js')).webHandler
+const checkout = (await import('../create-checkout-session.js')).webHandler
 
 const UID = 'user-123'
 const MONTHLY = 'price_configuredMonthly1'
