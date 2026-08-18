@@ -94,7 +94,10 @@ jobs:
       #
       # 91 -> 92: and one more for the intro COPY, which said prices were "an
       # early hypothesis" and "nothing is charged yet" directly above them.
-      EXPECTED_E2E_TESTS: '92'
+      # 92 -> 93: e2e/landing.spec.ts gained a check that completing a hero task
+      # never changes a row height or the hero's height, which is the failure the
+      # new completion animation could introduce and a screenshot would not catch.
+      EXPECTED_E2E_TESTS: '93'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

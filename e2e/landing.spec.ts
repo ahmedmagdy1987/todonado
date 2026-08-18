@@ -255,50 +255,107 @@ test('vortex: reduced motion keeps the funnel and stops only the movement', asyn
   expect(vx, 'no pointer parallax under reduced motion').toBe('')
 })
 
-test('hero: everything a visitor needs is painted on the first frame', async ({ page }) => {
+test('hero: the day completes, and reduced motion starts already finished', async ({ page }) => {
   /*
-   * WHAT REPLACED THE STAGGER TEST, AND WHY.
+   * THE HERO'S CONTRACT, IN THE ONE PLACE A REAL ENGINE CAN CHECK IT.
    *
-   * The hero used to animate five elements in with `fill-mode: both`, and this
-   * test existed to catch the failure where a delayed element never arrives:
-   * a stripped keyframe holds it at opacity 0 forever while the build stays
-   * green. The hero no longer staggers, so that failure mode is gone, and the
-   * stronger rule took its place: nothing in the hero is revealed over time at
-   * all. Headline, category sentence, both calls to action and a FINISHED
-   * product composition are all present and opaque immediately.
+   * Three versions have stood here. A five-element entrance stagger; then a
+   * fully static card, because the version before it opened with an EMPTY
+   * capacity meter that filled over four seconds and showed a product with
+   * nothing in it to anybody who scrolled early; and now a day being finished.
    *
-   * The old page failed exactly this: its capacity meter began empty and filled
-   * itself over about four seconds, so anybody who scrolled in the first two
-   * saw a product with nothing in it.
+   * The static version fixed the empty-start problem and introduced another
+   * that the owner caught on the live site: it read "92% planned" and stopped,
+   * so the hero's last word was an amber "nearly full" warning. The number it
+   * tracked was planning LOAD, which can only ever approach full.
+   *
+   * So the rules that matter now are: the meaningful state must be reachable
+   * without waiting (reduced motion opens on the finished day), the sequence
+   * must actually reach 100, and tasks must visibly complete on the way.
    */
-  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-    await page.emulateMedia({ reducedMotion })
-    await page.goto('/welcome')
 
-    const hero = page.locator('main > section').first()
-    await expect(hero.getByRole('heading', { level: 1 })).toBeVisible()
+  // ── Reduced motion: the finished day is the FIRST frame ──────────────
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/welcome')
 
-    // The meter is already at its finished value, with no waiting.
-    await expect(hero.getByText('92% planned')).toBeVisible()
-    await expect(hero.getByText(/Nearly full/)).toBeVisible()
+  const hero = page.locator('main > section').first()
+  await expect(hero.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(hero.getByText('100%')).toBeVisible()
+  await expect(hero.getByText(/Plan complete/)).toBeVisible()
 
-    /*
-     * Every CONTENT element in the hero is fully opaque.
-     *
-     * The decorative layers are excluded deliberately: the vortex's motes and
-     * rings and the aurora's specks genuinely start at zero opacity and fade
-     * up, which is what makes them atmosphere. They are `aria-hidden`, they
-     * carry no information, and a visitor who never sees them has missed
-     * nothing. The rule is about the words and the product shot.
-     */
-    const faded = await hero.locator('*').evaluateAll((els) =>
-      els.filter(
-        (el) =>
-          Number(getComputedStyle(el).opacity) === 0 && !el.closest('[aria-hidden="true"]'),
-      ).length,
-    )
-    expect(faded, `nothing in the hero is hidden waiting to animate (${reducedMotion})`).toBe(0)
-  }
+  // Every task is already crossed off, with no animation to wait for.
+  const struck = await hero.locator('li span').evaluateAll((els) =>
+    els.filter((el) => getComputedStyle(el).textDecorationLine.includes('line-through')).length,
+  )
+  expect(struck, 'reduced motion opens on a completed day').toBeGreaterThanOrEqual(6)
+
+  // ── Normal motion: it starts at zero and gets all the way to 100 ─────
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/welcome')
+
+  // The plan is legible before anything moves: this is the differentiator and
+  // it must not be something you have to wait for.
+  await expect(hero.getByText('Today’s plan')).toBeVisible()
+  await expect(hero.getByText(/of 6h/)).toBeVisible()
+
+  // And it resolves. The sequence is a lead-in plus one step per task, so this
+  // bound is generous enough not to flake and tight enough to catch a stall.
+  await expect(hero.getByText('100%')).toBeVisible({ timeout: 15_000 })
+  await expect(hero.getByText(/Plan complete/)).toBeVisible()
+
+  const struckAfter = await hero.locator('li span').evaluateAll((els) =>
+    els.filter((el) => getComputedStyle(el).textDecorationLine.includes('line-through')).length,
+  )
+  expect(struckAfter, 'every planned task ends crossed off').toBeGreaterThanOrEqual(6)
+
+  /*
+   * Every CONTENT element in the hero is opaque. The decorative layers are
+   * excluded deliberately: the vortex's motes and the aurora's specks genuinely
+   * start transparent and fade up, which is what makes them atmosphere. They
+   * are `aria-hidden` and carry no information.
+   */
+  const faded = await hero.locator('*').evaluateAll((els) =>
+    els.filter(
+      (el) => Number(getComputedStyle(el).opacity) === 0 && !el.closest('[aria-hidden="true"]'),
+    ).length,
+  )
+  expect(faded, 'nothing in the hero is hidden waiting to animate').toBe(0)
+})
+
+test('hero: completing a task never moves the layout', async ({ page }) => {
+  /*
+   * A hero that reflows while somebody is reading it is worse than one that
+   * does not move. Seven rows swap a duration for a tick and take a
+   * strike-through; none of that may change a height.
+   *
+   * MEASURED ON THE CARD, NOT THE SECTION, AND AFTER FONTS SETTLE. An earlier
+   * version of this test compared the whole hero section immediately after
+   * `goto` against the same section fifteen seconds later, and caught a 1px
+   * difference that had nothing to do with the animation: the first read
+   * happened before the webfont swapped. The card is the thing that animates,
+   * so the card is the thing to measure, and `document.fonts.ready` removes the
+   * confound rather than papering over it with a tolerance.
+   */
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/welcome')
+  await page.evaluate(() => document.fonts.ready)
+
+  const hero = page.locator('main > section').first()
+  const card = hero.locator('.shadow-elevation-lg').first()
+  const rows = card.locator('li')
+  await expect(rows.first()).toBeVisible()
+
+  const measure = async () => ({
+    card: await card.evaluate((el) => el.getBoundingClientRect().height),
+    rows: await rows.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height)),
+  })
+
+  const before = await measure()
+  await expect(card.getByText('100%')).toBeVisible({ timeout: 15_000 })
+  const after = await measure()
+
+  expect(after.rows, 'row heights are identical before and after completion').toEqual(before.rows)
+  expect(after.card, 'the card does not change height as the day completes').toBe(before.card)
 })
 
 test('hero: both CTAs still go where they claim', async ({ page }) => {

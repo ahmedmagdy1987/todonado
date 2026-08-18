@@ -111,16 +111,26 @@ export function LandingPage() {
 
                 It opens with a verb instead. The differentiator comes first
                 (hours, not wishes) so the claim stays sharp, and the breadth
-                comes second as four concrete nouns a reader can check two
-                screens later on the feature map. Breathwork, mind maps and
-                challenges are deliberately left out: they are why people stay,
-                not why a stranger signs up, and a hero that lists everything
-                invites the does-everything-therefore-nothing read.
+                comes second as concrete nouns a reader can check two screens
+                later on the feature map. Breathwork, mind maps and challenges
+                are deliberately left out: they are why people stay, not why a
+                stranger signs up, and a hero that lists everything invites the
+                does-everything-therefore-nothing read.
+
+                THE LIFE DOMAINS ARE NAMED FIRST, and "projects" was dropped.
+                The sentence previously moved straight from the loop to "the
+                week, your calendar, projects and a journal", which is four
+                surfaces and no life: a reader met a work vocabulary before
+                anything suggested the product was for the rest of their day.
+                Naming work, health, family and errands in the same breath is
+                what makes "the same day" mean a life rather than a workload,
+                and it is the same point the sample day beneath it is making.
+                The sentence is not longer for it.
               */}
               <p className="mt-5 max-w-xl text-base leading-relaxed text-text-muted sm:text-lg">
-                Todonado works in hours, not wishes: it plans your day around the time you have,
-                runs it in a focus timer, and shows what it really took. The week, your calendar,
-                projects and a journal are in the same app.
+                Todonado works in hours, not wishes: work, health, family and errands compete for
+                the same day, so it plans one that fits, runs it in a focus timer, and shows what
+                it really took. Your week, calendar and journal are here too.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">

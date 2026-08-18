@@ -181,25 +181,70 @@ describe('the hero keeps its semantics while it animates', () => {
   })
 
   /*
-   * THE HERO NO LONGER STAGGERS ITSELF IN, AND THAT IS THE POINT.
+   * THE HERO IS A COMPLETION STORY NOW, AND THESE ARE ITS RULES.
    *
-   * This used to assert five or more `--rise-delay` values under 600ms, which
-   * was the right rule for a hero whose content arrived in sequence. The hero
-   * is now complete at first paint: the headline, the paragraph, both calls to
-   * action and a finished product composition are all there on the first frame.
+   * This slot has held two different rules, and the history is worth keeping.
+   * It first pinned a five-element entrance stagger. That was replaced by
+   * "nothing in the hero animates at all", because the version before it opened
+   * with an EMPTY capacity meter that filled over four seconds, so anybody who
+   * scrolled in the first two saw a product with nothing in it.
    *
-   * What replaced the stagger rule is the rule that made the stagger
-   * unnecessary. The hero visual must be STATIC: no timer, no interval, no
-   * animation frame, no state. The page it replaced opened with an EMPTY
-   * capacity meter that filled itself over about four seconds, so a visitor who
-   * scrolled within two seconds saw a product with nothing in it. A finished
-   * state explains the product to everybody; motion only explains it to people
-   * who wait.
+   * The static version fixed that and introduced a different problem the owner
+   * caught on the live site: the card showed "92% planned" and stopped there,
+   * so the hero's final state was an amber "nearly full" warning. The number it
+   * tracked could only ever approach full, which is not an ending.
+   *
+   * The hero now plays a day being FINISHED. That is motion again, so the rule
+   * that made the static version safe has to be re-stated in a form that
+   * survives: the meaningful state must be reachable without waiting, the
+   * sequence must end, and it must end on the payoff rather than resetting.
    */
-  it('renders a hero visual that is finished on the first frame', () => {
+  it('shows the FINISHED day under reduced motion, never an empty one', () => {
     const shot = stripComments(read('./components/ProductShot.tsx'))
-    for (const banned of ['useState', 'useEffect', 'setInterval', 'setTimeout', 'requestAnimationFrame']) {
-      expect(shot, `the hero composition must not ${banned}`).not.toMatch(new RegExp(banned))
+    // The initial state is the complete state when motion is reduced, so the
+    // first frame is already the meaningful one.
+    expect(shot).toMatch(/useState\(reduced \? total : 0\)/)
+    expect(shot).toMatch(/if \(reduced\) \{\s*setDone\(total\)/)
+  })
+
+  it('runs the completion sequence ONCE and rests on the finished state', () => {
+    const shot = stripComments(read('./components/ProductShot.tsx'))
+    // The interval clears itself at the end of the day.
+    expect(shot).toMatch(/if \(step >= total\) window\.clearInterval\(interval\)/)
+    /*
+     * And nothing restarts it. Counting the timers is the precise way to say
+     * that: ONE lead delay before the first completion and ONE interval driving
+     * the rest. A replay would need a second timer or a wrap, and both are
+     * excluded. (An earlier version of this assertion searched for `setDone(0)`
+     * near a `setTimeout` and failed on the component's own STARTING state,
+     * which is exactly that pair.)
+     */
+    expect(shot.match(/window\.setInterval\(/g) ?? []).toHaveLength(1)
+    expect(shot.match(/window\.setTimeout\(/g) ?? []).toHaveLength(1)
+    expect(shot).not.toMatch(/%\s*total/)
+    // Both timers are torn down, so a navigation cannot leave one running.
+    expect(shot).toMatch(/window\.clearTimeout\(lead\)/)
+  })
+
+  it('ends at exactly 100 percent, not at a rounded 99', () => {
+    // The progress maths is pure and unit-tested next door; this pins the one
+    // property the hero's whole payoff depends on.
+    const day = stripComments(read('./demo/heroDay.ts'))
+    expect(day).toMatch(/if \(clamped === HERO_DAY\.length\) return 100/)
+  })
+
+  it('never animates a layout property, so a completing task cannot reflow the card', () => {
+    const shot = stripComments(read('./components/ProductShot.tsx'))
+    // Rows are a fixed height and the duration cell a fixed width.
+    expect(shot).toMatch(/h-9/)
+    expect(shot).toMatch(/w-\[52px\]/)
+    // Transitions are colours and the bar's width only.
+    const transitions = shot.match(/transition-\[[^\]]+\]|transition-colors/g) ?? []
+    expect(transitions.length).toBeGreaterThan(0)
+    for (const t of transitions) {
+      expect(t, `"${t}" animates something other than colour or the bar width`).toMatch(
+        /transition-colors|transition-\[width,background-color\]/,
+      )
     }
   })
 
