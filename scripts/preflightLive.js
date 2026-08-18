@@ -65,6 +65,22 @@ export const REQUIRED_MIGRATIONS_BEFORE_LIVE = Object.freeze([
  */
 export const ACKNOWLEDGED_LATER_MIGRATIONS = Object.freeze([
   '20260808120000_calendar_sources_write_guard.sql',
+  /*
+   * The commercial count limits: `effective_plan`, one generic trigger function
+   * and four BEFORE INSERT triggers. Acknowledged rather than merely tolerated,
+   * which is the distinction this list exists for.
+   *
+   * It applies no schema change, alters no table, deletes nothing and adds no
+   * RLS policy. It was executed against a disposable PostgreSQL as part of the
+   * full chain from empty, and exercised for Free/Pro/Founding caps,
+   * grandfathering, a real two-connection race and a direct-bypass attempt
+   * (db-tests/entitlementLimits.db.test.ts).
+   *
+   * It is safe only because `public.billing` is now authoritative: the founding
+   * account was seeded on 2026-08-18. Applied to a database where billing is
+   * empty, it would cap the owner.
+   */
+  '20260818120000_free_count_limits.sql',
 ])
 
 /** Hobby-plan ceiling, mirrored from api/_lib/functionBudget.test.ts. */
