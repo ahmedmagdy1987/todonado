@@ -38,12 +38,6 @@ export function redactSecrets(input: string): string {
 /** Error codes the billing endpoints can return. Stable, machine-readable. */
 export type ApiErrorCode =
   | 'method_not_allowed'
-  // The request body was absent or malformed. Deliberately says nothing about
-  // WHICH field: an endpoint that narrates its own validation is a probing aid.
-  | 'invalid_request'
-  // Storage could not mint a signed upload URL. Not the caller's fault and not
-  // an entitlement answer, so neither 4xx nor a retry-after.
-  | 'storage_unavailable'
   | 'billing_not_configured'
   | 'unauthorized'
   | 'invalid_price'

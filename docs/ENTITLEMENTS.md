@@ -116,7 +116,23 @@ creating a new recording asks about entitlement.**
 **What is still open:** a client can talk to Storage and PostgREST directly with its own session.
 The storage policy authorises on the `<user_id>` path segment — ownership, never plan.
 
-> **UPDATE, 2026-08-18 — the server half now exists; the client is not rewired.**
+> **UPDATE, 2026-08-18 (later) — SPLIT OUT. Voice notes remain UI-GATED; server/storage hardening
+> is a DEFERRED FOLLOW-UP.**
+>
+> The endpoint, its 16 tests, the storage-policy migration and its 7 DB tests are parked whole in
+> `docs/followups/voice-note-hardening/`. None of it is deployed, and the live behaviour is
+> unchanged: the recorder is gated in the client and on the save path, and the bucket's INSERT
+> policy authorises on ownership alone.
+>
+> It was split because the missing half is served by the **Supabase Storage API, not Postgres**. A
+> disposable PostgreSQL proved what the policy does; it cannot execute `uploadToSignedUrl` or run
+> the journal E2E. Shipping any single piece would either deploy a dead endpoint that enforces
+> nothing, or break recording for everyone including subscribers. The change is atomic or it is
+> nothing, and it must not hold the count-limit enforcement hostage.
+>
+> **This table therefore still says "client" for voice notes, and that is the truth.**
+>
+> The superseded note below records what was built, and remains accurate about the design:
 >
 > `api/journal-audio-upload-url.ts` verifies the JWT, resolves entitlement from the database and
 > mints a short-lived signed upload URL. **The server chooses the object path** from the id in the

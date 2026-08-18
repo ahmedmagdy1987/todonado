@@ -57,14 +57,6 @@ export const LIMITS = {
    * legitimate client needs this a handful of times an hour, not a minute.
    */
   calendar: { limit: 6, windowMs: 60_000 },
-  /*
-   * Minting a signed upload URL for a voice note. A person records a handful of
-   * notes a day, not twelve a minute, and each call is a Storage round trip made
-   * with the service role, so the budget is tight on purpose. Generous enough
-   * that a retry after a dropped connection is never the thing that stops
-   * somebody recording.
-   */
-  journalAudio: { limit: 12, windowMs: 60_000 },
 } as const
 
 /**

@@ -10,9 +10,16 @@ import { audioKey } from './journal'
  *
  * `audioKey` lives here, in `journal.ts`, which imports `@/types/database` and
  * the history window and is therefore NOT a leaf module. `api/**` may only
- * import dependency-free modules (see tsconfig.api.json), so the new
+ * import dependency-free modules (see tsconfig.api.json), so the planned
  * server-authorised upload endpoint cannot import it and writes the shape out
  * again.
+ *
+ * THAT ENDPOINT IS NOT SHIPPED. It is parked, whole and tested, in
+ * docs/followups/voice-note-hardening/, because the upload hardening can only
+ * deploy atomically with a client rewire and a storage-policy change that could
+ * not be validated without a Supabase Storage API. This test still compares the
+ * two shapes, so the parked design cannot drift away from the live key while it
+ * waits.
  *
  * ── WHY DRIFT WOULD BE SILENT AND EXPENSIVE ────────────────────────────────
  *
@@ -25,7 +32,7 @@ import { audioKey } from './journal'
  */
 
 const SERVER = readFileSync(
-  fileURLToPath(new URL('../../../api/journal-audio-upload-url.ts', import.meta.url)),
+  fileURLToPath(new URL('../../../docs/followups/voice-note-hardening/journal-audio-upload-url.ts.txt', import.meta.url)),
   'utf8',
 )
 
