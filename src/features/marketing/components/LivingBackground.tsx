@@ -61,7 +61,7 @@ const DUST = [
   { left: '69%', top: '66%', dur: '43s', delay: '19s' },
 ] as const
 
-export function LivingBackground() {
+export function LivingBackground({ contained = false }: { contained?: boolean } = {}) {
   const reduced = usePrefersReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -110,7 +110,12 @@ export function LivingBackground() {
   }, [])
 
   return (
-    <div ref={rootRef} aria-hidden className="living-bg" data-paused="false">
+    <div
+      ref={rootRef}
+      aria-hidden
+      className={contained ? 'living-bg living-bg--contained' : 'living-bg'}
+      data-paused="false"
+    >
       {PLANES.map((plane) => (
         <div
           key={plane.blob}

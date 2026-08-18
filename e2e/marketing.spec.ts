@@ -14,9 +14,15 @@ import { isSupabaseRestCall } from './supabaseTarget'
  * that is the failure mode.
  */
 
-/** Scroll the whole page so every lazily-mounted section exists in the DOM. */
+/**
+ * Scroll the whole page so everything below the fold exists and has settled.
+ *
+ * The landing no longer lazily mounts its sections, but the scroll is kept: the
+ * product screenshots are `loading="lazy"`, and a test that reads the page's
+ * full text before they resolve is testing half a page.
+ */
 async function mountLazySections(page: Page) {
-  const sentinel = page.getByRole('link', { name: 'Compare all plans' })
+  const sentinel = page.getByRole('link', { name: 'See the full plan comparison' })
   for (let attempt = 0; attempt < 5 && (await sentinel.count()) === 0; attempt += 1) {
     await page.evaluate(async () => {
       const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)))
@@ -92,40 +98,36 @@ const NOT_BUILT = [
   'Team',
 ]
 
-test('landing: the breadth section is real, and every surface on it is live', async ({ page }) => {
+test('landing: the feature map is real, and every surface on it is live', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)
 
-  const section = page.getByRole('region', { name: /One place for your day/i })
+  const section = page.getByRole('region', { name: /What is inside Todonado/i })
   await expect(section).toBeVisible()
 
-  // The five real surface groups.
-  for (const group of ['Plan', 'Focus', 'Habits', 'Calm', 'Reflect']) {
-    await expect(section.getByRole('heading', { name: group, level: 3 })).toBeVisible()
+  // The five pillars of the product map.
+  for (const pillar of ['Capture', 'Plan', 'Focus', 'Learn', 'Keep going']) {
+    await expect(section.getByRole('heading', { name: pillar, level: 3 })).toBeVisible()
   }
 
-  // Each group opens something REAL. Logged out, that means signup carrying the
-  // destination — never a dead button.
-  await expect(section.getByRole('button', { name: /Open Today/i })).toBeVisible()
-  await expect(section.getByRole('button', { name: /Get to work/i })).toBeVisible()
-  await expect(section.getByRole('button', { name: /Open the quit tracker/i })).toBeVisible()
-  await expect(section.getByRole('button', { name: /Try breathwork/i })).toBeVisible()
-  await expect(section.getByRole('button', { name: /Open Vision/i })).toBeVisible()
+  /*
+   * The three surfaces that shipped last must be NAMED here. They were held out
+   * of the old breadth strip until their migrations were applied, on the rule
+   * that a category may only be claimed if a stranger signing up right now can
+   * open it. They can, so they are named, and this is what keeps them named.
+   */
+  for (const label of ['Mind maps', 'Journal', 'Challenges']) {
+    await expect(section.getByText(label, { exact: false }).first()).toBeVisible()
+  }
 
   // Nothing unbuilt may be advertised inside it.
   const text = (await section.textContent()) ?? ''
-  expect(text).not.toMatch(/coming soon|not yet|we.ll let you know/i)
-  // 'Sleep sounds' left this list when it shipped, and the strip now claims
-  // "Sleep noise with a sleep timer" under Calm. What replaced it is the half
-  // that is still missing: no recording may be advertised here until it is
-  // licensed, and naming them individually is what makes that checkable.
+  expect(text).not.toMatch(/coming soon|not yet|not built|not switched on|notify me/i)
   for (const claim of ['Guided meditation', 'AI ', 'voice journal', 'Rain', 'Ocean']) {
     expect(text, `"${claim}" is not built and must not appear here`).not.toContain(claim)
   }
 
-  // No named competitor, and no "replaces N apps". Deliberately only
-  // unambiguous brand names — "things" was in this list once and matched the
-  // ordinary English in "the things you keep doing".
+  // No named competitor, and no "replaces N apps".
   expect(text).not.toMatch(/todoist|ticktick|asana|trello|sunsama|[^a-z]notion[^a-z]|[^a-z]motion[^a-z]/i)
   expect(text).not.toMatch(/replaces?\s+\d+\s+apps?/i)
 })
@@ -136,16 +138,11 @@ test('landing: the all-in-one claim is categories only, and every one of them is
   await page.goto('/welcome')
   await mountLazySections(page)
 
-  const section = page.getByRole('region', { name: /One place for your day/i })
+  const section = page.getByRole('region', { name: /What is inside Todonado/i })
   await expect(section.getByText('One app instead of several')).toBeVisible()
 
-  // Categories, never brands, and never a countable claim.
-  //
-  // The journal and the mind-map canvas joined this list when their migrations
-  // were applied — until then they were deliberately absent, because a category
-  // may only be claimed if a stranger who signs up RIGHT NOW can use it. That
-  // rule is now enforced from the other side: each one is asserted present here,
-  // AND the route test below proves the page behind it actually works.
+  // Categories, never brands, and never a countable claim. One shared constant
+  // renders this list here and on /pricing, so the two cannot drift.
   for (const category of [
     'A day planner',
     'A focus & pomodoro timer',
@@ -163,51 +160,49 @@ test('landing: the all-in-one claim is categories only, and every one of them is
   expect(text).not.toMatch(/todoist|ticktick|asana|trello|sunsama|evernote|[^a-z]notion[^a-z]/i)
 })
 
-test('landing: the strip names the three newly-live surfaces, and they are real', async ({
-  page,
-}) => {
+test('landing: every paid capability is marked Pro wherever it is named', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)
 
   /*
-   * The "everything else" list stopped being its own landmark in the executive
-   * cut and moved INSIDE the breadth section, because two breadth arguments
-   * back to back was the same point made twice and the flat list was the weaker
-   * of the two. The RULE it carries is unchanged and is what this test is for:
-   * these three shipped, they must be named, and nothing near them may read as
-   * unbuilt. Only the address changed.
+   * The week used to be proved by an interactive demo that ran the real
+   * planner. That demo is gone, and what replaced it is the rule the demo was
+   * really there to satisfy: a visitor must never meet a paid capability
+   * described as though it were included.
+   *
+   * So each of these is asserted to carry a Pro marker in the feature map, and
+   * the Free/Pro table below is asserted to say the same thing. Two surfaces,
+   * one claim.
    */
-  const strip = page.getByRole('region', { name: /One place for your day/i })
-  await expect(strip.getByRole('heading', { name: /Everything else/i })).toBeVisible()
-
-  for (const label of ['Mind maps', 'Journal', 'Challenges']) {
-    await expect(strip.getByText(label, { exact: true })).toBeVisible()
+  const map = page.getByRole('region', { name: /What is inside Todonado/i })
+  for (const paid of ['Week board and Plan my week', 'Insights', 'Live calendar sync', 'Voice notes']) {
+    const row = map.getByRole('listitem').filter({ hasText: paid }).first()
+    await expect(row, `"${paid}" is paid and must be marked`).toContainText('Pro')
   }
 
-  const text = (await strip.textContent()) ?? ''
-  expect(text).not.toMatch(/coming soon|not built|not switched on|notify me/i)
+  const plans = page.getByRole('region', { name: /Free and Pro/i })
+  await expect(plans.getByText('The week ahead').first()).toBeVisible()
+  await expect(plans.getByText(/Not included/).first()).toBeVisible()
 })
 
-test('landing: the week board is on the page and runs the real planner', async ({ page }) => {
+test('landing: the comparison concedes at least one row, and names no brands', async ({ page }) => {
   await page.goto('/welcome')
   await mountLazySections(page)
 
-  const board = page.getByRole('button', { name: 'Plan my week' })
-  await board.scrollIntoViewIfNeeded()
-  await expect(board).toBeVisible()
+  const compare = page.getByRole('region', { name: /How Todonado compares/i })
+  await expect(compare).toBeVisible()
 
-  // Seven day columns, each with its OWN capacity — the promise is per-day.
-  const columns = page.getByRole('img', { name: /% of the day planned$/ })
-  await expect(columns).toHaveCount(7)
+  /*
+   * A comparison table whose author wins every row is an advert. This asserts
+   * the loss is still on the page: reminders that reach you when the app is
+   * closed are not built, every one of these categories does them, and the
+   * table says so. If this ever fails because the row was quietly removed, the
+   * table has become marketing rather than information.
+   */
+  await expect(compare.getByText('Not built yet').first()).toBeVisible()
 
-  await board.click()
-  // The real planWeek placed work and reported what did not fit.
-  await expect(page.getByText(/\d+ planned · \d+ left for later/)).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText(/earliest day with room/i)).toBeVisible()
-
-  // It is honest that this one is paid.
-  const weekCard = page.locator('div').filter({ hasText: 'Your week' }).last()
-  await expect(weekCard.getByText('Pro').first()).toBeVisible()
+  const text = (await compare.textContent()) ?? ''
+  expect(text).not.toMatch(/todoist|ticktick|asana|trello|sunsama|[^a-z]notion[^a-z]|[^a-z]motion[^a-z]/i)
 })
 
 test('landing: no shipped feature is ever labelled unbuilt', async ({ page }) => {
@@ -215,13 +210,22 @@ test('landing: no shipped feature is ever labelled unbuilt', async ({ page }) =>
   await mountLazySections(page)
   const body = (await page.locator('main').textContent()) ?? ''
 
-  // Guided meditation is the LAST fake door on the landing. It was two until
-  // the noise tracks shipped; an exact count is what forces this number down
-  // when a fake door becomes a feature, instead of letting a stale badge sit
-  // next to something that works.
+  /*
+   * ZERO. The landing no longer advertises anything that is not built.
+   *
+   * This was 1 for the guided-meditation fake door that lived in the wellness
+   * teaser, and 2 before the noise tracks shipped. The teaser is gone with the
+   * rest of the storytelling page, and nothing replaced its fake door, so the
+   * honest count is now none. `/pricing` still carries the unbuilt list, which
+   * is where somebody weighing the decision is looking, and the test below
+   * governs that page.
+   *
+   * The assertion stays EXACT rather than becoming "at most one": an exact
+   * count is what forces this number down when a fake door becomes a feature,
+   * instead of letting a stale badge sit next to something that works.
+   */
   const comingSoon = page.getByText('Coming soon', { exact: true })
-  const count = await comingSoon.count()
-  expect(count, 'only guided meditation is still unlicensed').toBe(1)
+  expect(await comingSoon.count(), 'the landing advertises nothing unbuilt').toBe(0)
 
   // And each shipped feature is present WITHOUT being called unbuilt. The
   // wellness teaser's intro is the only place the word pairing can legitimately
@@ -341,9 +345,15 @@ test('landing: OG tags and the zero-database guarantee still hold', async ({ pag
   expect(html).toContain('name="twitter:card"')
   expect(html).toContain('rel="canonical"')
 
-  // …nor the promise that the marketing page never touches a user's data.
-  // The week board and the breadth strip are both new since that guarantee was
-  // written, and both run on the landing.
+  /*
+   * …nor the promise that the marketing page never touches a user's data.
+   *
+   * This used to prove it by clicking "Plan my week" on the landing's week
+   * demo, because a widget running real planning logic was the most likely
+   * thing to reach for real data. The landing no longer ships that demo, so the
+   * proof is now the whole page: scroll all of it, including the lazily loaded
+   * product screenshots, and assert that not one Supabase REST call was made.
+   */
   const dbCalls: string[] = []
   page.on('request', (req) => {
     const url = req.url()
@@ -354,8 +364,6 @@ test('landing: OG tags and the zero-database guarantee still hold', async ({ pag
 
   await page.goto('/welcome')
   await mountLazySections(page)
-  await page.getByRole('button', { name: 'Plan my week' }).click()
-  await expect(page.getByText(/\d+ planned · \d+ left for later/)).toBeVisible({ timeout: 15_000 })
 
   expect(dbCalls, `the landing hit the database:\n${dbCalls.join('\n')}`).toEqual([])
 })

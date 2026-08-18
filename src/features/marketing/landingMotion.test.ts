@@ -180,28 +180,42 @@ describe('the hero keeps its semantics while it animates', () => {
     expect(landing).toMatch(/Your day is not\./)
   })
 
-  it('staggers with delays short enough not to delay comprehension', () => {
-    const delays = [...landing.matchAll(/'--rise-delay':\s*'(\d+)ms'/g)].map((m) => Number(m[1]))
-    expect(delays.length).toBeGreaterThanOrEqual(5)
-    // The whole sequence, including the 0.62s animation, resolves inside ~1.2s.
-    expect(Math.max(...delays)).toBeLessThanOrEqual(600)
+  /*
+   * THE HERO NO LONGER STAGGERS ITSELF IN, AND THAT IS THE POINT.
+   *
+   * This used to assert five or more `--rise-delay` values under 600ms, which
+   * was the right rule for a hero whose content arrived in sequence. The hero
+   * is now complete at first paint: the headline, the paragraph, both calls to
+   * action and a finished product composition are all there on the first frame.
+   *
+   * What replaced the stagger rule is the rule that made the stagger
+   * unnecessary. The hero visual must be STATIC: no timer, no interval, no
+   * animation frame, no state. The page it replaced opened with an EMPTY
+   * capacity meter that filled itself over about four seconds, so a visitor who
+   * scrolled within two seconds saw a product with nothing in it. A finished
+   * state explains the product to everybody; motion only explains it to people
+   * who wait.
+   */
+  it('renders a hero visual that is finished on the first frame', () => {
+    const shot = stripComments(read('./components/ProductShot.tsx'))
+    for (const banned of ['useState', 'useEffect', 'setInterval', 'setTimeout', 'requestAnimationFrame']) {
+      expect(shot, `the hero composition must not ${banned}`).not.toMatch(new RegExp(banned))
+    }
   })
 
   it('keeps both hero CTAs and their destinations', () => {
     /*
-     * The secondary CTA is no longer a /pricing link. It is an in-page anchor
-     * to the problem section, because asking a stranger to evaluate cost before
-     * they know what the product does is the wrong second step, and the closing
-     * CTA's "Compare plans" was cut in the executive pass for being a third
-     * label pointing at the same page.
+     * The secondary CTA points at the FEATURES section, because the question a
+     * stranger has after the headline is "what is it", not "what does it cost".
      *
      * A REAL ANCHOR is the part worth pinning: a scroll handler would break
      * keyboard use and stop working without JavaScript, and it is the kind of
-     * thing a refactor swaps in without noticing.
+     * thing a refactor swaps in without noticing. The anchor must also point at
+     * a section that exists on this page.
      */
     expect(landing).toMatch(/onClick=\{startFree\}/)
-    expect(landing).toMatch(/href="#why-days-slip"/)
-    expect(landing).toMatch(/id="why-days-slip"/)
+    expect(landing).toMatch(/href="#features"/)
+    expect(landing).toMatch(/id="features"/)
   })
 
   it('renders the funnel behind the content, never over it', () => {

@@ -14,6 +14,8 @@
  * HONEST ANSWERS ONLY — every claim reflects what the app does today.
  */
 
+import { FREE_HISTORY_DAYS } from '@/lib/config'
+
 export interface Qa {
   q: string
   a: string
@@ -26,11 +28,11 @@ export const FAQ: Qa[] = [
   },
   {
     q: 'What do I get with Pro?',
-    a: 'The week ahead, and a look back at how your days really went. Week planning shows seven days at once, each with its own capacity, plus a one-tap “Plan my week”. Insights compare the time you planned with the time you actually spent, and show how accurate your estimates are getting. Pro also keeps your finished tasks forever instead of the last 14 days, keeps a linked calendar up to date so your meetings always show, and gives you a morning briefing with the day already planned.',
+    a: `The week ahead, and a look back at how your days really went. Week planning shows seven days at once, each with its own capacity, plus a one-tap “Plan my week”. Insights compare the time you planned with the time you actually spent, and show how accurate your estimates are getting. Pro also shows every task you have ever finished, where Free shows the last ${FREE_HISTORY_DAYS} days, keeps a linked calendar up to date so your meetings always show, and gives you a morning briefing with the day already planned.`,
   },
   {
     q: 'Can I cancel?',
-    a: 'Any time, from your plan settings, in a couple of clicks. You keep Pro until the end of the period you already paid for, and then the account simply becomes a free one. Nothing is deleted and nothing is locked. Your finished tasks past the free 14-day window are hidden rather than removed, so upgrading again brings them straight back.',
+    a: `Any time, from your plan settings, in a couple of clicks. You keep Pro until the end of the period you already paid for, and then the account simply becomes a free one. Nothing is deleted and nothing is locked. Finished tasks older than the free ${FREE_HISTORY_DAYS}-day window are hidden rather than removed, so upgrading again brings them straight back.`,
   },
   {
     q: 'What isn’t built yet?',

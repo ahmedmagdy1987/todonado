@@ -30,8 +30,21 @@ export function LandingFaq() {
       </h2>
 
       <div className="mt-6 divide-y divide-white/5 border-y border-white/5 sm:mt-8">
-        {HOMEPAGE_FAQ.map((item) => (
-          <details key={item.q} className="group">
+        {HOMEPAGE_FAQ.map((item, index) => (
+          /*
+           * THE FIRST ONE IS OPEN.
+           *
+           * An audit of the live page found that the FAQ rendered three
+           * question titles and not one word of an answer, so a visitor who
+           * never clicks anything learns only that questions exist. Opening the
+           * first one costs about a hundred pixels and proves there are real
+           * answers behind the other two, which is the whole reason the section
+           * is on the page.
+           *
+           * `open` on `details` is the native attribute, so this stays
+           * keyboard-operable and collapsible exactly as before.
+           */
+          <details key={item.q} className="group" open={index === 0}>
             <summary className="focus-ring flex min-h-[56px] cursor-pointer list-none items-center gap-3 py-4 text-left font-display text-base font-semibold text-text-primary marker:content-['']">
               <span className="flex-1">{item.q}</span>
               {/* Rotates on open. Decorative: `details` already reports its own

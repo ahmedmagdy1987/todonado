@@ -103,6 +103,20 @@
     contain: layout paint;
   }
 
+  /*
+   *  CONTAINED VARIANT: the aurora belongs to the hero, not to the page.
+   *
+   *  Fixed to the viewport it kept painting a full screen of animated
+   *  gradient behind every section for the whole document, even though the
+   *  opaque materials above it meant not one pixel of it was visible past
+   *  the hero. Absolute inside the hero means it covers exactly the box it
+   *  is the background of, and it scrolls away and stops costing anything
+   *  the moment the hero leaves the screen.
+   */
+  .living-bg--contained {
+    position: absolute;
+  }
+
   /* One parallax plane. `--living-scroll` is written once per animation frame
      by LivingBackground; `--depth` is per-plane, so three planes drift at three
      speeds and the background reads as further away than the content. */
@@ -1010,5 +1024,64 @@ html {
   100% {
     opacity: 0;
     transform: translate3d(0, -0.3em, 0);
+  }
+}
+
+@layer components {
+  /* ================================================================== */
+  /*  LANDING MATERIALS                                                  */
+  /*                                                                     */
+  /*  See src/features/marketing/components/Section.tsx for the rule     */
+  /*  these implement: every material except the hero is OPAQUE, so the  */
+  /*  aurora stops at the hero and each boundary is a real edge rather   */
+  /*  than a cross-dissolve.                                             */
+  /* ================================================================== */
+
+  /*
+   *  The technical material: a ruled grid at the threshold of visibility.
+   *
+   *  Two 1px lines repeated at 56px. It is deliberately almost invisible
+   *  (3% white) - at any higher alpha it competes with the table rules
+   *  drawn on top of it, and the point is texture, not decoration. The
+   *  mask fades it out at the top and bottom edges so the grid does not
+   *  collide with the seam hairline.
+   */
+  .material-grid::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent);
+  }
+
+  /*
+   *  The commercial climax: a contained brand field.
+   *
+   *  CONTAINED is the whole point. This is a radial gradient clipped to the
+   *  section, not a page-wide wash - the brand light returns for exactly one
+   *  section, which is what makes it read as arrival rather than as more of
+   *  the same background. Opaque base underneath, so the aurora is still
+   *  fully occluded here.
+   */
+  .material-premium::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(80% 60% at 50% 0%, rgb(108 92 231 / 0.22), transparent 70%),
+      radial-gradient(60% 50% at 85% 100%, rgb(78 168 255 / 0.12), transparent 70%);
+  }
+
+  /*  Content sits above both decorative layers.  */
+  .material-grid > *,
+  .material-premium > * {
+    position: relative;
+    z-index: 1;
   }
 }

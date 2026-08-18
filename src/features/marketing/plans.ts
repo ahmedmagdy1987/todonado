@@ -103,11 +103,14 @@ export const PLANS: Plan[] = [
       'Ready-made templates and checklists, each with time estimates',
       'Daily briefing: what carried over and how much time you have left',
       // Templated from the constants so the copy can never drift from behaviour.
+      // The NOUNS are plural because the caps are: these read "3 quit habit" and
+      // "3 mind map" for weeks after the caps went from 1 to 3, because only the
+      // number was templated and the noun around it was written by hand.
       // EVERY capped surface, not a selection of them. Mind maps and challenges
       // were both missing here while the app capped them at one each, so a Free
       // user met a limit the pricing page had never mentioned.
-      `${FREE_PERSONAL_TEMPLATES} personal templates · ${FREE_QUIT_HABITS} quit habit · ${FREE_VISION_CARDS} vision goals`,
-      `${FREE_MIND_MAPS} mind map · ${FREE_ACTIVE_CHALLENGES} challenge at a time · the daily journal, in text`,
+      `${FREE_PERSONAL_TEMPLATES} personal templates · ${FREE_QUIT_HABITS} quit habits · ${FREE_VISION_CARDS} vision goals`,
+      `${FREE_MIND_MAPS} mind maps · ${FREE_ACTIVE_CHALLENGES} challenge at a time · the daily journal, in text`,
       'Breathwork, and a supplement & medication log',
       /*
        * Reads "30 days" now, from the constant rather than a literal.
