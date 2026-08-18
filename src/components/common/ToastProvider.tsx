@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ToastContext, type Toast, type ToastOptions } from './toast-context'
 import { registerToast } from './toastBridge'
+
+/** Shared by the button and link forms so the two cannot drift apart. */
+const ACTION_CLASS =
+  'focus-ring inline-flex min-h-[44px] shrink-0 items-center rounded px-1.5 text-xs font-medium text-accent hover:underline'
 
 /** Minimal, calm toast stack (auto-dismiss). Brief, non-blocking feedback. */
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -18,7 +23,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const variant = options?.variant ?? 'default'
       setToasts((current) => [...current, { id, message, variant, action: options?.action }])
       // Errors linger a little longer so the user can read them / hit retry.
-      setTimeout(() => dismiss(id), variant === 'error' ? 6000 : 3500)
+      const fallback = variant === 'error' ? 6000 : 3500
+      setTimeout(() => dismiss(id), options?.durationMs ?? fallback)
     },
     [dismiss],
   )
@@ -46,23 +52,38 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden />
             )}
             <span className="min-w-0 flex-1">{toast.message}</span>
-            {toast.action && (
-              <button
-                type="button"
-                onClick={() => {
-                  toast.action?.onClick()
-                  dismiss(toast.id)
-                }}
-                className="focus-ring shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-accent hover:underline"
-              >
-                {toast.action.label}
-              </button>
-            )}
+            {toast.action &&
+              /* A real 44px target either way: this is the button people reach
+                 for on a phone, and it used to be ~20px tall. The padding is
+                 vertically centred so the toast keeps its existing height. */
+              (toast.action.to ? (
+                <Link
+                  to={toast.action.to}
+                  onClick={() => {
+                    toast.action?.onClick?.()
+                    dismiss(toast.id)
+                  }}
+                  className={ACTION_CLASS}
+                >
+                  {toast.action.label}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.action?.onClick?.()
+                    dismiss(toast.id)
+                  }}
+                  className={ACTION_CLASS}
+                >
+                  {toast.action.label}
+                </button>
+              ))}
             <button
               type="button"
               onClick={() => dismiss(toast.id)}
               aria-label="Dismiss"
-              className="focus-ring shrink-0 rounded p-0.5 text-text-muted hover:text-text-primary"
+              className="focus-ring inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded text-text-muted hover:text-text-primary"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
             </button>

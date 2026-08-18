@@ -61,6 +61,48 @@ export const UPGRADE_CTA = 'See what Pro adds'
 /** Where a user is sent. One route, so no surface can invent its own. */
 export const UPGRADE_ROUTE = '/settings/plan'
 
+/**
+ * The customer-facing name for a ceiling, and the noun for the things it counts.
+ *
+ * ── WHY A COUNTABLE NOUN AND NOT JUST A NAME ───────────────────────────────
+ *
+ * A limit message has to complete the sentence "you've reached the 3 ___". The
+ * feature NAME does not fit that slot — "the 5 Vision" is not English — so each
+ * entry carries both: `name` for when the feature is being referred to, `items`
+ * for when the things are being counted.
+ *
+ * ── THE WORDS ARE TAKEN, NOT INVENTED ──────────────────────────────────────
+ *
+ * Every noun here is already what the product calls these things: the Vision
+ * page talks about goals, the templates page about templates, the quit tracker
+ * about habits, the mind-map page about maps. They match the nouns already used
+ * in the `reassurance` sentences below, which is what lets the two be
+ * concatenated into one message without reading like two different products
+ * wrote them.
+ */
+export interface LimitLabel {
+  /** The feature, in the user's terms. Sentence case. */
+  name: string
+  /** Plural noun for the things counted, lower case, for mid-sentence use. */
+  items: string
+}
+
+export const LIMIT_LABELS: Record<LimitKey, LimitLabel> = {
+  mindMaps: { name: 'Mind maps', items: 'mind maps' },
+  quitHabits: { name: 'Quit habits', items: 'quit habits' },
+  personalTemplates: { name: 'Personal templates', items: 'personal templates' },
+  visionCards: { name: 'Vision', items: 'goals' },
+  activeChallenges: { name: 'Challenges', items: 'challenges running at once' },
+  /*
+   * Neither of these is enforced by the count trigger, so neither can reach the
+   * limit message. They are present because the map is exhaustive by type, and
+   * an exhaustive map is what makes adding a fifth capped table a compile error
+   * rather than a missing word at runtime.
+   */
+  historyDays: { name: 'History', items: 'days of history' },
+  calendarSources: { name: 'Calendar sources', items: 'calendar sources' },
+}
+
 export const UPGRADE_COPY: Record<UpgradeKey, UpgradeCopy> = {
   /* ── Capabilities ─────────────────────────────────────────────────────── */
   'week.board': {
