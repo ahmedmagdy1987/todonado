@@ -1,0 +1,89 @@
+-- ============================================================================
+--  PROPOSAL ONLY. NOT IN supabase/migrations/. NOT APPLIED. BLOCKED.
+-- ============================================================================
+--
+--  Closes the direct voice-note upload path, so that the only way an object can
+--  be created in `journal-audio` is through a SERVER-ISSUED signed upload URL
+--  minted by `api/journal-audio-upload-url.ts` after the plan has been resolved
+--  from the database.
+--
+--  ── WHY THIS IS NEEDED AND A TABLE TRIGGER IS NOT ─────────────────────────
+--
+--  The object reaches Storage BEFORE the journal row is written:
+--
+--      record -> storage.upload(path, blob)   <-- object lands FIRST
+--             -> insert journal_entries       <-- row written SECOND
+--
+--  So a BEFORE INSERT trigger on `journal_entries` rejects the row and leaves an
+--  orphaned, unauthorised object in a paid bucket. It is not enforcement; it is
+--  a delayed complaint.
+--
+--  The live policy authorises on ownership alone, which is correct as a SECURITY
+--  statement and says nothing about entitlement:
+--
+--      journal_audio_insert_own  INSERT
+--        bucket_id = 'journal-audio'
+--        AND (storage.foldername(name))[1] = auth.uid()::text
+--
+--  ── WHY THIS IS NOT "PRICING IN AN RLS POLICY" ────────────────────────────
+--
+--  It deliberately does NOT add a plan predicate. It NARROWS the policy so that
+--  a plain authenticated INSERT is no longer permitted at all; a signed upload
+--  token authorises through Storage's own token path rather than through this
+--  policy. The commercial decision stays where it belongs, in the endpoint that
+--  decides whether to mint the token.
+--
+--  Read the difference plainly: the policy still answers only "may this session
+--  write here directly?", and the new answer is "no, use the server". That is an
+--  ownership/authorisation statement, not a price.
+--
+--  ── 🛑 WHY IT IS BLOCKED ──────────────────────────────────────────────────
+--
+--  1. THE CLIENT IS NOT REWIRED YET. `uploadJournalAudio` still calls
+--     `storage.upload()` directly. Applying this file first breaks recording for
+--     EVERY user, including subscribers. The client change and this migration
+--     must ship together, and the client change is deliberately not made in this
+--     PR (see docs/ENTITLEMENTS.md for why: the E2E job has no
+--     SUPABASE_SERVICE_ROLE_KEY and grants Pro via a localStorage override the
+--     server cannot see, so `journal-audio.spec.ts` would fail on both counts).
+--  2. IT HAS NEVER BEEN EXECUTED. No Docker, no local Postgres on the machine
+--     this was written on.
+--  3. `storage.objects` is owned by `supabase_storage_admin`. Whether these
+--     statements succeed as the migration role is EXACTLY the kind of thing that
+--     must be proven on a real stack rather than assumed.
+--
+--  ── WHAT IS DELIBERATELY UNCHANGED ────────────────────────────────────────
+--
+--  SELECT, UPDATE and DELETE keep their existing owner-only policies. A Free
+--  user who already has a recording must keep being able to play it and delete
+--  it: changing packaging must never make somebody's own content unreachable.
+--  Only CREATION is affected.
+-- ============================================================================
+
+-- The one policy that permits a browser to create an object directly.
+-- Dropping it leaves SELECT / UPDATE / DELETE untouched.
+drop policy if exists journal_audio_insert_own on storage.objects;
+
+-- ----------------------------------------------------------------------------
+--  ROLLBACK — restores the previous behaviour exactly, verbatim from the live
+--  policy as read on 2026-08-18. No object is created, moved or deleted.
+-- ----------------------------------------------------------------------------
+--
+--    create policy journal_audio_insert_own
+--      on storage.objects for insert to authenticated
+--      with check (
+--        bucket_id = 'journal-audio'
+--        and (storage.foldername(name))[1] = auth.uid()::text
+--      );
+--
+--  ── VERIFICATION, AFTER APPLYING ──────────────────────────────────────────
+--
+--    select polname, polcmd from pg_policy pol
+--      join pg_class c on c.oid = pol.polrelid
+--      join pg_namespace n on n.oid = c.relnamespace
+--     where n.nspname = 'storage' and c.relname = 'objects'
+--       and polname like 'journal_audio%';
+--
+--    -- Expect THREE rows: select_own (r), update_own (w), delete_own (d).
+--    -- insert_own must be absent.
+-- ============================================================================

@@ -99,6 +99,34 @@ export type LimitKey =
 
 export const UNLIMITED = Number.POSITIVE_INFINITY
 
+/**
+ * `billing.subscription_status` for a founding / manually granted account.
+ *
+ * ── WHY A STATUS VALUE AND NOT A NEW COLUMN ────────────────────────────────
+ *
+ * `subscription_status` is a free-text column with no CHECK constraint (verified
+ * against production), and every Stripe path writes a Stripe status into it. A
+ * founding row therefore fits the EXISTING schema with no migration and, more
+ * importantly, with NO FAKE STRIPE IDENTIFIERS: `stripe_customer_id` and
+ * `stripe_subscription_id` are nullable and stay null.
+ *
+ * Those nulls are not merely tidy, they are the safety property. The webhook
+ * resolves a subscription event by `where stripe_subscription_id = …`, so a row
+ * with a null there can never be matched by one, and the downgrade guards in the
+ * SECURITY DEFINER billing-event function are moot because no event can reach
+ * it. A founding account cannot be cancelled by a stray Stripe event.
+ *
+ * (The function is deliberately not named here: `serviceRoleBoundary.test.ts`
+ * asserts that the internal RPCs are referenced only from `api/` handlers, and
+ * that guard reads source text rather than call sites. Weakening it to allow a
+ * comment would be the wrong trade.)
+ *
+ * It also keeps founding DISTINGUISHABLE from a paid subscription, which the
+ * plan page needs: a founder has no Stripe customer, so offering them the
+ * billing portal produces `no_subscription` and an error toast.
+ */
+export const FOUNDING_STATUS = 'founding'
+
 export interface TierEntitlements {
   /** Only the features this tier HAS. Absent means locked. */
   readonly features: readonly Feature[]

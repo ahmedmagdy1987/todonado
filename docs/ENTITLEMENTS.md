@@ -116,6 +116,26 @@ creating a new recording asks about entitlement.**
 **What is still open:** a client can talk to Storage and PostgREST directly with its own session.
 The storage policy authorises on the `<user_id>` path segment — ownership, never plan.
 
+> **UPDATE, 2026-08-18 — the server half now exists; the client is not rewired.**
+>
+> `api/journal-audio-upload-url.ts` verifies the JWT, resolves entitlement from the database and
+> mints a short-lived signed upload URL. **The server chooses the object path** from the id in the
+> verified JWT, so a token cannot be aimed at another user's folder however the request is shaped.
+> 16 direct-bypass tests cover it: Free denied, no-billing-row denied, unverified founding address
+> denied, unresolved entitlement 503 (never 403, never a token), Pro allowed, founding allowed,
+> path never caller-chosen, never `upsert`.
+>
+> **`uploadJournalAudio` still uploads directly, on purpose.** Rewiring it now would break
+> `journal-audio.spec.ts` twice over: the E2E job exports no `SUPABASE_SERVICE_ROLE_KEY` (only the
+> `supabase` job does), so the endpoint would answer `503 not_configured`; and the suite grants Pro
+> with the `todonado.plan` localStorage override, which the server ignores by design. Shipping the
+> rewire alone would also enforce nothing, because the direct path stays open until the storage
+> policy narrows — which is a migration.
+>
+> The client rewire and `docs/proposals/20260818130000_journal_audio_pro_only.sql` must ship
+> **together**, after review and a real DB test. Until then this endpoint is the *sanctioned* path,
+> not the *only* one, and the table above still says "client" for voice notes.
+
 ### 🛑 STOP: closing the remaining gap needs a decision, and one of two costs
 
 Neither option is taken in this PR. **Migrations in this PR: 0.**

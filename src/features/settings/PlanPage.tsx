@@ -35,7 +35,24 @@ export function PlanPage() {
   const [busy, setBusy] = useState<BillingInterval | 'portal' | null>(null)
 
   const checkoutReturn = params.get('checkout') // 'success' | 'cancel' | null
-  const hasRealSubscription = billing?.plan === 'pro'
+  /*
+   * A REAL STRIPE SUBSCRIPTION, NOT MERELY plan === 'pro'.
+   *
+   * This gates the "Manage subscription" button, which opens the Stripe billing
+   * portal. The portal needs a `stripe_customer_id`; without one it answers
+   * `400 no_subscription` and the user gets an error toast.
+   *
+   * Today `plan === 'pro'` is a safe proxy because the only Pro rows are Stripe
+   * rows. That stops being true the moment founding accounts are seeded into
+   * `billing` (docs/proposals/): those rows are deliberately `plan = 'pro'` with
+   * NULL Stripe identifiers, so this predicate would have gone true for the
+   * owner's own account and offered them a portal they have no customer for.
+   *
+   * Keying on the customer id instead is both narrower and more honest: it asks
+   * the question the button actually depends on. Written before the seed so the
+   * seed cannot introduce the regression.
+   */
+  const hasRealSubscription = billing?.plan === 'pro' && !!billing?.stripe_customer_id
   // "Activating" only right after a successful checkout, until the webhook flips
   // us to Pro. We never fake-confirm — we poll and wait for the real row.
   const activating = billingReady && checkoutReturn === 'success' && !isPro
