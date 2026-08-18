@@ -34,16 +34,16 @@ import { ENTITLEMENTS, type LimitKey } from './entitlements'
  * error contract are all unverified. Proving those needs
  * `db-tests/` against a real connection, and that work is BLOCKED, not done.
  *
- * ── AND WHY IT READS A FILE UNDER docs/ ────────────────────────────────────
+ * ── IT NOW READS THE REAL MIGRATION ────────────────────────────────────────
  *
- * Because the SQL is a PROPOSAL and is deliberately not in supabase/migrations/
- * yet: `public.billing` is empty in production, so applying it would cap the
- * owner's own founding account. When the two prerequisites are met the file
- * moves into the migrations folder, and the only change needed here is the path
- * on the next line.
+ * This used to point at docs/proposals/, because the SQL could not be applied
+ * while `public.billing` was empty: the trigger would have capped the owner's
+ * own founding account. Both prerequisites were met on 2026-08-18 (the founding
+ * seed executed, and the file was exercised against a real PostgreSQL), so it
+ * was promoted into supabase/migrations/ and this path followed it.
  */
 
-const SQL_PATH = '../../../docs/proposals/20260818120000_free_count_limits.sql'
+const SQL_PATH = '../../../supabase/migrations/20260818120000_free_count_limits.sql'
 const sql = readFileSync(fileURLToPath(new URL(SQL_PATH, import.meta.url)), 'utf8')
 
 /**
@@ -199,18 +199,32 @@ describe('the SQL keeps the security and commercial layers apart', () => {
 })
 
 describe('the founding-Pro prerequisite is recorded in the SQL itself', () => {
-  it('warns, in the file, that the database cannot see the founding allowlist', () => {
+  it('records that the prerequisite was MET, and how', () => {
     /*
-     * NOT DECORATION. The single most dangerous way this proposal could be
-     * applied is by somebody finding the file, seeing that it is small and
-     * additive, and running it. `public.billing` is empty in production, so the
-     * founding account resolves as Free and gets capped.
+     * THIS ASSERTION CHANGED WHEN THE FILE WAS PROMOTED, AND THE OLD ONE IS
+     * WORTH REMEMBERING.
      *
-     * The warning lives in the SQL rather than only in the accompanying
-     * document, because the SQL is what gets opened.
+     * While the SQL sat in docs/proposals/ this test asserted the header carried
+     * a "PROPOSAL ONLY" banner and a warning that `public.billing` was EMPTY.
+     * That was the single most dangerous way it could have been applied: the
+     * file is small and additive, so somebody could reasonably have run it, and
+     * with no billing rows the owner's own founding account would have resolved
+     * as Free and been capped.
+     *
+     * The seed has since been executed, so that warning would now be false, and
+     * a stale warning is worse than none: it teaches readers the header is not
+     * to be trusted. What is pinned instead is the PROVENANCE - that the header
+     * still explains why the trigger is safe to have applied, which is the thing
+     * a future reader actually needs.
      */
     expect(sql).toMatch(/founding/i)
-    expect(sql).toMatch(/billing.{0,40}EMPTY/is)
-    expect(sql).toMatch(/PROPOSAL ONLY/)
+    expect(sql).toMatch(/seed/i)
+    expect(sql).not.toMatch(/PROPOSAL ONLY/)
+  })
+
+  it('still explains that this is a commercial layer, not a security one', () => {
+    // The distinction the whole approach rests on. If this header ever stops
+    // saying it, the next person to touch the file will reach for RLS.
+    expect(sql).toMatch(/COMMERCIAL vs SECURITY/)
   })
 })

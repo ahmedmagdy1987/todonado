@@ -1,34 +1,23 @@
 -- ============================================================================
---  PROPOSAL ONLY. THIS FILE IS DELIBERATELY *NOT* IN supabase/migrations/.
--- ============================================================================
---
 --  Option B server-side enforcement of the Free count limits.
 --
---  ── WHY IT IS PARKED HERE AND NOT IN THE MIGRATIONS FOLDER ────────────────
+--  PROMOTED FROM docs/proposals/ ON 2026-08-18, once both prerequisites that
+--  kept it out of this folder were actually met:
 --
---  Two prerequisites are unmet, and either one makes applying this actively
---  harmful rather than merely premature. Both are set out in
---  docs/proposals/SERVER_ENFORCEMENT_OPTION_B.md:
---
---    1. `public.billing` IS EMPTY IN PRODUCTION (16 users, 0 rows, verified
---       read-only on 2026-08-18). The only thing that makes anyone Pro today is
---       a TypeScript email allowlist the database cannot see. Applying this file
---       as it stands would cap the owner's own founding account at the Free
---       limits. That is the exact outcome the brief says to block on.
---    2. NOTHING HERE HAS BEEN EXECUTED. There is no Docker and no local
---       Postgres on the machine this was written on, so the trigger, the
---       advisory lock and the concurrency behaviour are UNTESTED. Shipping
---       untested enforcement into the write path of five product features is a
---       worse outcome than leaving the caps client-side for another week.
---
---  CLAUDE.md §7 records that an unapplied file inside supabase/migrations/ is an
---  invitation to run `supabase db push`, and that commit b2ee68c exists because
---  documentation once made that mistake reachable. Parking it under docs/ makes
---  it reviewable without making it runnable by accident.
---
---  `src/features/billing/sqlLimitContract.test.ts` reads THIS FILE and asserts
---  every cap below equals the TypeScript entitlement table, so the two cannot
---  drift while it waits here.
+--    1. THE DATABASE CAN NOW TELL WHO IS PRO. `public.billing` was EMPTY in
+--       production (16 users, 0 rows), so the only thing making anyone Pro was
+--       a TypeScript email allowlist this trigger cannot see, and applying it
+--       would have capped the owner's own founding account at the Free limits.
+--       The reviewed founding seed has since been executed: exactly one row,
+--       plan='pro', subscription_status='founding', both Stripe ids NULL.
+--    2. IT HAS BEEN EXECUTED. The whole migration chain plus this file were
+--       applied from empty to a disposable PostgreSQL 17.6 and exercised by
+--       `db-tests/entitlementLimits.db.test.ts`: the caps on all four tables for
+--       Free, Pro and Founding Pro; grandfathering (an account seeded OVER the
+--       cap keeps every row and is refused only the next one); a REAL race at
+--       the final Free slot where exactly one of two concurrent inserts wins;
+--       and a direct-bypass attempt as `authenticated` with the JWT claim set,
+--       which the trigger refuses after RLS has already been satisfied.
 --
 --  ── WHAT THIS IS, IN ONE LINE ─────────────────────────────────────────────
 --
@@ -45,6 +34,10 @@
 --  have opposite failure preferences: a security control must fail closed, and a
 --  commercial control should fail generously, since refusing a paying customer
 --  is worse than allowing one extra row.
+--
+--  `src/features/billing/sqlLimitContract.test.ts` reads THIS FILE and asserts
+--  every cap below equals the TypeScript entitlement table, so the two cannot
+--  drift.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------

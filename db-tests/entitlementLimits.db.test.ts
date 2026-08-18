@@ -25,9 +25,13 @@ import { ENTITLEMENTS } from '@/features/billing/entitlements'
  * ── WHAT IT RUNS AGAINST ──────────────────────────────────────────────────
  *
  * A disposable local PostgreSQL with the shim plus the ENTIRE migration chain
- * applied from empty, exactly as `supabase db push` would. The proposed trigger
- * migration is then applied from the same file that is up for review, so the
- * thing under test is the artefact, not a copy of it.
+ * applied from empty, exactly as `supabase db push` would.
+ *
+ * The trigger migration is applied from THE SAME FILE THAT SHIPS, so the thing
+ * under test is the artefact and not a copy of it. It used to live in
+ * docs/proposals/ and was promoted into supabase/migrations/ once the founding
+ * seed made `billing` authoritative; the path followed it and nothing else
+ * changed.
  *
  * ── WHAT IT DELIBERATELY DOES NOT DO ──────────────────────────────────────
  *
@@ -36,7 +40,7 @@ import { ENTITLEMENTS } from '@/features/billing/entitlements'
  */
 
 const PROPOSAL = fileURLToPath(
-  new URL('../docs/proposals/20260818120000_free_count_limits.sql', import.meta.url),
+  new URL('../supabase/migrations/20260818120000_free_count_limits.sql', import.meta.url),
 )
 
 /** Every capped table, with the column set its NOT NULLs require. */
