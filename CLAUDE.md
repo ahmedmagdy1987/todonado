@@ -208,7 +208,7 @@ card). Modules:
   The **replacement action** ("do this instead", free text, optionally deep-linking to breathwork or
   Focus) is surfaced on the card, inside the slip dialog, and again immediately *after* the reset,
   which is the moment it exists for. Milestones 1/3/7/14/30/90/180/365 are marked calmly — no
-  confetti. Free tracks `FREE_QUIT_HABITS = 1`; the cap gates **creation only** and the copy says
+  confetti. Free tracks `FREE_QUIT_HABITS = 3`; the cap gates **creation only** and the copy says
   so. A persistent, neutral (not amber, not alarming) note states plainly that this is a personal
   tracker, not treatment. Its migration is **applied** (§7).
 
@@ -221,12 +221,14 @@ All six are live on `main`. Each is behind the repo's usual conventions: a flag 
 `src/lib/config.ts` where it is an optional surface, a single tunable constant where it is a
 plan limit, `usePlan()` as the only entitlement source, and pure logic unit-tested.
 
-1. **Free history window** (`FREE_HISTORY_DAYS = 14`, `src/features/history/`). A **view-layer**
+1. **Free history window** (`FREE_HISTORY_DAYS = 30`, `src/features/history/`). A **view-layer**
    limit only — nothing is deleted, archived or mutated, and there is no migration.
    `windowTaskHistory(tasks, null)` returns the *same array reference* for Pro, so upgrading
-   reveals everything on the next render with no refetch. 14 calendar days **counting today**,
+   reveals everything on the next render with no refetch. 30 calendar days **counting today**,
    compared on local day strings (DST-safe, verified in six timezones). Applies **only** to
-   completed/history surfaces (project detail + the Today streak); Today, Inbox, roll-over,
+   completed/history surfaces (project detail, the journal); the **planning streak is UNCAPPED on
+   both plans** and deliberately does not pass a cutoff (`TodayPage.tsx`), because a user who had
+   planned every day for three months should not read "30-day streak" forever. Today, Inbox, roll-over,
    capacity, auto-plan, templates and calendar are deliberately untouched, and an **open** task
    is never hidden at any age. One quiet `HistoryCutoffCard` at the bottom, rendering nothing
    when `hiddenCount` is 0.
@@ -252,7 +254,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    plan preview; Pro adds a pre-computed plan with Accept/Adjust, an estimation nudge and
    priority alerts. Dismissal is stored as the local **day** it was dismissed on (localStorage),
    so it returns tomorrow by itself. No migration, no new analytics event.
-4. **Personal templates** (`FREE_PERSONAL_TEMPLATES = 3`, `src/features/templates/personal.ts`,
+4. **Personal templates** (`FREE_PERSONAL_TEMPLATES = 5`, `src/features/templates/personal.ts`,
    table `user_templates`). Users save their own routines — or capture a whole project via
    "Save as template", preserving section grouping, section order, task order, effort and notes
    (completed/cancelled work excluded; an unestimated task gets the neutral 30m fallback, never
@@ -336,7 +338,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    be indefensible. Text-first on purpose: images mean a storage bucket, upload limits, a storage
    policy and a bill, so one `feature_intents` chip measures the demand before any of that is
    built. A target date that passes is *stated*, never scolded — no red, no "overdue" — because a
-   goal is not a task. `FREE_VISION_CARDS = 3`, creation-gated only. Three migrations, all **APPLIED** (§7).
+   goal is not a task. `FREE_VISION_CARDS = 5`, creation-gated only. Three migrations, all **APPLIED** (§7).
 4. **Points, share cards, invite groundwork, sound settings** (`FEATURES.points`,
    `FEATURES.shareCards`, both default **ON**). **No migration, no table, no column.**
    **Points are DERIVED, never stored** — recomputed from the tasks and focus sessions already in
@@ -444,7 +446,7 @@ plan limit, `usePlan()` as the only entitlement source, and pure logic unit-test
    readable floor centred on the root. **The Fit button still always means fit.**
    Accessibility is not the canvas's problem alone: every node is a focusable button (arrows move,
    Enter opens, Delete removes) AND the page renders the same map as a plain list with the same
-   actions, so nothing depends on pointing at SVG. `FREE_MIND_MAPS = 1`, creation-gated only.
+   actions, so nothing depends on pointing at SVG. `FREE_MIND_MAPS = 3`, creation-gated only.
    One migration, **APPLIED** (§7). `e2e/mindmaps.spec.ts` additionally runs the whole journey against
    an INTERCEPTED table, because the real journey self-skips until the migration lands and a
    skipping test verifies nothing at all.
