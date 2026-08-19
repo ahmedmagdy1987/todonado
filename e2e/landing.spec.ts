@@ -2,21 +2,19 @@ import { test, expect, type Page } from '@playwright/test'
 import { expectNoHorizontalOverflow } from './fixtures'
 
 /**
- * The living background.
+ * The top of the landing page: its backdrop, and the way its sections separate.
  *
  * Every assertion here is a PROMISE THAT COULD SILENTLY BREAK: decoration that
- * stops being decoration (focusable, or announced to a screen reader), motion
- * that ignores a reduced-motion preference, a decorative layer that widens the
- * document, or an animation that keeps burning battery in a hidden tab. None of
- * those show up as a failing build — only as a worse product.
+ * stops being decoration (focusable, or announced to a screen reader), a
+ * decorative layer that widens the document, motion creeping back into a
+ * background that is deliberately still, or the tonal step between two sections
+ * quietly collapsing back to the value that made the whole page read as one
+ * dark wash. None of those show up as a failing build, only as a worse product.
  *
- * The one thing NOT asserted here is frame rate: a headless CI runner's fps says
- * nothing useful about a phone. That was measured directly instead (production
- * build, 390px, CPU throttled 4x and 6x — 60fps, identical to the page without
- * the background) and the finding that made it possible is recorded in index.css.
+ * Frame rate is still not asserted: a headless CI runner's fps says nothing
+ * useful about a phone. It also matters much less than it did, because the
+ * background no longer animates at all.
  */
-
-const BG = '.living-bg'
 
 /** Scroll to the bottom and back so lazy sections mount and the page is tall. */
 async function scrollThrough(page: Page) {
@@ -48,116 +46,180 @@ async function mountFaq(page: Page) {
   await expect(sentinel, 'the landing FAQ never mounted').toHaveCount(1)
 }
 
-test('living background: decorative, and provably so', async ({ page }) => {
+const BACKDROP = '.hero-backdrop'
+const LAYERS = ['.hero-backdrop__lattice', '.hero-backdrop__spot', '.hero-backdrop__horizon']
+
+/** CIE L* from a computed `rgb(...)` string. 0 is black, 100 is white. */
+function lstar(rgb: string): number {
+  const [r, g, b] = (rgb.match(/\d+(\.\d+)?/g) ?? ['0', '0', '0']).map(Number)
+  const lin = (c: number) => {
+    const v = c / 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
+  const y = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+  return y > 0.008856 ? 116 * Math.cbrt(y) - 16 : 903.3 * y
+}
+
+test('hero backdrop: decorative, and provably so', async ({ page }) => {
   await page.goto('/welcome')
 
-  const bg = page.locator(BG)
+  const bg = page.locator(BACKDROP)
   await expect(bg).toHaveCount(1)
-  // Decorative means decorative: never announced, never hit-testable.
   await expect(bg).toHaveAttribute('aria-hidden', 'true')
   expect(await bg.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none')
 
-  // Nothing inside it can take focus — a background must never be a tab stop.
+  // Nothing inside it can be reached by a keyboard or announced.
   expect(await bg.locator('a, button, input, [tabindex]').count()).toBe(0)
+  for (const layer of LAYERS) await expect(page.locator(layer)).toHaveCount(1)
 
-  // It sits BEHIND the content: the header is z-30, the background z-0.
+  /*
+   * It sits BEHIND the content. Carried over verbatim from the deleted
+   * living-background test, because it is the one assertion in that group that
+   * was about STACKING rather than about motion, and stacking is a property the
+   * replacement has too. A full-bleed decorative layer painted over the hero
+   * would make the headline unreadable and nothing else here would catch it.
+   */
   expect(await bg.evaluate((el) => getComputedStyle(el).zIndex)).toBe('0')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 })
 
-test('living background: moves, and parks when the tab is hidden', async ({ page }) => {
+test('hero backdrop: holds completely still, and blurs nothing', async ({ page }) => {
+  /*
+   * THE RULE THAT REPLACED AN ENTIRE MOTION SYSTEM.
+   *
+   * What stood here was an aurora of three drifting blobs, fourteen dust
+   * specks, a grain tile and a nine-mote vortex, with about a dozen assertions
+   * keeping them cheap. A pixel audit of the rendered page found the whole
+   * aurora varied the background by delta-L* 3.34 (a WCAG ratio of 1.083:1),
+   * with the grain contributing per-pixel noise worth 30 to 50 percent of that
+   * signal, and found the vortex contributing ZERO visible pixels at 390px
+   * because its stage sat below the fold.
+   *
+   * So the assertion is no longer "the motion is cheap". It is that there is
+   * none, checked in a real engine where `animationName` and `filter` are
+   * resolved rather than read out of a stylesheet.
+   */
   await page.goto('/welcome')
 
-  // Three parallax planes and the full aurora.
-  await expect(page.locator('.living-bg__layer')).toHaveCount(3)
-  await expect(page.locator('.living-bg__blob')).toHaveCount(3)
-  await expect(page.locator('.living-bg__grain')).toHaveCount(1)
-  await expect(page.locator('.living-bg__speck')).toHaveCount(14)
-
-  // The blobs are actually animating (a real duration, running, and looping).
-  const blob = page.locator('.living-bg__blob').first()
-  const anim = await blob.evaluate((el) => {
-    const cs = getComputedStyle(el)
-    return {
-      duration: cs.animationDuration,
-      iterations: cs.animationIterationCount,
-      state: cs.animationPlayState,
-      // The measured fix: a blurred layer cannot be moved cheaply.
-      filter: cs.filter,
-    }
-  })
-  expect(anim.iterations).toBe('infinite')
-  expect(anim.state).toBe('running')
-  expect(Number.parseFloat(anim.duration)).toBeGreaterThan(20) // slow, not a screensaver
-  expect(anim.filter, 'blobs must never be blurred — it costs ~40fps').toBe('none')
-
-  // Parallax writes exactly one custom property, once per frame.
-  await scrollThrough(page)
-  await page.waitForTimeout(200)
-  const scrollVar = await page.locator(BG).evaluate((el) =>
-    getComputedStyle(el).getPropertyValue('--living-scroll').trim(),
-  )
-  expect(scrollVar, 'the scroll offset should be published to CSS').toMatch(/^\d+(\.\d+)?px$/)
-  expect(Number.parseFloat(scrollVar)).toBeGreaterThan(0)
-
-  // Hidden tab ⇒ every cycle parks. Playwright cannot truly background a tab, so
-  // this drives the exact event the component listens for.
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
-    document.dispatchEvent(new Event('visibilitychange'))
-  })
-  await expect(page.locator(BG)).toHaveAttribute('data-paused', 'true')
-  expect(await blob.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe('paused')
+  for (const selector of [BACKDROP, ...LAYERS]) {
+    const style = await page.locator(selector).evaluate((el) => {
+      const s = getComputedStyle(el)
+      return {
+        animationName: s.animationName,
+        filter: s.filter,
+        backdropFilter: s.backdropFilter,
+      }
+    })
+    expect(style.animationName, selector + ' animates').toBe('none')
+    expect(style.filter, selector + ' is filtered').toBe('none')
+    expect(style.backdropFilter, selector + ' carries a backdrop filter').toBe('none')
+  }
 })
 
-test('living background: reduced motion stops ALL of it, and the page stays beautiful', async ({
-  page,
-}) => {
+test('hero backdrop: the light has no hard edge at the top of the page', async ({ page }) => {
+  /*
+   * The spotlight used to be anchored at `50% 0%`, which put its brightest
+   * point exactly on the hero section's top edge, which is the header's bottom
+   * edge. Sampled down the centre column that measured L* 3.71 at y=60 and
+   * L* 15.77 at y=66: a seventeen-point step across six pixels, straight across
+   * the full width. It did not read as light, it read as a lit bar welded to
+   * the navigation.
+   *
+   * Two things fix it and both are checked here: the gradient origins sit above
+   * the box, and the hero's box is lifted behind the sticky header so the light
+   * is not clipped to a line at y=64.
+   */
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/welcome')
+  await page.waitForSelector('h1')
+
+  const heroTop = await page
+    .locator('main > section')
+    .first()
+    .evaluate((el) => Math.round(el.getBoundingClientRect().top + window.scrollY))
+  expect(heroTop, 'the hero box must start at the top, behind the header').toBeLessThanOrEqual(0)
+  // And the content must not have moved with it: the eyebrow still clears the
+  // header, so the lift is invisible to everything except the light.
+  const eyebrowTop = await page
+    .locator('main ul li')
+    .first()
+    .evaluate((el) => Math.round(el.getBoundingClientRect().top))
+  expect(eyebrowTop, 'the lift moved the content instead of only the box').toBeGreaterThan(64)
+
+  const origins = await page.locator('.hero-backdrop__spot').evaluate((el) => {
+    const image = getComputedStyle(el).backgroundImage
+    return [...image.matchAll(/at\s+[\d.]+%\s+(-?[\d.]+)%/g)].map((m) => Number(m[1]))
+  })
+  expect(origins.length, 'the spotlight declares radial origins').toBeGreaterThan(0)
+  for (const y of origins) expect(y, 'origin at ' + y + '% is inside the frame').toBeLessThan(0)
+})
+
+test('hero backdrop: reduced motion changes nothing, because nothing moves', async ({ page }) => {
+  // The old aurora had a whole reduced-motion branch. A static layer needs no
+  // exception, and this proves the composition is identical rather than merely
+  // frozen: a reduced-motion visitor sees the designed page, not a degraded one.
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/welcome')
 
-  // The composition survives — this is not "turn the design off".
-  const bg = page.locator(BG)
-  await expect(bg).toHaveCount(1)
-  await expect(page.locator('.living-bg__blob')).toHaveCount(3)
-  await expect(page.locator('.living-bg__grain')).toHaveCount(1)
-  const visible = await page
-    .locator('.living-bg__blob')
-    .first()
-    .evaluate((el) => {
-      const cs = getComputedStyle(el)
-      return cs.display !== 'none' && cs.opacity !== '0' && cs.visibility !== 'hidden'
+  await expect(page.locator(BACKDROP)).toHaveCount(1)
+  for (const layer of LAYERS) {
+    const visible = await page.locator(layer).evaluate((el) => {
+      const s = getComputedStyle(el)
+      return { display: s.display, opacity: Number(s.opacity), animation: s.animationName }
     })
-  expect(visible, 'the aurora is held still, not removed').toBe(true)
-
-  // …but nothing moves. Drifting dust would be pointless held still, so it is
-  // not rendered at all rather than frozen mid-air.
-  await expect(page.locator('.living-bg__speck')).toHaveCount(0)
-
-  // The global reduced-motion rule neutralises the keyframes.
-  const frozen = await page.locator('.living-bg__blob').first().evaluate((el) => {
-    const cs = getComputedStyle(el)
-    return { duration: cs.animationDuration, iterations: cs.animationIterationCount }
-  })
-  expect(Number.parseFloat(frozen.duration)).toBeLessThan(0.01)
-  expect(frozen.iterations).toBe('1')
-
-  // And the parallax listener is never even attached, so scrolling writes nothing.
-  await scrollThrough(page)
-  await page.waitForTimeout(200)
-  const scrollVar = await bg.evaluate((el) =>
-    getComputedStyle(el).getPropertyValue('--living-scroll').trim(),
-  )
-  expect(scrollVar, 'no parallax under reduced motion').toBe('')
-
-  // The page is still fully usable: the hero CTA works.
-  await expect(page.getByRole('button', { name: 'Start free' }).first()).toBeVisible()
+    expect(visible.display, layer + ' is hidden under reduced motion').not.toBe('none')
+    expect(visible.opacity, layer + ' is invisible under reduced motion').toBeGreaterThan(0)
+    expect(visible.animation).toBe('none')
+  }
 })
 
-test('living background: never widens the page, at any width', async ({ page }) => {
-  // Huge off-screen blobs are exactly the kind of decoration that quietly adds a
-  // horizontal scrollbar. `contain: paint` + the wrapper's overflow-x-clip are
-  // what prevent it; this proves they do.
-  for (const width of [390, 768, 1440]) {
+test('sections: every boundary at the top of the page is a real step in lightness', async ({
+  page,
+}) => {
+  /*
+   * THE CORE DEFECT, PINNED IN A BROWSER.
+   *
+   * `panel` used to be `bg-surface` (#0F172A) against a `#0A0D16` page. Measured
+   * across the real rendered boundary that is delta-L* 4.3, a WCAG step of
+   * 1.09:1, which is below the level at which peripheral vision registers an
+   * edge while scrolling. An audit found 92.2% of the first screen inside a
+   * six-L* band out of a hundred and concluded the page read as one long dark
+   * wash rather than as a sequence of rooms.
+   *
+   * Ten is the floor deliberately: comfortably below the 12.68 the page now
+   * ships, so a legitimate token adjustment does not fail it, and comfortably
+   * above the 4.3 that failed a human.
+   */
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/welcome')
+    await page.waitForSelector('h1')
+
+    const tones = await page.evaluate(() => {
+      const pageBg = getComputedStyle(document.body).backgroundColor
+      return [...document.querySelectorAll('main > section')].slice(0, 3).map((el) => {
+        const own = getComputedStyle(el).backgroundColor
+        const clear = own === 'rgba(0, 0, 0, 0)' || own === 'transparent'
+        return { label: el.getAttribute('aria-label') ?? '', rgb: clear ? pageBg : own }
+      })
+    })
+
+    expect(tones.length, 'the top of the page has three sections').toBe(3)
+    for (let i = 1; i < tones.length; i += 1) {
+      const step = Math.abs(lstar(tones[i].rgb) - lstar(tones[i - 1].rgb))
+      const where = tones[i - 1].label + ' to ' + tones[i].label
+      expect(step, width + 'px: ' + where + ' steps only ' + step.toFixed(2) + ' L*').toBeGreaterThan(
+        10,
+      )
+    }
+  }
+})
+
+test('hero backdrop: never widens the page, at any width', async ({ page }) => {
+  // A full-bleed decorative layer is exactly the kind of thing that quietly
+  // adds a horizontal scrollbar. 320 is included because it is the narrowest
+  // width the product supports and the one where it would show first.
+  for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/welcome')
     await scrollThrough(page)
@@ -165,140 +227,117 @@ test('living background: never widens the page, at any width', async ({ page }) 
   }
 })
 
-/**
- * The vortex funnel.
- *
- * Same promises as the background above, for the same reasons: this is the
- * largest decorative element on the page, it is the one the product is named
- * after, and every way it can go wrong is invisible to a build.
- */
-const VORTEX = '.vortex'
 
-test('vortex: decorative, and provably so', async ({ page }) => {
-  await page.goto('/welcome')
+test('hero: the day completes, and reduced motion starts already finished', async ({ page }) => {
+  /*
+   * THE HERO'S CONTRACT, IN THE ONE PLACE A REAL ENGINE CAN CHECK IT.
+   *
+   * Three versions have stood here. A five-element entrance stagger; then a
+   * fully static card, because the version before it opened with an EMPTY
+   * capacity meter that filled over four seconds and showed a product with
+   * nothing in it to anybody who scrolled early; and now a day being finished.
+   *
+   * The static version fixed the empty-start problem and introduced another
+   * that the owner caught on the live site: it read "92% planned" and stopped,
+   * so the hero's last word was an amber "nearly full" warning. The number it
+   * tracked was planning LOAD, which can only ever approach full.
+   *
+   * So the rules that matter now are: the meaningful state must be reachable
+   * without waiting (reduced motion opens on the finished day), the sequence
+   * must actually reach 100, and tasks must visibly complete on the way.
+   */
 
-  const vortex = page.locator(VORTEX)
-  await expect(vortex).toHaveCount(1)
-  await expect(vortex).toHaveAttribute('aria-hidden', 'true')
-  expect(await vortex.evaluate((el) => getComputedStyle(el).pointerEvents)).toBe('none')
-
-  // A background must never be a tab stop.
-  expect(await vortex.locator('a, button, input, [tabindex]').count()).toBe(0)
-
-  // The full composition: five rings receding, one eye, nine orbiting motes.
-  await expect(page.locator('.vortex__ring')).toHaveCount(5)
-  await expect(page.locator('.vortex__core')).toHaveCount(1)
-  await expect(page.locator('.vortex__mote')).toHaveCount(9)
-
-  // It is behind the copy: the hero heading must be hit-testable, which it
-  // cannot be if a full-bleed decorative layer is painted over it.
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-})
-
-test('vortex: orbits, and parks when the tab is hidden', async ({ page }) => {
-  await page.goto('/welcome')
-
-  const orbit = page.locator('.vortex__orbit').first()
-  const anim = await orbit.evaluate((el) => {
-    const cs = getComputedStyle(el)
-    return {
-      duration: cs.animationDuration,
-      iterations: cs.animationIterationCount,
-      state: cs.animationPlayState,
-      timing: cs.animationTimingFunction,
-    }
-  })
-  expect(anim.iterations).toBe('infinite')
-  expect(anim.state).toBe('running')
-  // Slow enough to read as an orbit rather than a spinner.
-  expect(Number.parseFloat(anim.duration)).toBeGreaterThan(10)
-  expect(anim.timing, 'an orbit that eases is an orbit that looks wrong').toBe('linear')
-
-  // THE MEASURED RULE: nothing in the funnel may be blurred. A blurred surface
-  // is re-rasterised every time it moves, which is what cost ~40fps before.
-  for (const sel of ['.vortex__mote', '.vortex__core', '.vortex__ring']) {
-    const filter = await page.locator(sel).first().evaluate((el) => getComputedStyle(el).filter)
-    expect(filter, `${sel} must never be blurred`).toBe('none')
-  }
-
-  // Hidden tab ⇒ every cycle parks.
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
-    document.dispatchEvent(new Event('visibilitychange'))
-  })
-  await expect(page.locator(VORTEX)).toHaveAttribute('data-paused', 'true')
-  expect(await orbit.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe('paused')
-})
-
-test('vortex: reduced motion keeps the funnel and stops only the movement', async ({ page }) => {
+  // ── Reduced motion: the finished day is the FIRST frame ──────────────
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/welcome')
 
-  // The composition survives in full — this is not "turn the design off".
-  await expect(page.locator('.vortex__ring')).toHaveCount(5)
-  await expect(page.locator('.vortex__mote')).toHaveCount(9)
-  const visible = await page.locator('.vortex__ring').first().evaluate((el) => {
-    const cs = getComputedStyle(el)
-    return cs.display !== 'none' && cs.opacity !== '0' && cs.visibility !== 'hidden'
-  })
-  expect(visible, 'the funnel is held still, not removed').toBe(true)
+  const hero = page.locator('main > section').first()
+  await expect(hero.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(hero.getByText('100%')).toBeVisible()
+  await expect(hero.getByText(/Plan complete/)).toBeVisible()
 
-  // Nothing orbits, and nothing pulses.
-  expect(await page.locator('.vortex__orbit').first().evaluate((el) => getComputedStyle(el).animationName)).toBe('none')
-  expect(await page.locator('.vortex__core').evaluate((el) => getComputedStyle(el).animationName)).toBe('none')
+  // Every task is already crossed off, with no animation to wait for.
+  const struck = await hero.locator('li span').evaluateAll((els) =>
+    els.filter((el) => getComputedStyle(el).textDecorationLine.includes('line-through')).length,
+  )
+  expect(struck, 'reduced motion opens on a completed day').toBeGreaterThanOrEqual(6)
 
-  // The pointer listener is never attached, so moving the mouse writes nothing.
-  await page.mouse.move(200, 200)
-  await page.mouse.move(900, 500)
-  await page.waitForTimeout(150)
-  const vx = await page.locator(VORTEX).evaluate((el) => el.style.getPropertyValue('--vx'))
-  expect(vx, 'no pointer parallax under reduced motion').toBe('')
+  // ── Normal motion: it starts at zero and gets all the way to 100 ─────
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/welcome')
+
+  // The plan is legible before anything moves: this is the differentiator and
+  // it must not be something you have to wait for.
+  await expect(hero.getByText('What fits today')).toBeVisible()
+  await expect(hero.getByText(/of 6h/)).toBeVisible()
+
+  // And it resolves. The sequence is a lead-in plus one step per task, so this
+  // bound is generous enough not to flake and tight enough to catch a stall.
+  await expect(hero.getByText('100%')).toBeVisible({ timeout: 15_000 })
+  await expect(hero.getByText(/Plan complete/)).toBeVisible()
+
+  const struckAfter = await hero.locator('li span').evaluateAll((els) =>
+    els.filter((el) => getComputedStyle(el).textDecorationLine.includes('line-through')).length,
+  )
+  expect(struckAfter, 'every planned task ends crossed off').toBeGreaterThanOrEqual(6)
+
+  /*
+   * Every CONTENT element in the hero is opaque. The decorative layers are
+   * excluded deliberately: the vortex's motes and the aurora's specks genuinely
+   * start transparent and fade up, which is what makes them atmosphere. They
+   * are `aria-hidden` and carry no information.
+   */
+  const faded = await hero.locator('*').evaluateAll((els) =>
+    els.filter(
+      (el) => Number(getComputedStyle(el).opacity) === 0 && !el.closest('[aria-hidden="true"]'),
+    ).length,
+  )
+  expect(faded, 'nothing in the hero is hidden waiting to animate').toBe(0)
 })
 
-test('hero: everything a visitor needs is painted on the first frame', async ({ page }) => {
+test('hero: completing a task never moves the layout', async ({ page }) => {
   /*
-   * WHAT REPLACED THE STAGGER TEST, AND WHY.
+   * A hero that reflows while somebody is reading it is worse than one that
+   * does not move. Seven rows swap a duration for a tick and take a
+   * strike-through; none of that may change a height.
    *
-   * The hero used to animate five elements in with `fill-mode: both`, and this
-   * test existed to catch the failure where a delayed element never arrives:
-   * a stripped keyframe holds it at opacity 0 forever while the build stays
-   * green. The hero no longer staggers, so that failure mode is gone, and the
-   * stronger rule took its place: nothing in the hero is revealed over time at
-   * all. Headline, category sentence, both calls to action and a FINISHED
-   * product composition are all present and opaque immediately.
-   *
-   * The old page failed exactly this: its capacity meter began empty and filled
-   * itself over about four seconds, so anybody who scrolled in the first two
-   * saw a product with nothing in it.
+   * MEASURED ON THE CARD, NOT THE SECTION, AND AFTER FONTS SETTLE. An earlier
+   * version of this test compared the whole hero section immediately after
+   * `goto` against the same section fifteen seconds later, and caught a 1px
+   * difference that had nothing to do with the animation: the first read
+   * happened before the webfont swapped. The card is the thing that animates,
+   * so the card is the thing to measure, and `document.fonts.ready` removes the
+   * confound rather than papering over it with a tolerance.
    */
-  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-    await page.emulateMedia({ reducedMotion })
-    await page.goto('/welcome')
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.goto('/welcome')
+  await page.evaluate(() => document.fonts.ready)
 
-    const hero = page.locator('main > section').first()
-    await expect(hero.getByRole('heading', { level: 1 })).toBeVisible()
+  const hero = page.locator('main > section').first()
+  const card = hero.locator('.shadow-elevation-lg').first()
+  const rows = card.locator('li')
+  await expect(rows.first()).toBeVisible()
 
-    // The meter is already at its finished value, with no waiting.
-    await expect(hero.getByText('92% planned')).toBeVisible()
-    await expect(hero.getByText(/Nearly full/)).toBeVisible()
+  /*
+   * `offsetHeight`, not `getBoundingClientRect().height`, and the difference is
+   * the whole point of this test. The opening act scatters the rows with a
+   * `transform`, and a transform changes the bounding RECT while leaving the
+   * LAYOUT box untouched. Measuring the rect would report the scale as a height
+   * change and fail on the very mechanism that guarantees there is no reflow.
+   * `offsetHeight` ignores transforms, so it answers the question actually
+   * being asked: did anything move the layout?
+   */
+  const measure = async () => ({
+    card: await card.evaluate((el) => (el as HTMLElement).offsetHeight),
+    rows: await rows.evaluateAll((els) => els.map((el) => (el as HTMLElement).offsetHeight)),
+  })
 
-    /*
-     * Every CONTENT element in the hero is fully opaque.
-     *
-     * The decorative layers are excluded deliberately: the vortex's motes and
-     * rings and the aurora's specks genuinely start at zero opacity and fade
-     * up, which is what makes them atmosphere. They are `aria-hidden`, they
-     * carry no information, and a visitor who never sees them has missed
-     * nothing. The rule is about the words and the product shot.
-     */
-    const faded = await hero.locator('*').evaluateAll((els) =>
-      els.filter(
-        (el) =>
-          Number(getComputedStyle(el).opacity) === 0 && !el.closest('[aria-hidden="true"]'),
-      ).length,
-    )
-    expect(faded, `nothing in the hero is hidden waiting to animate (${reducedMotion})`).toBe(0)
-  }
+  const before = await measure()
+  await expect(card.getByText('100%')).toBeVisible({ timeout: 15_000 })
+  const after = await measure()
+
+  expect(after.rows, 'row heights are identical before and after completion').toEqual(before.rows)
+  expect(after.card, 'the card does not change height as the day completes').toBe(before.card)
 })
 
 test('hero: both CTAs still go where they claim', async ({ page }) => {

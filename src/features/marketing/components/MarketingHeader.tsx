@@ -178,7 +178,7 @@ export function MarketingHeader() {
 
         <div className="ml-auto flex items-center gap-2 md:ml-0">
           {session ? (
-            <Button size="sm" className="whitespace-nowrap" onClick={() => navigate('/today')}>
+            <Button size="sm" className="whitespace-nowrap shadow-none" onClick={() => navigate('/today')}>
               Open app
             </Button>
           ) : (
@@ -193,7 +193,7 @@ export function MarketingHeader() {
               >
                 Log in
               </Button>
-              <Button size="sm" className="whitespace-nowrap" onClick={() => goAuth('signup')}>
+              <Button size="sm" className="whitespace-nowrap shadow-none" onClick={() => goAuth('signup')}>
                 Start free
               </Button>
             </>
@@ -233,7 +233,7 @@ export function MarketingHeader() {
           <div
             id="marketing-menu"
             ref={sheetRef}
-            className="absolute inset-x-0 top-16 z-40 border-b border-white/10 bg-surface px-4 pb-6 pt-2 shadow-elevation-lg"
+            className="absolute inset-x-0 top-16 z-40 border-b border-white/10 bg-surface-2 px-4 pb-6 pt-2 shadow-elevation-lg"
           >
             <nav aria-label="Sections" className="flex flex-col">
               {NAV_ITEMS.map((item) =>

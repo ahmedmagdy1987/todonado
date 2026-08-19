@@ -94,7 +94,35 @@ jobs:
       #
       # 91 -> 92: and one more for the intro COPY, which said prices were "an
       # early hypothesis" and "nothing is charged yet" directly above them.
-      EXPECTED_E2E_TESTS: '92'
+      #
+      # ---- 92 -> 95: A CORRECTION, NOT AN INCREMENT --------------------------
+      #
+      # This number was STALE BY THREE from 2026-08-06 until 2026-08-19, and the
+      # drift is worth recording because of how it hid.
+      #
+      # `4351ba7` set it to 92 when e2e/landing.spec.ts held nine tests. Three
+      # more were added to that file afterwards - the first-frame check, the
+      # 390px FAQ touch-target floor, and the FAQ link to /pricing - and none of
+      # the commits that added them touched this value. `playwright test --list`
+      # reports 95 tests in 18 files on `main`, against an expected 92.
+      #
+      # It survived because GitHub Actions has been billing-blocked, so the gate
+      # that would have caught it on the next push has not executed a single
+      # step. A guard nobody runs is a comment.
+      #
+      # It then survived a second time, differently: the hero redesign branch
+      # bumped 92 -> 93 for a new layout-stability check and later 93 -> 92 when
+      # seven background tests were replaced by six. Both deltas were correct
+      # ARITHMETIC on top of a wrong BASE, which is exactly how a stale constant
+      # gets carried forward by careful people. Do not compute the next value
+      # from this one; count the suite.
+      #
+      # 95 is the LISTED count and it is what a green run must produce, because
+      # the check below already fails on any skip. It has NOT been confirmed by
+      # an execution: Actions is billing-blocked and the local machine has no
+      # Docker, so the disposable Supabase stack this job needs cannot start.
+      # The first CI run after billing is restored is the confirmation.
+      EXPECTED_E2E_TESTS: '95'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

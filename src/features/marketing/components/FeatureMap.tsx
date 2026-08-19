@@ -44,7 +44,7 @@ import { FREE_HISTORY_DAYS } from '@/lib/config'
  * something they already want rather than being told a story. "Capture" went
  * the same way: it named the first thing you do rather than what the column
  * contains, which is the whole structure of your work. So the columns are now
- * Organize, Plan, Focus, Learn, Reflect and Wellbeing.
+ * Plan, Wellbeing, Focus, Reflect, Organize and Progress.
  *
  * ── AND THEY HOLD WHAT THEY SAY THEY HOLD ──────────────────────────────────
  *
@@ -63,18 +63,24 @@ interface Pillar {
 }
 
 export const PILLARS: readonly Pillar[] = [
-  {
-    name: 'Organize',
-    summary: 'Everything you owe, in a shape you can work from.',
-    items: [
-      { label: 'Inbox' },
-      { label: 'Projects, sections and subtasks' },
-      { label: 'Priorities and drag to reorder' },
-      { label: 'Repeating tasks' },
-      { label: 'Templates and checklists' },
-      { label: 'My templates' },
-    ],
-  },
+  /*
+   * ── THE ORDER IS THE ARGUMENT, AND IT USED TO READ AS OFFICE SOFTWARE ────
+   *
+   * An audit counted what a visitor actually meets first: 26 of the 35 items,
+   * and the whole of the desktop first row, were office work before a single
+   * habit, journal or breathing item appeared. Every one of those items was
+   * true; the ORDER was what made a product for organising a life look like a
+   * project-management tool.
+   *
+   * Plan leads because it is the differentiator and its vocabulary is
+   * life-neutral. Wellbeing is second on purpose: it takes the centre of the
+   * desktop first row and the second card on a phone, so the top of the map
+   * reads plan, then habits and calm, then focus. Those are the items no task
+   * app can claim, and they used to sit after thirty items of scrolling.
+   * Organize is real and stays, demoted to where supporting machinery belongs.
+   * Progress goes last because it holds three of the six Pro badges, and
+   * ending on it keeps the paid cluster out of the middle of the map.
+   */
   {
     name: 'Plan',
     summary: 'Decide what actually fits before the day starts.',
@@ -90,6 +96,21 @@ export const PILLARS: readonly Pillar[] = [
     ],
   },
   {
+    name: 'Wellbeing',
+    summary: 'Habits you are breaking, and a way to wind down.',
+    // Quit tracker and breathwork together in the phone's top row. Challenges
+    // measures tasks, focus and journal days, so it is really a meta-feature
+    // filed here for want of a better column; it should not separate the two
+    // most distinctly non-office things in the product.
+    items: [
+      { label: 'Quit tracker' },
+      { label: 'Breathwork' },
+      { label: 'Sleep noise' },
+      { label: 'Challenges' },
+      { label: 'Supplement and medication log' },
+    ],
+  },
+  {
     name: 'Focus',
     summary: 'Turn the plan into work, one task at a time.',
     items: [
@@ -102,6 +123,35 @@ export const PILLARS: readonly Pillar[] = [
     ],
   },
   {
+    name: 'Reflect',
+    summary: 'Your own words, and the goals behind the work.',
+    // Free items first. The paywall used to sit at position two, so a reader
+    // scanning the most personal pillar concluded reflection was the paid part.
+    // Three of these four are free.
+    items: [
+      { label: 'Journal' },
+      { label: 'Vision' },
+      { label: 'Mind maps' },
+      { label: 'Voice notes', pro: true },
+    ],
+  },
+  {
+    name: 'Organize',
+    summary: 'Everything you owe, in a shape you can work from.',
+    // Repeating tasks and the template catalog lead, because that is the half
+    // of this column whose actual contents are domestic: the catalog behind it
+    // holds Morning Routine, Grocery Run and Bill Payments. Drag-to-reorder is
+    // the most project-manager-coded string on the map, so it goes last.
+    items: [
+      { label: 'Inbox' },
+      { label: 'Repeating tasks' },
+      { label: 'Templates and checklists' },
+      { label: 'Projects, sections and subtasks' },
+      { label: 'My templates' },
+      { label: 'Priorities and drag to reorder' },
+    ],
+  },
+  {
     name: 'Progress',
     summary: 'The numbers, computed from what you actually did.',
     items: [
@@ -111,27 +161,6 @@ export const PILLARS: readonly Pillar[] = [
       { label: 'Insights', pro: true },
       { label: 'Estimation accuracy', pro: true },
       { label: 'Weekly review', pro: true },
-    ],
-  },
-  {
-    name: 'Reflect',
-    summary: 'Your own words, and the goals behind the work.',
-    items: [
-      { label: 'Journal' },
-      { label: 'Voice notes', pro: true },
-      { label: 'Vision' },
-      { label: 'Mind maps' },
-    ],
-  },
-  {
-    name: 'Wellbeing',
-    summary: 'Habits you are breaking, and a way to wind down.',
-    items: [
-      { label: 'Quit tracker' },
-      { label: 'Challenges' },
-      { label: 'Breathwork' },
-      { label: 'Sleep noise' },
-      { label: 'Supplement and medication log' },
     ],
   },
 ] as const

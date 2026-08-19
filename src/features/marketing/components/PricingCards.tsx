@@ -96,7 +96,7 @@ export function PricingCards({
           <Badge variant="brand">The week, and the look back</Badge>
         </div>
         <p className="mt-1 text-sm text-text-muted">
-          For the system you keep, not just the day you are in.
+          For planning past today, and seeing how your days really go.
         </p>
         <div className="mt-5 flex items-end gap-1.5">
           <span className="font-display text-5xl font-bold tracking-tight text-text-primary tabular-nums">

@@ -42,15 +42,25 @@ export const DIFFERENTIATORS: readonly Differentiator[] = [
   {
     title: 'What really happened shapes the next plan',
     body: 'Planned time and actual time sit side by side, so you find out your thirty minutes is really fifty. Unfinished work rolls forward on purpose instead of piling up.',
-    proof: 'Roll-over free, Insights on Pro',
+    proof: 'Roll-over is free · Insights on Pro',
   },
 ] as const
 
 export function Differentiators({ className }: { className?: string }) {
   return (
     <ol className={cn('grid gap-px overflow-hidden rounded-2xl bg-white/[0.07] lg:grid-cols-3', className)}>
+      {/*
+        RAISED, BECAUSE THIS SITS ON THE `chapter` MATERIAL.
+
+        These were `bg-surface` (#0F172A), which was the section's own fill and
+        therefore flush with it. When the section moved to `#1E293B` they were
+        left 8.4 L* BELOW their own ground, and a review of the rendered page
+        reported that the row had stopped reading as three cards at all: it read
+        as one dark trough with two hairlines in it. A card must be lighter than
+        what it sits on, or it is not a card.
+      */}
       {DIFFERENTIATORS.map((item, index) => (
-        <li key={item.title} className="bg-surface p-4 sm:p-5 lg:p-7">
+        <li key={item.title} className="bg-white/[0.045] p-4 sm:p-5 lg:p-7">
           <p className="font-mono text-xs tracking-[0.18em] text-brand">
             {String(index + 1).padStart(2, '0')}
           </p>

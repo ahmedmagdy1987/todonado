@@ -75,329 +75,6 @@
 
 @layer components {
   /* ================================================================== */
-  /*  Living background — the marketing pages' ambient depth layer.      */
-  /*                                                                     */
-  /*  RULES THIS OBEYS, because they are what keep it cheap:             */
-  /*   • Only `transform`, `opacity` and `filter` are ever animated, so  */
-  /*     every frame composites on the GPU and nothing triggers layout.  */
-  /*   • PARALLAX AND DRIFT ARE ON SEPARATE ELEMENTS. Both want          */
-  /*     `transform`, and a keyframe animating it beats an inline one —  */
-  /*     so the outer `__layer` takes the scroll offset and the inner    */
-  /*     `__blob` takes the keyframe. Collapsing them would silently     */
-  /*     kill the parallax.                                              */
-  /*   • Cycles are 34–72s. Anything faster reads as a screensaver.      */
-  /*   • Colours are the LOCKED tokens (§2) written as rgba, because a   */
-  /*     gradient stop cannot take a Tailwind class.                     */
-  /*                                                                     */
-  /*  It is decorative: `aria-hidden`, `pointer-events-none`, and the    */
-  /*  page is fully usable with every rule below removed.                */
-  /* ================================================================== */
-  .living-bg {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
-    /* Paint containment: the browser may skip anything outside this box, and
-       it guarantees a blob can never widen the document (no h-scroll at 390px). */
-    contain: layout paint;
-  }
-
-  /*
-   *  CONTAINED VARIANT: the aurora belongs to the hero, not to the page.
-   *
-   *  Fixed to the viewport it kept painting a full screen of animated
-   *  gradient behind every section for the whole document, even though the
-   *  opaque materials above it meant not one pixel of it was visible past
-   *  the hero. Absolute inside the hero means it covers exactly the box it
-   *  is the background of, and it scrolls away and stops costing anything
-   *  the moment the hero leaves the screen.
-   */
-  .living-bg--contained {
-    position: absolute;
-  }
-
-  /* One parallax plane. `--living-scroll` is written once per animation frame
-     by LivingBackground; `--depth` is per-plane, so three planes drift at three
-     speeds and the background reads as further away than the content. */
-  .living-bg__layer {
-    position: absolute;
-    inset: 0;
-    transform: translate3d(0, calc(var(--living-scroll, 0px) * var(--depth, 0)), 0);
-    will-change: transform;
-  }
-
-  /*
-   * A soft aurora blob.
-   *
-   * NO `filter: blur()`. THIS IS THE WHOLE PERFORMANCE STORY, and it was
-   * measured, not guessed: an earlier version blurred each blob at 80px, and
-   * scrolling the landing dropped from 60fps to 21fps on a 390px viewport —
-   * unthrottled, in a production build. A blurred layer has to be
-   * RE-RASTERISED whenever it is scaled or moved, and these are ~600px square,
-   * so the compositor was redrawing three large blurred surfaces every frame.
-   *
-   * The softness now comes from the gradient's own alpha falloff, which is
-   * rasterised once and then only ever transformed. Visually it is the same
-   * cloud; it costs nothing. Multi-stop ramps replace what the blur was doing.
-   *
-   * Corollary, and just as important: these animate TRANSLATE AND OPACITY ONLY.
-   * Scaling would re-rasterise the gradient every frame and undo the fix.
-   */
-  .living-bg__blob {
-    position: absolute;
-    border-radius: 9999px;
-    will-change: transform, opacity;
-  }
-
-  .living-bg__blob--violet {
-    top: -18vmax;
-    left: -10vmax;
-    width: 78vmax;
-    height: 78vmax;
-    background: radial-gradient(
-      circle closest-side,
-      rgba(108, 92, 231, 0.26) 0%,
-      rgba(108, 92, 231, 0.16) 34%,
-      rgba(108, 92, 231, 0.06) 60%,
-      rgba(108, 92, 231, 0) 100%
-    );
-    animation: living-drift-a 46s ease-in-out infinite;
-  }
-
-  .living-bg__blob--blue {
-    top: 18vmax;
-    right: -26vmax;
-    width: 72vmax;
-    height: 72vmax;
-    background: radial-gradient(
-      circle closest-side,
-      rgba(78, 168, 255, 0.2) 0%,
-      rgba(78, 168, 255, 0.12) 34%,
-      rgba(78, 168, 255, 0.04) 62%,
-      rgba(78, 168, 255, 0) 100%
-    );
-    animation: living-drift-b 62s ease-in-out infinite;
-  }
-
-  /* Mint is deliberately the faintest — it is a hint of a third colour, not a
-     third brand colour. At this alpha it reads as depth rather than as green. */
-  .living-bg__blob--mint {
-    bottom: -30vmax;
-    left: 18vmax;
-    width: 64vmax;
-    height: 64vmax;
-    background: radial-gradient(
-      circle closest-side,
-      rgba(34, 211, 166, 0.12) 0%,
-      rgba(34, 211, 166, 0.07) 36%,
-      rgba(34, 211, 166, 0.02) 64%,
-      rgba(34, 211, 166, 0) 100%
-    );
-    animation: living-drift-c 72s ease-in-out infinite;
-  }
-
-  /* Grain. A static SVG turbulence tile — no animation, so it costs one paint
-     and then nothing. Without it the dark is a flat wash and the blur bands. */
-  .living-bg__grain {
-    position: absolute;
-    inset: 0;
-    opacity: 0.035;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-
-  /* Sparse dust. Fourteen 2px specks, each drifting up over 30–60s. Elegant at
-     this density and invisible at any more — and it is fourteen elements, not a
-     canvas, so there is no per-frame JS at all. */
-  .living-bg__dust {
-    position: absolute;
-    inset: 0;
-  }
-
-  .living-bg__speck {
-    position: absolute;
-    width: 2px;
-    height: 2px;
-    border-radius: 9999px;
-    background: rgba(248, 250, 252, 0.5);
-    opacity: 0;
-    animation: living-dust var(--dur, 44s) linear var(--delay, 0s) infinite;
-  }
-
-  /* Tab hidden ⇒ every cycle parks. The compositor stops doing work the user
-     cannot see, and the page is not quietly burning battery in a background tab. */
-  .living-bg[data-paused='true'] .living-bg__blob,
-  .living-bg[data-paused='true'] .living-bg__speck {
-    animation-play-state: paused;
-  }
-
-  /* ================================================================== */
-  /*  Vortex field — the hero's signature funnel.                        */
-  /*                                                                     */
-  /*  Obeys every rule the living background pays for above, for the     */
-  /*  same measured reasons: NO `filter: blur()` (a blurred surface      */
-  /*  re-rasterises whenever it moves), transform/opacity ONLY, and      */
-  /*  NOTHING SCALES. Soft edges are radial-gradient alpha falloff,      */
-  /*  rasterised once and thereafter only transformed.                   */
-  /*                                                                     */
-  /*  The cone is a STATIC 3D transform computed at paint: `perspective` */
-  /*  + `rotateX` on the stage, `translateZ` per ring. Without the       */
-  /*  perspective these are four concentric circles (a dartboard); with  */
-  /*  it they are a funnel. It costs nothing per frame.                  */
-  /* ================================================================== */
-  .vortex {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    /* Paint containment: nothing here can widen the document, which is what
-       keeps 320px free of horizontal scroll. */
-    contain: layout paint;
-    /* Pointer depth. Two custom properties written by VortexField, at most
-       once per animation frame. Defaults mean it renders correctly with no
-       JS at all (and under reduced motion, where the listener never attaches). */
-    transform: translate3d(calc(var(--vx, 0) * 1px), calc(var(--vy, 0) * 1px), 0);
-    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform;
-  }
-
-  /*
-   * NARROW SCREENS GET A QUIETER FUNNEL. On a phone every pixel is content,
-   * so the funnel drops back to atmosphere: dimmed, and sunk behind the
-   * product card rather than crossing the copy. Text legibility outranks the
-   * decoration every time, and a hero nobody can read is not a better hero.
-   */
-  .vortex {
-    opacity: 0.5;
-  }
-
-  @media (min-width: 1024px) {
-    .vortex {
-      opacity: 1;
-    }
-  }
-
-  .vortex__stage {
-    position: absolute;
-    left: 50%;
-    top: 66%;
-    width: 0;
-    height: 0;
-    transform-style: preserve-3d;
-    /* The tilt. 64deg reads as "looking down into it" without flattening the
-       rings into lines. */
-    transform: perspective(900px) rotateX(64deg);
-  }
-
-  /*
-   * At desktop widths the funnel sits behind the PRODUCT CARD, not in the
-   * middle of the hero, so the motes visibly converge on the thing that
-   * represents an ordered day. That is the entire argument of the image; a
-   * centred funnel would just be wallpaper. On narrow screens the card stacks
-   * below the copy, so centred is correct there.
-   */
-  @media (min-width: 1024px) {
-    .vortex__stage {
-      /* In the gap between the copy and the card, not behind either. The eye of
-         the funnel has to be VISIBLE for the image to mean anything; hidden
-         behind the card it degrades into stray ellipses. */
-      left: 57%;
-      top: 52%;
-    }
-  }
-
-  .vortex__ring {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: var(--size);
-    height: var(--size);
-    margin-left: calc(var(--size) / -2);
-    margin-top: calc(var(--size) / -2);
-    border-radius: 50%;
-    border: 1px solid rgba(var(--tone), var(--o));
-    transform: translateZ(var(--z));
-  }
-
-  /* The eye of the funnel. A gradient, not a shadow, and it animates OPACITY
-     only — the cheapest thing a compositor can be asked to do. */
-  .vortex__core {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 300px;
-    height: 300px;
-    margin: -150px 0 0 -150px;
-    border-radius: 50%;
-    background: radial-gradient(
-      circle closest-side,
-      rgba(167, 176, 255, 0.55) 0%,
-      rgba(108, 92, 231, 0.3) 30%,
-      rgba(78, 168, 255, 0.12) 58%,
-      rgba(78, 168, 255, 0) 78%
-    );
-    animation: vortex-core 11s ease-in-out infinite;
-    will-change: opacity;
-  }
-
-  /*
-   * A mote's orbit. The parent is a ZERO-SIZE point that rotates; the mote
-   * inside holds one static `translateX`. That is what makes circular motion
-   * cost a single composited rotation and lets the mote's gradient rasterise
-   * exactly once.
-   */
-  .vortex__orbit {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 0;
-    height: 0;
-    transform: translateZ(var(--z));
-    transform-style: preserve-3d;
-    animation: vortex-spin var(--dur) linear infinite;
-    animation-delay: var(--delay);
-    will-change: transform;
-  }
-
-  .vortex__mote {
-    position: absolute;
-    width: var(--size, 20px);
-    height: var(--size, 20px);
-    margin: calc(var(--size, 20px) / -2) 0 0 calc(var(--size, 20px) / -2);
-    border-radius: 50%;
-    transform: translateX(var(--r));
-    background: radial-gradient(
-      circle closest-side,
-      rgba(var(--tone), 1) 0%,
-      rgba(var(--tone), 0.6) 26%,
-      rgba(var(--tone), 0.18) 52%,
-      rgba(var(--tone), 0) 76%
-    );
-  }
-
-  .vortex[data-paused='true'] .vortex__orbit,
-  .vortex[data-paused='true'] .vortex__core {
-    animation-play-state: paused;
-  }
-
-  /*
-   * REDUCED MOTION KEEPS THE COMPOSITION AND DROPS THE MOVEMENT. The funnel,
-   * its depth, the core and every mote stay exactly where they are; only the
-   * orbiting and the pulse stop, and the pointer listener is never attached
-   * (VortexField returns early). A still vortex is still the brand image.
-   */
-  @media (prefers-reduced-motion: reduce) {
-    .vortex {
-      transform: none;
-      transition: none;
-    }
-    .vortex__orbit,
-    .vortex__core {
-      animation: none;
-    }
-  }
-
-  /* ================================================================== */
   /*  Staggered hero entrance.                                           */
   /*                                                                     */
   /*  One keyframe, one class, a per-element delay. `fill-mode: both` is */
@@ -848,105 +525,6 @@ html {
   overflow-wrap: break-word;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Living-background keyframes.                                       */
-/*                                                                     */
-/*  Declared OUTSIDE @layer on purpose: Tailwind only emits keyframes  */
-/*  it can see referenced through an `animation-*` utility, and these   */
-/*  are referenced from plain CSS above. At top level they are always   */
-/*  emitted.                                                           */
-/*                                                                     */
-/*  Every one animates TRANSLATE and OPACITY only — never scale, and    */
-/*  never on a blurred layer, because either forces a re-rasterise of   */
-/*  the whole surface each frame (measured: 60fps -> 21fps). Every one  */
-/*  is neutralised by the global prefers-reduced-motion rule in the base */
-/*  layer (duration 0.01ms, iteration-count 1) — which is why a         */
-/*  reduced-motion visitor still gets the full composition, just held   */
-/*  still. Each is symmetric (0% == 100%) so the frame it freezes on is */
-/*  a deliberate one rather than whatever the cycle happened to end at. */
-/* ------------------------------------------------------------------ */
-@keyframes living-drift-a {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.8;
-  }
-  50% {
-    transform: translate3d(7vmax, 5vmax, 0);
-    opacity: 1;
-  }
-}
-
-@keyframes living-drift-b {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translate3d(-8vmax, 7vmax, 0);
-    opacity: 1;
-  }
-}
-
-@keyframes living-drift-c {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0.65;
-  }
-  50% {
-    transform: translate3d(6vmax, -6vmax, 0);
-    opacity: 0.95;
-  }
-}
-
-/* Rises the height of the viewport and fades in/out at the ends, so a speck is
-   never seen popping into or out of existence. */
-@keyframes living-dust {
-  0% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-  10%,
-  85% {
-    opacity: 0.5;
-  }
-  100% {
-    transform: translate3d(1.5rem, -60vh, 0);
-    opacity: 0;
-  }
-}
-
-/*
- * One revolution of a mote around the funnel. `linear` on purpose: an orbit
- * that eases is an orbit that looks wrong, and easing would also cluster the
- * motes at the turn points where they read as a flicker rather than as flow.
- * The parent is zero-size, so this rotation moves the child and touches
- * nothing else in the tree.
- */
-@keyframes vortex-spin {
-  from {
-    transform: translateZ(var(--z)) rotate(0deg);
-  }
-  to {
-    transform: translateZ(var(--z)) rotate(360deg);
-  }
-}
-
-/* The eye of the funnel, breathing. OPACITY ONLY — no scale, because scaling a
-   gradient re-rasterises it every frame and that is the one thing this whole
-   system is built to avoid. */
-@keyframes vortex-core {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 /* The hero's staggered entrance. Small travel, generous easing: the point is
    that the line ARRIVES, not that it flies. 14px is enough to read as motion
    and short enough that nothing is unreadable while it happens. */
@@ -1096,34 +674,215 @@ html {
       radial-gradient(120% 45% at 50% 100%, rgb(78 168 255 / 0.14), transparent 72%);
   }
 
+  
+  /*  Content sits above both decorative layers.  */
   /*
-   *  THE HERO SETTLES TO PAGE DARK BEFORE IT ENDS.
+   *  THE CHAPTER BAND, AND WHY IT IS NOT ONE FLAT COLOUR.
    *
-   *  The hero/panel seam was healthy on average and PATCHY in fact: the panel
-   *  below is a flat plane, while the hero's last rows vary with wherever the
-   *  aurora happens to have drifted, so the step measured anywhere from
-   *  delta-L* 0.00 to 6.26 across the width and even INVERTED direction, going
-   *  lighter at one edge and darker at the other. Fading the hero's final
-   *  160px to the page colour makes the step uniform no matter what the
-   *  aurora is doing. Measured minimum across the width: 0.00 to 3.06.
+   *  A review of the rendered page sampled full rows across this section and
+   *  found every pixel identical: one RGB value, edge to edge. That went
+   *  unnoticed while the band was near-black, because flatness is invisible
+   *  down there. At L* 16.4 it is fully resolvable, and a flat mid-slate
+   *  full-bleed band is the most generic surface available in dark UI - which
+   *  is the exact thing two earlier versions of this page were rejected for.
+   *  Every other section on the page carries something: a ruled grid, a violet
+   *  wash, a bloom. This one had nothing.
    *
-   *  z-index 1 puts it above the aurora (which sits at 0) and below the hero
-   *  content (which sits at 10), so nothing readable is touched.
+   *  So it gets a light that falls from its top edge. That does two jobs at
+   *  once: it gives the surface depth, and it points at the hero, because the
+   *  hero's own light also comes from above. The band reads as the next room in
+   *  the same building rather than as a grey stripe pasted on.
+   *
+   *  No blur, no animation, no scaling: one gradient, rasterised once.
    */
-  .hero-settle::after {
+  .material-chapter::before {
     content: '';
     position: absolute;
-    inset: auto 0 0 0;
-    height: 160px;
-    z-index: 1;
+    inset: 0;
     pointer-events: none;
-    background: linear-gradient(to top, #0A0D16, rgb(10 13 22 / 0));
+    background:
+      linear-gradient(to bottom, rgb(255 255 255 / 0.035), transparent 42%),
+      radial-gradient(80% 40% at 50% 0%, rgb(108 92 231 / 0.07), transparent 70%);
   }
 
-  /*  Content sits above both decorative layers.  */
   .material-grid > *,
+  .material-chapter > *,
   .material-premium > * {
     position: relative;
     z-index: 1;
+  }
+}
+
+@layer components {
+  /* ================================================================== */
+  /*  THE HERO STORM: chaos, then order.                                 */
+  /*                                                                     */
+  /*  The elements that scatter ARE the task rows that land. They stay   */
+  /*  in normal flow the whole time and only ever carry a `transform`,   */
+  /*  so the card's geometry is identical in every phase and nothing     */
+  /*  below the hero can move. That is the entire reason this is done    */
+  /*  with transforms rather than by swapping one composition for        */
+  /*  another: a viewer watches the same obligations settle, and the     */
+  /*  layout never learns about it.                                      */
+  /*                                                                     */
+  /*  Transform and opacity only. No blur on anything that moves - this  */
+  /*  repo already paid for that lesson once on this page, where a       */
+  /*  blurred moving layer took scrolling from 60fps to 21.              */
+  /* ================================================================== */
+
+  .storm-item {
+    /* The settle. A long ease-out with a little overshoot reads as
+       "landing" rather than "sliding", which is what makes it feel like
+       order arriving instead of a list scrolling into place. */
+    transition:
+      transform 820ms cubic-bezier(0.16, 0.84, 0.28, 1.02),
+      opacity 420ms ease-out;
+    will-change: transform;
+  }
+
+  /*  Scattered. --dy/--rot/--scale are authored per item rather than
+      random, so the storm is identical on every load and every label stays
+      upright enough to read.
+
+      THERE IS NO HORIZONTAL TERM, AND ITS ABSENCE IS THE FIX. Rows used to
+      translate sideways as well, and because this card clips its overflow
+      that cropped four separate strings inside one 390px viewport. A word
+      cut against a sharp frame edge reads as a broken component, and a
+      first-time visitor has no way to tell that from motion. */
+  .storm--chaos .storm-item {
+    transform: translate3d(0, var(--dy, 0), 0) rotate(var(--rot, 0deg))
+      scale(var(--scale, 0.96));
+  }
+
+  .storm--settled .storm-item {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+
+  /*  The three that do not fit: present in the storm, then quietly
+      demoted rather than deleted. */
+  .storm--chaos .storm-later {
+    opacity: 1;
+  }
+  .storm--settled .storm-later {
+    opacity: 0;
+  }
+
+  /*  THE PHONE GETS THE SAME SLOTS AND HALF THE TILT.
+      It used to get a different choreography entirely, arriving from
+      alternating sides. It does not need one: the slots already carry the
+      disorder and they cost no width. What a narrow card does need is less
+      rotation, because a tilted row's corners travel further relative to
+      the space beside them when there is no space beside them. */
+  @media (max-width: 767px) {
+    .storm--chaos .storm-item {
+      transform: translate3d(0, var(--mdy, 0), 0) rotate(var(--mrot, 0deg))
+        scale(var(--scale, 0.96));
+    }
+  }
+
+  /*  A frozen tornado explains nothing. Under reduced motion the storm
+      never happens: the card is composed and finished from the first
+      frame, which is the state that actually describes the product. */
+  @media (prefers-reduced-motion: reduce) {
+    .storm-item {
+      transition: none;
+    }
+    .storm--chaos .storm-item,
+    .storm--settled .storm-item {
+      transform: none;
+    }
+  }
+}
+
+@layer components {
+  /* ================================================================== */
+  /*  HERO BACKDROP: structure, not weather.                             */
+  /*  See components/HeroBackdrop.tsx for why the aurora and the vortex  */
+  /*  were removed. Everything here is STATIC - no animation, no blur,   */
+  /*  nothing that moves - so the only motion on the first screen is the */
+  /*  plan assembling itself.                                            */
+  /* ================================================================== */
+
+  .hero-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Nothing in here can widen the document, at any width. */
+    contain: layout paint;
+  }
+
+  .hero-backdrop > span {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  /*  1. The lattice. A regular grid reads as measured and deliberate,
+      and unlike a gradient it gives the eye an EDGE to resolve against.
+      Masked to a soft ellipse so it is densest behind the headline and
+      gone at the edges, which stops it reading as graph paper. */
+  .hero-backdrop__lattice {
+    /*  16px tile and an amplitude you perceive as TEXTURE, never as dots.
+        Nine shipped premium dark pages were measured for this: the dot
+        colour sits around 1.3:1 against the background. If you can count
+        them, they are too bright. */
+    background-image: radial-gradient(circle, rgb(255 255 255 / 0.042) 1px, transparent 1px);
+    background-size: 16px 16px;
+    -webkit-mask-image: radial-gradient(120% 85% at 50% 18%, #000 0%, #000 42%, transparent 78%);
+    mask-image: radial-gradient(120% 85% at 50% 18%, #000 0%, #000 42%, transparent 78%);
+  }
+
+  /*  2. One spotlight, and it ENDS. Brightest point of the screen sits
+      exactly where the eye should start. The old aurora had three of
+      these, all drifting, none agreeing on a focal point. */
+  /*  A LIT EDGE, NOT A GLOWING BLOB, AND THE RATIO IS THE WHOLE TRICK.
+   *
+   *  Measured across nine shipped premium dark pages: the light is always
+   *  anchored at the TOP EDGE and always violently flattened - a height
+   *  around a tenth of its width, so it reads as light spilling over the
+   *  lip of a panel. A circular radial at the same opacity reads as fog,
+   *  which is precisely what the aurora this replaces looked like.
+   *
+   *  The same corpus never exceeds 6-10% white for this layer. The violet
+   *  sits a little under that ceiling and the blue is a whisper, because
+   *  brand hue carries further than white at equal alpha. */
+  /*  THE PEAK SITS ABOVE THE FRAME, AND THAT IS THE WHOLE TRICK.
+      Anchored at `50% 0%` the brightest point of the gradient landed exactly
+      on the section's top edge, which is the header's bottom edge. Sampled
+      down the centre column that is L* 3.71 at y=60 and L* 21.01 at y=66:
+      a 17-point jump across six pixels, so the light read as a lit BAR
+      welded to the navigation rather than as light.
+      Moving the origin to a negative offset puts the peak outside the box.
+      What remains inside is falloff only, which is what light looks like. */
+  .hero-backdrop__spot {
+    background:
+      radial-gradient(58% 26% at 50% -7%, rgb(108 92 231 / 0.34), transparent 72%),
+      radial-gradient(92% 34% at 50% -10%, rgb(108 92 231 / 0.12), transparent 76%),
+      radial-gradient(44% 20% at 78% -6%, rgb(78 168 255 / 0.12), transparent 72%);
+  }
+
+  /*  3. The horizon. Gives the hero a floor, so it reads as a defined
+      space rather than the top of an endless dark field - and does the
+      section separation the old page attempted with a colour wash. */
+  .hero-backdrop__horizon {
+    top: auto;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(255 255 255 / 0.14) 28%,
+      rgb(255 255 255 / 0.14) 72%,
+      transparent
+    );
+  }
+
+  /*  The lattice is the one thing that would shimmer against a
+      high-contrast preference, so it steps back rather than disappearing. */
+  @media (prefers-contrast: more) {
+    .hero-backdrop__lattice {
+      opacity: 0.4;
+    }
   }
 }

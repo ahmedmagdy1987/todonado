@@ -40,12 +40,12 @@ export const PRO_REASONS: readonly Reason[] = [
   {
     icon: CalendarClock,
     kicker: 'Your calendar',
-    title: 'Meetings stay in your capacity by themselves',
+    title: 'Meetings keep themselves up to date',
     body: 'Paste a calendar link once. Meetings keep taking real time out of your day even when they move, with nothing to re-import.',
   },
   {
     icon: BarChart3,
-    kicker: 'Your patterns',
+    kicker: 'Your estimates',
     title: 'Find out how far off your estimates run',
     body: 'Planned time against actual time, week over week. This is the part that makes next month better than this one.',
   },
