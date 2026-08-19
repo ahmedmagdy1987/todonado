@@ -57,10 +57,39 @@ const LIFE_DOMAINS = ['Work', 'Health', 'Family', 'Errands', 'Money', 'Routines'
  * ── THE MATERIALS ARE THE STRUCTURE ────────────────────────────────────────
  *
  * `Section` alternates opaque materials (see its header for the full rule), so
- * every boundary is a real edge instead of a cross-dissolve. The aurora is
- * `contained` INSIDE the hero rather than fixed behind the document: it is a
+ * every boundary is a real edge instead of a cross-dissolve. The hero's light
+ * is contained INSIDE the hero rather than fixed behind the document: it is a
  * brand moment at the top of the page, not the page's background.
  */
+
+/**
+ * The hero's secondary action.
+ *
+ * ONE DEFINITION, RENDERED IN ONE OF TWO PLACES. Below `sm` it sits after the
+ * product card, where reassurance belongs on a 320px screen; from `sm` it sits
+ * beside the primary button on a single row. Only ever one is displayed, so
+ * only ever one is in the accessibility tree and only ever one is a tab stop.
+ *
+ * It is a component rather than two hand-written anchors because two copies of
+ * a link are exactly the kind of thing that drifts: one gets a new href, the
+ * other keeps the old one, and whichever breakpoint the reviewer happens to be
+ * at is the one that looks right.
+ */
+function SeeHowItWorks({ className }: { className?: string }) {
+  return (
+    <a
+      href="#how-it-works"
+      className={cn(
+        'focus-ring min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2 text-base font-medium text-text-primary underline-offset-4 hover:underline sm:px-4',
+        className,
+      )}
+    >
+      See how it works
+      <ArrowRight className="h-4 w-4" aria-hidden />
+    </a>
+  )
+}
+
 export function LandingPage() {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -135,10 +164,25 @@ export function LandingPage() {
               the top of the card, which is now where the day's two numbers
               are drawn at a size you can actually read.
             */
-            className={`${CONTAINER} relative z-10 grid gap-7 py-8 sm:gap-9 sm:py-14 lg:grid-cols-2 lg:items-center lg:gap-14 lg:py-24`}
+            className={`${CONTAINER} relative z-10 grid gap-5 py-6 sm:gap-8 sm:py-14 lg:grid-cols-2 lg:items-center lg:gap-14 lg:py-24`}
           >
-            <div className="lg:flex lg:flex-col lg:justify-center">
-            <div>
+            {/*
+              `display: contents` on a phone, a flex column from lg.
+
+              THE ORDER IS THE WHOLE POINT AND IT WAS MEASURED TWICE. At 320px
+              the promise, the sentence, the button and the microcopy filled the
+              screen and the product card arrived at y=592 with 128 visible
+              pixels: no task rows at all, and one of the two metric labels with
+              its value already cut off. A visitor on the narrowest phone the
+              product supports met an unexplained grey rectangle.
+              The block that moved is the one that is reassurance rather than
+              argument - the secondary link and the no-credit-card line. Below
+              `sm` they sit AFTER the card; from `sm` the link is back beside
+              the button and the microcopy back under it, which is the desktop
+              composition unchanged.
+            */}
+            <div className="contents lg:flex lg:flex-col lg:justify-center">
+            <div className="order-1">
               {/*
                 THE FIRST HUNDRED PIXELS SAY "NOT JUST WORK".
 
@@ -154,11 +198,17 @@ export function LandingPage() {
                   <li
                     key={domain}
                     /*
-                      The sixth wraps onto a line of its own at 390px, which
-                      reads as a mistake rather than as a list. It joins from
-                      `sm`, where the row has the width for it.
+                      A SECOND LINE HERE COSTS 28px OF THE 320px FOLD, and it
+                      reads as a wrap rather than as a list. So the row is
+                      trimmed to what fits one line at each width and no more:
+                      four at 320, five from 360, all six from `sm`. Nothing is
+                      hidden that the width could have carried.
                     */
-                    className={cn('flex items-center gap-2', index >= 5 && 'hidden sm:flex')}
+                    className={cn(
+                      'flex items-center gap-2',
+                      index === 4 && 'hidden min-[360px]:flex',
+                      index >= 5 && 'hidden sm:flex',
+                    )}
                   >
                     {index > 0 && <span aria-hidden className="h-1 w-1 rounded-full bg-brand/60" />}
                     {domain}
@@ -187,7 +237,7 @@ export function LandingPage() {
               */}
             </div>
 
-            <div className="mt-5 sm:mt-6">
+            <div className="order-2 lg:mt-6">
               {/*
                 THE ARC IN ONE SENTENCE: plan, work, look back.
 
@@ -227,28 +277,29 @@ export function LandingPage() {
                   the secondary action is for people who want to look before
                   they sign up, and a link is the honest weight for that.
                 */}
-                <a
-                  href="#how-it-works"
-                  className="focus-ring inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2 text-base font-medium text-text-primary underline-offset-4 hover:underline sm:px-4"
-                >
-                  See how it works
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </a>
+                <SeeHowItWorks className="hidden sm:inline-flex" />
               </div>
+            </div>
 
-              {/*
-                Answers the two objections in the order people have them. Both
-                halves are true: Free has no expiry and the whole single-day
-                loop is uncapped.
-              */}
-              <p className="mt-4 text-sm text-text-muted">
+            {/*
+              REASSURANCE, AND IT SITS AFTER THE PROOF ON A PHONE.
+
+              Both of these answer an objection somebody has AFTER they have
+              understood the offer, so on the narrowest screens they yield their
+              place to the thing that does the understanding. From `sm` the link
+              rejoins the button on one row and this block is microcopy alone,
+              exactly as it reads on desktop.
+            */}
+            <div className="order-4 lg:mt-4">
+              <SeeHowItWorks className="-ml-2 mb-2 flex w-fit sm:hidden" />
+              <p className="text-sm text-text-muted">
                 A complete day, free forever. No trial to expire, and no credit card.
               </p>
             </div>
             </div>
 
             {/* The story: ten obligations arrive, seven fit, they get done. */}
-            <ProductShot className="lg:justify-self-end" />
+            <ProductShot className="order-3 lg:justify-self-end" />
           </div>
         </Section>
 

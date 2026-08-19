@@ -71,6 +71,16 @@ test('hero backdrop: decorative, and provably so', async ({ page }) => {
   // Nothing inside it can be reached by a keyboard or announced.
   expect(await bg.locator('a, button, input, [tabindex]').count()).toBe(0)
   for (const layer of LAYERS) await expect(page.locator(layer)).toHaveCount(1)
+
+  /*
+   * It sits BEHIND the content. Carried over verbatim from the deleted
+   * living-background test, because it is the one assertion in that group that
+   * was about STACKING rather than about motion, and stacking is a property the
+   * replacement has too. A full-bleed decorative layer painted over the hero
+   * would make the headline unreadable and nothing else here would catch it.
+   */
+  expect(await bg.evaluate((el) => getComputedStyle(el).zIndex)).toBe('0')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 })
 
 test('hero backdrop: holds completely still, and blurs nothing', async ({ page }) => {

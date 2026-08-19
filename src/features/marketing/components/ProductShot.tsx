@@ -220,8 +220,18 @@ export function ProductShot({ className }: { className?: string }) {
           illegible.
         */}
         <div className="space-y-2.5">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium text-text-muted">What fits today</p>
+          {/*
+            STACKED ON THE NARROWEST PHONES, INLINE EVERYWHERE ELSE.
+
+            At 320px the card's inner width is about 256px and this row wants
+            110px of label plus 190px of value. Squeezed into one line the
+            label broke to "What fits / today" and the value had nowhere to go
+            at all. 380 is where the two genuinely fit side by side, so that is
+            where the row becomes a row - not `sm`, which would needlessly
+            stack a 390px screen that has the width.
+          */}
+          <div className="flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-3">
+            <p className="whitespace-nowrap text-sm font-medium text-text-muted">What fits today</p>
             <p
               className={cn(
                 'font-mono text-sm font-medium tabular-nums text-text-primary transition-opacity duration-500 sm:text-base motion-reduce:transition-none',
@@ -236,8 +246,8 @@ export function ProductShot({ className }: { className?: string }) {
           </div>
 
           <div>
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium text-text-muted">How today is going</p>
+            <div className="flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-3">
+              <p className="whitespace-nowrap text-sm font-medium text-text-muted">How today is going</p>
               <p
                 className={cn(
                   'font-mono text-sm font-medium tabular-nums transition-colors duration-300 sm:text-base motion-reduce:transition-none',
