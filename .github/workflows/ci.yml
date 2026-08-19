@@ -122,7 +122,14 @@ jobs:
       # an execution: Actions is billing-blocked and the local machine has no
       # Docker, so the disposable Supabase stack this job needs cannot start.
       # The first CI run after billing is restored is the confirmation.
-      EXPECTED_E2E_TESTS: '95'
+      #
+      # 95 -> 96: e2e/landing.spec.ts gained a footer touch-target check. The
+      # footer's link class carried `min-h-[44px]` and nothing for width, so
+      # short labels shipped under the floor ("Home" 39x44 on the live site).
+      # A height-only floor passes or fails on label length, which is why it
+      # survived. COUNTED with `playwright test --list`, not derived from the
+      # line above - see the correction note there for why that matters.
+      EXPECTED_E2E_TESTS: '96'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -52,9 +52,22 @@ const SECTIONS: { heading: string; links: FooterLink[] }[] = [
   },
 ]
 
-/** 44px targets: a footer link is a real tap target on a phone, not an aside. */
+/**
+ * 44px targets: a footer link is a real tap target on a phone, not an aside.
+ *
+ * BOTH AXES, AND THE MISSING ONE REACHED PRODUCTION. This carried `min-h-[44px]`
+ * and nothing for width, so the tall-enough links with short labels shipped
+ * under the floor: "Home" measured 39x44, "About" 39x44 and "Log in" 41x44 on
+ * the live site. A height-only floor silently passes or fails on LABEL LENGTH,
+ * which is not a property anybody checks when adding a footer link.
+ *
+ * `min-w-[44px]` only widens the box. `inline-flex` defaults to
+ * `justify-content: flex-start`, so the text stays exactly where it was and
+ * only the hit area grows to the right; the anchor is already narrower than its
+ * grid column, so nothing reflows.
+ */
 const LINK_CLASS =
-  'focus-ring inline-flex min-h-[44px] items-center rounded text-sm text-text-muted transition-colors hover:text-text-primary'
+  'focus-ring inline-flex min-h-[44px] min-w-[44px] items-center rounded text-sm text-text-muted transition-colors hover:text-text-primary'
 
 /** Public footer shared by the marketing and legal pages. */
 export function MarketingFooter() {
