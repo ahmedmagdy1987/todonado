@@ -405,6 +405,73 @@ test('390px: every control in the landing FAQ clears the 44px touch floor', asyn
   }
 })
 
+test('every footer control clears the 44px touch floor on BOTH axes', async ({ page }) => {
+  /*
+   * THE DEFECT THIS EXISTS TO CATCH, WHICH ALSO REACHED PRODUCTION.
+   *
+   * The footer's shared link class carried `min-h-[44px]` and nothing for
+   * width, and its own comment claimed "44px targets". On the live site that
+   * produced "Home" at 39x44, "About" at 39x44 and "Log in" at 41x44: under
+   * Todonado's own floor, and under the WCAG 2.2 SC 2.5.8 AA minimum of 24x24.
+   *
+   * A HEIGHT-ONLY FLOOR PASSES OR FAILS ON LABEL LENGTH, which is why this
+   * survived. "Pricing" and "Privacy Policy" were always wide enough, so the
+   * bug was invisible unless somebody happened to add a short word. The FAQ
+   * test above measures height alone for a documented reason - its controls sit
+   * in flowing text - but a footer link is a discrete block and has no such
+   * excuse, so both axes are asserted here.
+   *
+   * EVERY control is measured rather than the three that were reported. The
+   * next short label would otherwise recreate this exactly.
+   */
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/welcome')
+
+  const footer = page.locator('footer').first()
+  await footer.scrollIntoViewIfNeeded()
+  await expect(footer).toBeVisible()
+
+  const targets = await footer.evaluate((el) =>
+    [...el.querySelectorAll('a, button, [role="button"], summary, input')]
+      .map((node) => {
+        const r = node.getBoundingClientRect()
+        return {
+          label: (node.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40) ||
+            node.getAttribute('aria-label') || node.tagName.toLowerCase(),
+          width: Math.round(r.width),
+          height: Math.round(r.height),
+          href: node.getAttribute('href'),
+        }
+      })
+      // Zero-sized nodes are not rendered targets; a hidden control is not a
+      // touch-target failure and asserting on one would be noise.
+      .filter((t) => t.width > 0 && t.height > 0),
+  )
+
+  expect(
+    targets.length,
+    'the footer should expose its full link set',
+  ).toBeGreaterThanOrEqual(9)
+
+  for (const t of targets) {
+    expect(
+      t.width,
+      `footer "${t.label}" is ${t.width}px wide, under the 44px touch floor`,
+    ).toBeGreaterThanOrEqual(44)
+    expect(
+      t.height,
+      `footer "${t.label}" is ${t.height}px tall, under the 44px touch floor`,
+    ).toBeGreaterThanOrEqual(44)
+  }
+
+  // The widening must not have cost a destination or an accessible name.
+  const names = targets.map((t) => t.label.toLowerCase())
+  expect(new Set(names).size, `duplicate accessible names: ${names.join(', ')}`).toBe(names.length)
+  for (const t of targets) {
+    expect(t.href, `footer "${t.label}" lost its href`).toBeTruthy()
+  }
+})
+
 test('the landing FAQ link still points at the full set on /pricing', async ({ page }) => {
   // The touch-target fix must not quietly change where the link goes: the
   // homepage carries three questions and the other three live on /pricing, so
