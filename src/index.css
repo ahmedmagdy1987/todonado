@@ -676,7 +676,37 @@ html {
 
   
   /*  Content sits above both decorative layers.  */
+  /*
+   *  THE CHAPTER BAND, AND WHY IT IS NOT ONE FLAT COLOUR.
+   *
+   *  A review of the rendered page sampled full rows across this section and
+   *  found every pixel identical: one RGB value, edge to edge. That went
+   *  unnoticed while the band was near-black, because flatness is invisible
+   *  down there. At L* 16.4 it is fully resolvable, and a flat mid-slate
+   *  full-bleed band is the most generic surface available in dark UI - which
+   *  is the exact thing two earlier versions of this page were rejected for.
+   *  Every other section on the page carries something: a ruled grid, a violet
+   *  wash, a bloom. This one had nothing.
+   *
+   *  So it gets a light that falls from its top edge. That does two jobs at
+   *  once: it gives the surface depth, and it points at the hero, because the
+   *  hero's own light also comes from above. The band reads as the next room in
+   *  the same building rather than as a grey stripe pasted on.
+   *
+   *  No blur, no animation, no scaling: one gradient, rasterised once.
+   */
+  .material-chapter::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(to bottom, rgb(255 255 255 / 0.035), transparent 42%),
+      radial-gradient(80% 40% at 50% 0%, rgb(108 92 231 / 0.07), transparent 70%);
+  }
+
   .material-grid > *,
+  .material-chapter > *,
   .material-premium > * {
     position: relative;
     z-index: 1;
@@ -710,11 +740,17 @@ html {
     will-change: transform;
   }
 
-  /*  Scattered. --dx/--dy/--rot are set per item so the disorder is
-      authored rather than random, which keeps it identical on every load
-      and lets each label stay upright enough to read. */
+  /*  Scattered. --dy/--rot/--scale are authored per item rather than
+      random, so the storm is identical on every load and every label stays
+      upright enough to read.
+
+      THERE IS NO HORIZONTAL TERM, AND ITS ABSENCE IS THE FIX. Rows used to
+      translate sideways as well, and because this card clips its overflow
+      that cropped four separate strings inside one 390px viewport. A word
+      cut against a sharp frame edge reads as a broken component, and a
+      first-time visitor has no way to tell that from motion. */
   .storm--chaos .storm-item {
-    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) rotate(var(--rot, 0deg))
+    transform: translate3d(0, var(--dy, 0), 0) rotate(var(--rot, 0deg))
       scale(var(--scale, 0.96));
   }
 
@@ -731,15 +767,16 @@ html {
     opacity: 0;
   }
 
-  /*  MOBILE IS A DIFFERENT CHOREOGRAPHY, NOT A SQUEEZED ONE.
-      A vortex needs width it does not have at 390px, so the phone gets a
-      controlled vertical drop: cards arrive from alternating sides with
-      barely any rotation, which stays readable at a glance and cannot
-      push anything sideways. */
+  /*  THE PHONE GETS THE SAME SLOTS AND HALF THE TILT.
+      It used to get a different choreography entirely, arriving from
+      alternating sides. It does not need one: the slots already carry the
+      disorder and they cost no width. What a narrow card does need is less
+      rotation, because a tilted row's corners travel further relative to
+      the space beside them when there is no space beside them. */
   @media (max-width: 767px) {
     .storm--chaos .storm-item {
-      transform: translate3d(var(--mdx, 0), var(--mdy, 0), 0) rotate(var(--mrot, 0deg))
-        scale(0.97);
+      transform: translate3d(0, var(--mdy, 0), 0) rotate(var(--mrot, 0deg))
+        scale(var(--scale, 0.96));
     }
   }
 

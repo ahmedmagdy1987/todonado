@@ -250,7 +250,14 @@ export function LandingPage() {
                 planned-versus-actual analysis, and that is marked where it is
                 made.
               */}
-              <p className="max-w-lg text-base leading-relaxed text-text-muted sm:text-lg">
+              {/*
+                `text-pretty` because this sentence ended on a one-word line.
+                At 390px the last line was the single word "went." hanging under
+                a full measure, which reads as a mistake rather than as a
+                paragraph. The browser resolves the rag; nothing here is
+                hand-broken, so it stays correct at every width.
+              */}
+              <p className="max-w-lg text-pretty text-base leading-relaxed text-text-muted sm:text-lg">
                 You have more to do than the day can hold. Todonado plans the part that fits, runs
                 it in a focus timer, and shows you where the time went.
               </p>
@@ -304,7 +311,7 @@ export function LandingPage() {
         </Section>
 
         {/* ═══════════════ 2 · WHY IT IS DIFFERENT ════════════════════════ */}
-        <Section material="panel" ariaLabel="Why Todonado is different">
+        <Section material="chapter" ariaLabel="Why Todonado is different">
           <div className={CONTAINER}>
             <TwoColumnIntro
               eyebrow="01 · The difference"

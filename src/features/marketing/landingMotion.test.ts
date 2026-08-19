@@ -153,23 +153,54 @@ describe('the hero backdrop is structure, and it holds still', () => {
 })
 
 describe('the page separates its sections with material, not with atmosphere', () => {
-  it('steps the panel a real distance from the page, not four points of L*', () => {
+  it('spends the loud tonal step on exactly ONE boundary', () => {
     /*
-     * THE MEASURED CORE DEFECT, PINNED SO IT CANNOT COME BACK.
+     * THE MEASURED CORE DEFECT AND THE MEASURED OVERCORRECTION, BOTH PINNED.
      *
-     * `panel` was `bg-surface` (#0F172A, L* 7.96) on a `#0A0D16` page
-     * (L* 3.66): delta-L* 4.30, a WCAG step of 1.09:1. An audit of the rendered
-     * first screen found 92.2% of it inside a six-L* band out of a hundred and
-     * concluded the page read as one long dark wash rather than as a sequence
-     * of rooms. Three rounds of background effects had been spent on a problem
-     * that was a token choice.
+     * The defect: `panel` was `bg-surface` (#0F172A, L* 7.96) on a `#0A0D16`
+     * page (L* 3.66), a step of delta-L* 4.30 or 1.09:1. An audit of the
+     * rendered first screen found 92.2% of it inside a six-L* band out of a
+     * hundred and concluded the page read as one long dark wash.
      *
-     * `bg-surface-2` (#1E293B, L* 16.39) is delta-L* 12.68, or 1.36:1.
+     * The overcorrection: moving `panel` itself to `bg-surface-2` lifted every
+     * panel section at once, and a visual review rejected it while every number
+     * said it had improved. It left the cards inside those sections 8.4 and
+     * 12.7 L* BELOW their own ground so they stopped reading as cards; it
+     * covered 2.6 to 3.3 times the hero panel's area in the hero panel's own
+     * fill, so the product's signature surface stopped meaning anything; and it
+     * gave the page a rhythm it abandoned after two beats.
+     *
+     * So `chapter` exists and is used ONCE, on the boundary directly under the
+     * fold, which is the one that was actually complained about. This test
+     * fails if a second section reaches for it.
      */
-    expect(section).toMatch(/panel: 'bg-surface-2'/)
-    expect(section, 'panel must not fall back to the near-invisible step').not.toMatch(
-      /panel: 'bg-surface'/,
+    expect(section, 'the loud step must exist as its own material').toMatch(
+      /chapter: 'bg-surface-2/,
     )
+    expect(section, 'panel must go back to being the quiet surface').toMatch(
+      /panel: 'bg-surface',/,
+    )
+
+    const chapters = landing.match(/material="chapter"/g) ?? []
+    expect(
+      chapters.length,
+      `the loud step is used ${chapters.length} times; it is only legible as an event while it is rare`,
+    ).toBe(1)
+  })
+
+  it('never leaves a card darker than the material it sits on', () => {
+    /*
+     * The failure this exists to prevent is not hypothetical: it shipped. The
+     * three cards in the chapter section stayed at `bg-surface` when the
+     * section moved to `bg-surface-2`, which put them 8.4 L* below their own
+     * ground. A review of the rendered page reported the row as "a hole with
+     * dividers in it" rather than as three cards.
+     */
+    const differentiators = read('./components/Differentiators.tsx')
+    expect(
+      differentiators,
+      'a card on the chapter material must be lifted above it, never left at panel value',
+    ).not.toMatch(/<li[^>]*className="bg-surface /)
   })
 
   it('never re-introduces a full-page atmospheric wash', () => {

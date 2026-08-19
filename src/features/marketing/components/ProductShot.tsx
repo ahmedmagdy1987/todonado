@@ -66,53 +66,77 @@ const TICK_EVERY = 380
 /**
  * Authored scatter per row. Deterministic, so every visit sees the same storm.
  *
- * THE HORIZONTAL RANGE IS DELIBERATELY NARROW. The first version threw rows
- * out to +/-52%, and the card clips its overflow, so half the labels were cut
- * mid-word at the frame edge: it read as a broken component rather than as a
- * storm. The disorder now lives mostly in the VERTICAL offset and the rotation,
- * where it costs no legibility, because the whole requirement is that a viewer
- * recognises these as their own obligations rather than as particles.
+ * ── TWO REVIEWERS INDEPENDENTLY CALLED THE FIRST VERSION A LAYOUT BUG ──────
+ *
+ * It threw rows sideways and let them land wherever the arithmetic put them.
+ * Because the card clips its overflow, that produced four hard-cropped strings
+ * in a single 390px viewport ("1h 30", "APPOINTMEN", "WELLBEIN", "45"), and
+ * because nothing coordinated the vertical offsets it also printed "Dentist at
+ * 3:00" directly on top of "Pick up groceries". Clipped words against a sharp
+ * frame edge and two opaque strings sharing one line are the visual signature
+ * of a broken component, not of motion. Somebody who has never seen the page
+ * before cannot tell the difference, and they only get the one look.
+ *
+ * ── THE TWO RULES THAT REPLACED THE GUESSWORK ─────────────────────────────
+ *
+ *   1  NOTHING MOVES SIDEWAYS. `dx` is zero for every row, at every width, so
+ *      no label can ever reach a frame edge to be cut against it. The whole
+ *      horizontal budget is spent on keeping the words readable, which is the
+ *      only reason the storm is made of real obligations rather than particles.
+ *
+ *   2  EVERY ROW GETS ITS OWN SLOT. The ten items are dealt into ten distinct
+ *      positions on a 34px pitch, in a SHUFFLED order. No two rows can share a
+ *      line, so no two strings can ever overprint, and the disorder is now the
+ *      one thing a to-do list is actually bad at: the wrong things in the wrong
+ *      order. Settling then reads as sorting, which is the argument the section
+ *      is making.
+ *
+ * Corners still overlap slightly once rotated, and that is left alone on
+ * purpose: overlapping CORNERS read as a pile of paper, while overlapping TEXT
+ * reads as a bug. Text sits vertically centred in each row, so with a 34px
+ * pitch the baselines stay 34px apart no matter how the boxes tilt.
+ *
+ * The geometry these numbers come from: seven rows of `h-9` (36px) on a 6px
+ * rhythm is a 42px pitch, and the "did not fit" box sits 16px below the last of
+ * them. Slot k is therefore `k * 34`, and each row's `dy` is the distance from
+ * its own resting top to that slot, expressed as a percentage of its own 36px
+ * height because that is what a percentage translate is relative to.
  */
-const SCATTER: readonly { dx: string; dy: string; rot: string; scale: number }[] = [
-  { dx: '-14%', dy: '-124%', rot: '-7deg', scale: 0.93 },
-  { dx: '18%', dy: '-56%', rot: '5deg', scale: 0.95 },
-  { dx: '-20%', dy: '22%', rot: '6deg', scale: 0.94 },
-  { dx: '15%', dy: '88%', rot: '-5deg', scale: 0.96 },
-  { dx: '-11%', dy: '136%', rot: '4deg', scale: 0.93 },
-  { dx: '19%', dy: '-100%', rot: '-6deg', scale: 0.95 },
-  { dx: '-17%', dy: '80%', rot: '7deg', scale: 0.94 },
+const SCATTER: readonly { dy: string; rot: string; scale: number }[] = [
+  { dy: '189%', rot: '2.5deg', scale: 0.88 },
+  { dy: '-117%', rot: '-2deg', scale: 0.9 },
+  { dy: '239%', rot: '-2.5deg', scale: 0.88 },
+  { dy: '-256%', rot: '2deg', scale: 0.89 },
+  { dy: '289%', rot: '2.5deg', scale: 0.88 },
+  { dy: '-300%', rot: '-2.5deg', scale: 0.9 },
+  { dy: '-133%', rot: '2deg', scale: 0.89 },
   /*
-   * The last three are the ones that will not fit, and their resting place is a
-   * single 36px box at the BOTTOM of the card, so they all share one anchor.
-   * Scattering them by the same modest offsets as the rows above piled them on
-   * top of each other in a heap. They need to travel much further up to join
-   * the storm at all, which is why their offsets are an order of magnitude
-   * larger than everything above.
+   * The last three are the ones that will not fit. They rest stacked in a
+   * single 36px box at the bottom, so all three start from the same top and
+   * need much larger offsets than the rows above to reach a slot of their own.
    */
-  { dx: '12%', dy: '-560%', rot: '5deg', scale: 0.92 },
-  { dx: '-16%', dy: '-330%', rot: '-6deg', scale: 0.95 },
-  { dx: '14%', dy: '-140%', rot: '6deg', scale: 0.93 },
+  { dy: '-467%', rot: '-2deg', scale: 0.88 },
+  { dy: '-183%', rot: '2.5deg', scale: 0.9 },
+  { dy: '6%', rot: '-2.5deg', scale: 0.88 },
 ]
 
-/** The phone gets a vertical drop from alternating sides, never a vortex. */
-const MOBILE_SCATTER = SCATTER.map((_, i) => ({
-  mdx: i % 2 === 0 ? '-11%' : '11%',
-  // The seven planned rows drop from alternating sides; the three that will not
-  // fit share one anchor at the bottom, so they get their own wider spread or
-  // they land in a heap.
-  mdy: i < 7 ? `${-58 + i * 14}%` : `${-520 + (i - 7) * 190}%`,
-  mrot: i % 2 === 0 ? '-3deg' : '3deg',
+/**
+ * The phone uses the SAME slots and the same zero horizontal travel, with the
+ * tilt halved. A narrower card means a rotated row's corners travel further
+ * relative to the space beside them, and there is no width to spare.
+ */
+const MOBILE_SCATTER = SCATTER.map((row) => ({
+  mdy: row.dy,
+  mrot: `${(Number.parseFloat(row.rot) / 2).toFixed(2)}deg`,
 }))
 
 type Act = 'storm' | 'settled' | 'working' | 'done'
 
 function scatterVars(index: number, delayMs: number): CSSProperties {
   return {
-    '--dx': SCATTER[index].dx,
     '--dy': SCATTER[index].dy,
     '--rot': SCATTER[index].rot,
     '--scale': SCATTER[index].scale,
-    '--mdx': MOBILE_SCATTER[index].mdx,
     '--mdy': MOBILE_SCATTER[index].mdy,
     '--mrot': MOBILE_SCATTER[index].mrot,
     transitionDelay: `${delayMs}ms`,
@@ -232,16 +256,35 @@ export function ProductShot({ className }: { className?: string }) {
           */}
           <div className="flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-3">
             <p className="whitespace-nowrap text-sm font-medium text-text-muted">What fits today</p>
+            {/*
+              A LABEL OVER AN EMPTY SLOT READS AS A FAILED FETCH.
+
+              This used to be the real value held at `opacity-0` until the storm
+              settled, which meant the card's very first frame showed "What fits
+              today" with nothing underneath it. A review of the rendered page
+              called that out at three separate widths as the clearest symptom
+              of a broken component, and it is: a labelled field with nothing in
+              it, sitting next to a field that filled, is exactly what a failed
+              request looks like.
+              It now carries a waiting state instead. The slot is occupied from
+              the first frame, the answer genuinely is not known yet while ten
+              obligations are still landing, and the swap to the real figure is
+              the moment the plan exists.
+            */}
             <p
               className={cn(
-                'font-mono text-sm font-medium tabular-nums text-text-primary transition-opacity duration-500 sm:text-base motion-reduce:transition-none',
-                // The time appears as the storm settles, because that IS what
-                // just happened: a pile of obligations became an amount of time.
-                scattered ? 'opacity-0' : 'opacity-100',
+                'font-mono text-sm font-medium tabular-nums transition-colors duration-500 sm:text-base motion-reduce:transition-none',
+                scattered ? 'text-text-muted/60' : 'text-text-primary',
               )}
             >
-              {formatMinutes(HERO_PLANNED_MINUTES)} of {formatMinutes(HERO_DAY_MINUTES)} ·{' '}
-              {formatMinutes(HERO_OPEN_MINUTES)} left
+              {scattered ? (
+                <span aria-hidden>· · ·</span>
+              ) : (
+                <>
+                  {formatMinutes(HERO_PLANNED_MINUTES)} of {formatMinutes(HERO_DAY_MINUTES)} ·{' '}
+                  {formatMinutes(HERO_OPEN_MINUTES)} left
+                </>
+              )}
             </p>
           </div>
 
@@ -259,7 +302,7 @@ export function ProductShot({ className }: { className?: string }) {
             </div>
 
             <div
-              className="mt-2 h-2 overflow-hidden rounded-full bg-background"
+              className="mt-2 h-2 overflow-hidden rounded-full bg-black/40 ring-1 ring-inset ring-white/10"
               role="img"
               aria-label={`Today's progress: ${done} of ${total} tasks done`}
             >
@@ -324,7 +367,16 @@ export function ProductShot({ className }: { className?: string }) {
                   {task.title}
                 </span>
 
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted/70">
+                {/*
+                  THIS COLUMN IS THE LIFE CLAIM, PROVED RATHER THAN ASSERTED.
+                  Health, Work, Errands, Family, Money, Personal read down the
+                  card beside the tasks, which is the strongest evidence on the
+                  page that this is not an office tool. It was set at 70% of an
+                  already-muted grey, which a review of the rendered page put at
+                  the floor of legibility. Dim is right for a secondary column;
+                  unreadable is not, and an unreadable proof proves nothing.
+                */}
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted">
                   {task.category}
                 </span>
 
@@ -364,7 +416,16 @@ export function ProductShot({ className }: { className?: string }) {
                 <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
                   {task.title}
                 </span>
-                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted/70">
+                {/*
+                  THIS COLUMN IS THE LIFE CLAIM, PROVED RATHER THAN ASSERTED.
+                  Health, Work, Errands, Family, Money, Personal read down the
+                  card beside the tasks, which is the strongest evidence on the
+                  page that this is not an office tool. It was set at 70% of an
+                  already-muted grey, which a review of the rendered page put at
+                  the floor of legibility. Dim is right for a secondary column;
+                  unreadable is not, and an unreadable proof proves nothing.
+                */}
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted">
                   {task.category}
                 </span>
               </li>
