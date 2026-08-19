@@ -212,8 +212,25 @@ export function ProductShot({ className }: { className?: string }) {
     >
       <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.03] px-4 py-2.5">
         <p className="font-display text-sm font-semibold text-text-primary">Today</p>
+        {/*
+          "AVAILABLE", NOT "TO WORK WITH", AND THE DAY IS NOT TYPED HERE.
+
+          The old line ran "TUE · 6H TO WORK WITH", which ends flush against the
+          card's inner edge at every width. It is grammatically complete and it
+          READS as a sentence that was cut off, which is the one thing a product
+          shot in a hero cannot afford. "Available" says the same thing in one
+          word, and it is the plain-English version of the idea without
+          reaching back for "capacity", which is the in-app name and the wrong
+          register for a stranger.
+
+          The weekday now comes from the SAME fixture that decides which column
+          of the week strip below is highlighted. It used to be the string
+          "Tue" typed here while `TODAY_INDEX` independently pointed at column
+          one: two sources for one fact, and nothing would have failed if they
+          had drifted apart. The hours were already derived and still are.
+        */}
         <p className="font-mono text-[11px] uppercase tracking-wider text-text-muted">
-          Tue · {formatMinutes(HERO_DAY_MINUTES)} to work with
+          {WEEK[TODAY_INDEX].short} · {formatMinutes(HERO_DAY_MINUTES)} available
         </p>
       </div>
 
@@ -473,7 +490,9 @@ export function ProductShot({ className }: { className?: string }) {
                       isToday ? 'text-text-primary' : 'text-text-muted',
                     )}
                   >
-                    {entry.day}
+                    {/* One letter, taken from the label rather than typed
+                        again: M T W T F S S. */}
+                    {entry.short.charAt(0)}
                   </span>
                 </div>
               )
@@ -491,15 +510,25 @@ export function ProductShot({ className }: { className?: string }) {
   )
 }
 
-/** Planned minutes per day for the week strip. Monday first; today is Tuesday. */
-const WEEK: readonly { day: string; minutes: number }[] = [
-  { day: 'M', minutes: 300 },
-  { day: 'T', minutes: HERO_PLANNED_MINUTES },
-  { day: 'W', minutes: 240 },
-  { day: 'T', minutes: 315 },
-  { day: 'F', minutes: 180 },
-  { day: 'S', minutes: 90 },
-  { day: 'S', minutes: 45 },
+/**
+ * Planned minutes per day for the week strip. Monday first; today is Tuesday.
+ *
+ * `short` is the only place a day is named. The card's header reads it for
+ * "TUE", and the strip renders its first letter, so the highlighted column and
+ * the header can never disagree about what day the demo is showing. It is a
+ * FIXTURE, not the real date, deliberately: the strip highlights a specific
+ * column and the day the header names has to be that same column, which a live
+ * `new Date()` would break every day except Tuesday. It also keeps every
+ * screenshot of this hero comparable with every other one.
+ */
+const WEEK: readonly { short: string; minutes: number }[] = [
+  { short: 'Mon', minutes: 300 },
+  { short: 'Tue', minutes: HERO_PLANNED_MINUTES },
+  { short: 'Wed', minutes: 240 },
+  { short: 'Thu', minutes: 315 },
+  { short: 'Fri', minutes: 180 },
+  { short: 'Sat', minutes: 90 },
+  { short: 'Sun', minutes: 45 },
 ]
 
 const TODAY_INDEX = 1
