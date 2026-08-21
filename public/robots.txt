@@ -9,13 +9,25 @@ Allow: /privacy
 Allow: /terms
 Disallow: /login
 Disallow: /reset-password
+Disallow: /today
 Disallow: /inbox
 Disallow: /projects
 Disallow: /focus
+Disallow: /work
+Disallow: /week
 Disallow: /insights
 Disallow: /wellness
 Disallow: /templates
+Disallow: /vision
+Disallow: /journal
+Disallow: /challenges
+Disallow: /hub
 Disallow: /settings
 Disallow: /api/
+
+# Belt and braces. Every path above is inside the app and answers with the SPA
+# shell, which now carries "noindex" (see scripts/prerender.mjs). A route added
+# to the router later is therefore excluded by default, rather than only when
+# somebody remembers to edit this file.
 
 Sitemap: https://www.todonado.com/sitemap.xml

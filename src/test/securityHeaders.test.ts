@@ -41,11 +41,26 @@ describe('production security headers (vercel.json)', () => {
     expect(byKey.get(key)).toBe(value)
   })
 
-  it('keeps the rewrite rule that makes the SPA work', () => {
+  it('keeps the rewrite rule that makes the SPA work, pointed at the noindex shell', () => {
     const rewrites = (JSON.parse(
       readFileSync(fileURLToPath(new URL('../../vercel.json', import.meta.url)), 'utf8'),
     ) as { rewrites?: { source: string; destination: string }[] }).rewrites
-    expect(rewrites?.[0]?.destination).toBe('/index.html')
+
+    // Unchanged: everything except /api/ still falls through to one HTML file,
+    // which is what lets React Router own /today, /focus and the rest.
+    expect(rewrites?.[0]?.source).toBe('/((?!api/).*)')
+
+    /*
+     * THE DESTINATION IS `app.html`, NOT `index.html`, AND THAT IS THE POINT.
+     *
+     * While it was index.html, one file was three things: the root page, the
+     * app shell, and the handler for every URL that does not exist. A request
+     * for /a-typo answered 200 carrying the homepage's title and canonical,
+     * which is a soft 404. Splitting the shell out lets it declare `noindex`
+     * without that also applying to the marketing pages, which are now real
+     * prerendered files (scripts/prerender.mjs writes both).
+     */
+    expect(rewrites?.[0]?.destination).toBe('/app.html')
   })
 })
 

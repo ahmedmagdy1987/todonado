@@ -116,6 +116,14 @@ export default defineConfig({
         skipWaiting: true,
         // Precache the built app shell (hashed → immutable, safe cache-first). NOT
         // the marketing screenshots / og-image — those are network-only content.
+        //
+        // The prerendered marketing pages are NOT in here, and nothing had to be
+        // changed for that: this manifest is computed during `vite build`, and
+        // scripts/prerender.mjs writes those files afterwards. Verified against
+        // the built sw.js, which lists index.html and nothing else. It is the
+        // outcome we want anyway (they are content, served by the NetworkFirst
+        // navigation rule below), so it is recorded here rather than relied on
+        // silently, because reordering the build would change it.
         globPatterns: ['**/*.{js,css,html,ico,svg,webmanifest,woff2}', 'icons/*.png'],
         globIgnores: ['**/shots/**', '**/og-image.png'],
         // NAVIGATION = NETWORK-FIRST: index.html is always fresh online and can never

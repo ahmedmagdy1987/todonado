@@ -45,3 +45,6 @@ blob-report
 
 # Landing review screenshots: generated proof, not source (24MB per run).
 docs/landing/*/
+
+# Build-time SSR bundle for prerendering (removed by the script; ignored if a run aborts).
+.prerender/

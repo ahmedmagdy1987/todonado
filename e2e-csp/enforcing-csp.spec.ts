@@ -304,6 +304,323 @@ test('the money and calendar endpoints are reachable from the page — connect-s
   ).toEqual([])
 })
 
+/*
+ * ── THE PRERENDER, TESTED WHERE IT ACTUALLY EXISTS ────────────────────────
+ *
+ * These belong in this file and nowhere else. The main E2E suite drives the
+ * Vite dev server, which has no prerendered files at all — it serves the same
+ * empty shell for every route, exactly as production used to. This is the only
+ * suite that runs against the built `dist/`, behind the real routing rules and
+ * the real enforcing policy, so it is the only place that can prove a crawler
+ * gets HTML and that the structured data survives `script-src 'self'`.
+ */
+const MARKETING_ROUTES = ['/welcome', '/pricing', '/about', '/terms', '/privacy']
+
+/** The words a crawler with no JavaScript would read. */
+function visibleText(html: string): string {
+  const body = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(html)?.[1] ?? ''
+  return body
+    .replace(/<(script|style|template|noscript)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+test('every public route is served as real HTML, with its own title and canonical', async ({
+  request,
+}) => {
+  const seen = new Map<string, string>()
+
+  for (const path of MARKETING_ROUTES) {
+    const res = await request.get(path)
+    expect(res.ok(), `${path} did not respond`).toBeTruthy()
+    const html = await res.text()
+
+    // The regression this whole change exists to prevent: a 200 with an empty
+    // body. Before prerendering, EVERY route here returned 0 characters.
+    expect(
+      visibleText(html).length,
+      `${path} served no readable text — the prerender did not run for it`,
+    ).toBeGreaterThan(500)
+
+    const title = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? ''
+    const canonical = /<link rel="canonical"[^>]*href="([^"]+)"/i.exec(html)?.[1] ?? ''
+    expect(title, `${path} has no title`).toBeTruthy()
+    expect(canonical, `${path} has no canonical`).toBeTruthy()
+
+    // Every page used to claim the SAME canonical, which told Google they were
+    // all duplicates of the homepage. Each must now name its own URL.
+    expect(canonical.endsWith(path), `${path} claims to be ${canonical}`).toBe(true)
+
+    // Titles and descriptions must distinguish the pages, not repeat one blurb.
+    expect(seen.has(title), `${path} reuses the title already served by ${seen.get(title)}`).toBe(
+      false,
+    )
+    seen.set(title, path)
+  }
+})
+
+test('the structured data is present, parses, and survives script-src self', async ({
+  page,
+  request,
+}) => {
+  const html = await (await request.get('/welcome')).text()
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(
+    (m) => JSON.parse(m[1]) as Record<string, unknown>,
+  )
+  expect(blocks.length, 'no JSON-LD was injected into /welcome').toBeGreaterThanOrEqual(2)
+
+  const app = blocks.find((b) => b['@type'] === 'SoftwareApplication')
+  expect(app, 'no SoftwareApplication block').toBeTruthy()
+
+  /*
+   * NOTHING INVENTED. There are no reviews of Todonado, so there is no rating
+   * to publish. Fabricating one is a Google structured-data policy violation
+   * AND the exact species of claim the marketing surface was audited to remove;
+   * this fails the build rather than trusting a future editor to remember.
+   */
+  for (const forbidden of ['aggregateRating', 'reviewCount', 'review', 'ratingValue']) {
+    expect(JSON.stringify(app), `structured data claims ${forbidden}, which is not a known fact`).not.toContain(
+      forbidden,
+    )
+  }
+
+  /*
+   * `script-src 'self'` forbids inline SCRIPT. A `type="application/ld+json"`
+   * element is a data block: the HTML parser never executes it, so the inline
+   * check is never reached. That is the theory — and the point of asserting it
+   * here is that the theory is not what ships. The page is loaded under the
+   * real enforcing policy and asked whether anything was blocked.
+   */
+  await page.goto('/welcome')
+  await page.waitForLoadState('networkidle')
+
+  const inDom = await page.evaluate(
+    () => document.querySelectorAll('script[type="application/ld+json"]').length,
+  )
+  expect(inDom, 'the JSON-LD was stripped from the DOM under the enforcing policy').toBeGreaterThanOrEqual(2)
+
+  const v = await violationsOf(page)
+  expect(
+    v.filter((x) => x.directive.startsWith('script-src')),
+    `the enforcing policy blocked the structured data:\n${describeViolations(v)}`,
+  ).toEqual([])
+
+  /*
+   * THE CONTROL, WITHOUT WHICH THE ASSERTION ABOVE PROVES NOTHING.
+   *
+   * "No violations were reported" has two explanations: the policy allowed the
+   * JSON-LD, or the detector is broken and reports nothing either way. So the
+   * page is now asked to run a script the policy definitely forbids. If THAT
+   * raises no violation, the measurement is faulty and this test fails rather
+   * than issuing a clean bill of health it did not earn.
+   */
+  const control = await page.evaluate(async () => {
+    const before = window.__cspViolations.length
+    const s = document.createElement('script')
+    s.textContent = 'window.__cspControlRan = true'
+    document.head.append(s)
+    // `securitypolicyviolation` is QUEUED, not dispatched synchronously, so a
+    // count read on this same tick is always zero. Writing it that way first is
+    // how this control turned out to need a control of its own.
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    return {
+      raised: window.__cspViolations.length - before,
+      executed: (window as { __cspControlRan?: boolean }).__cspControlRan === true,
+    }
+  })
+  expect(control.executed, 'an inline script RAN under script-src self').toBe(false)
+  expect(
+    control.raised,
+    'the violation detector reported nothing for a script the policy forbids, so the check above was vacuous',
+  ).toBeGreaterThan(0)
+})
+
+/**
+ * The sentences a reader with JavaScript off must be able to READ.
+ *
+ * Named rather than counted, because a byte total is exactly the measurement
+ * that let an empty page look like a working one in the first place.
+ */
+const MUST_BE_READABLE: Record<string, string[]> = {
+  '/welcome': [
+    'Your list is infinite',
+    'Your day is not',
+    'You have more to do than the day can hold',
+    'Most planners track what you owe',
+    'One app instead of several',
+    'Plan it, work it, learn from it',
+  ],
+  '/pricing': ['Simple, honest pricing', 'Free forever', 'Everything you need to plan and finish a day'],
+}
+
+/**
+ * The three elements that are legitimately not painted at 1280px with no
+ * JavaScript. Each carries the reason it is not a prerender defect, and
+ * anything NOT matched here fails the test.
+ */
+const ALLOWED_UNPAINTED: { pattern: RegExp; why: string }[] = [
+  {
+    pattern: /^<A> See how it works$/,
+    why:
+      'The mobile-only copy of the secondary CTA. The landing renders it twice, ' +
+      '`hidden sm:inline-flex` and `sm:hidden`, so exactly one of the pair is ' +
+      'display:none at any width and the other is on screen beside it.',
+  },
+  {
+    pattern: /^<P> \d+ more didn.t fit today/,
+    why:
+      'The hero card opens in its storm state, where those tasks are on screen as ' +
+      'real rows; this line is the summary that REPLACES them once the animation ' +
+      'runs. Without JavaScript the rows stay, so the reader loses no information, ' +
+      'and forcing the line visible would overlap the rows it stands in for.',
+  },
+  {
+    pattern: /^<LI> Money$/,
+    why:
+      'A LIVE DEFECT IN THE LANDING, surfaced by prerendering rather than caused ' +
+      'by it, and deliberately not fixed here. The hero domain row trims itself ' +
+      'per width with `hidden min-[360px]:flex`, and tailwind.config.js defines ' +
+      '`md-fine` as an OBJECT screen, which disables the `min-*` arbitrary ' +
+      'variants for the whole project (the build prints the warning). No rule is ' +
+      'generated, `hidden` wins at every width, and "Money" is missing from that ' +
+      'row on production today. It is a one-line responsive fix and it belongs in ' +
+      'its own change, not in an SEO one.',
+  },
+]
+
+test('with JavaScript off, the prerendered pages are readable rather than merely present', async ({
+  browser,
+}) => {
+  /*
+   * HTML THAT IS PRESENT BUT PAINTED INVISIBLE IS THE WORST OF BOTH WORLDS.
+   *
+   * A crawler sees hidden text, a reader sees a blank column, and the byte
+   * count looks like success. That is not hypothetical: the reveal primitive
+   * `useInView` started `false` and only flipped in an effect, and effects
+   * never run on a server, so every `Reveal` would have been prerendered at
+   * `opacity-0` and `translate-y-6`. It would have sailed past the byte-count
+   * checks above.
+   *
+   * Desktop width on purpose: a responsive `hidden md:block` control is
+   * legitimately not rendered on a phone, and asserting at 390px would either
+   * fail on that or need an exception list that could hide a real defect.
+   */
+  const ctx = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 1280, height: 900 },
+  })
+
+  try {
+    for (const path of ['/welcome', '/pricing']) {
+      const page = await ctx.newPage()
+      await page.goto(path, { waitUntil: 'load' })
+      // CSS entrance animations are allowed to run; only what never resolves
+      // without JavaScript should still be invisible after this.
+      await page.waitForTimeout(3500)
+
+      const invisibleTexts = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('h1,h2,h3,p,li,button,a'))
+          .filter((el) => {
+            if (!(el.textContent || '').trim()) return false
+            const s = getComputedStyle(el)
+            return s.opacity === '0' || s.visibility === 'hidden' || s.display === 'none'
+          })
+          .map((el) => `<${el.tagName}> ${(el.textContent || '').trim().slice(0, 60)}`),
+      )
+
+      /*
+       * ── 1. THE COPY THAT MUST BE READ, NOT MERELY PRESENT ────────────────
+       *
+       * A byte count cannot tell the difference between a paragraph and a
+       * paragraph at zero opacity, so the sentences this page exists to say
+       * are named and each one is checked through its whole ancestor chain. A
+       * hidden PARENT hides the child, and asking only about the element
+       * itself is how that gets missed.
+       */
+      const painted = await page.evaluate((phrases: string[]) => {
+        const isPainted = (el: Element) => {
+          for (let n: Element | null = el; n; n = n.parentElement) {
+            const s = getComputedStyle(n)
+            if (s.opacity === '0' || s.visibility === 'hidden' || s.display === 'none') return false
+          }
+          const r = el.getBoundingClientRect()
+          return r.width > 0 && r.height > 0
+        }
+        return phrases.map((phrase) => {
+          // The innermost element carrying the phrase, so the answer is about
+          // the text and not about some wrapper that happens to contain it.
+          const el = Array.from(document.querySelectorAll('*'))
+            .filter((e) => (e.textContent || '').includes(phrase))
+            .sort((a, b) => (a.textContent || '').length - (b.textContent || '').length)[0]
+          return { phrase, found: Boolean(el), painted: el ? isPainted(el) : false }
+        })
+      }, MUST_BE_READABLE[path])
+
+      for (const r of painted) {
+        expect(r.found, `${path}: "${r.phrase}" is not in the prerendered HTML at all`).toBe(true)
+        expect(
+          r.painted,
+          `${path}: "${r.phrase}" is in the HTML but no reader without JavaScript can see it`,
+        ).toBe(true)
+      }
+
+      /*
+       * ── 2. AND NOTHING NEW IS STRANDED ───────────────────────────────────
+       *
+       * This used to assert the invisible set was EMPTY. Against the landing
+       * that shipped it cannot be, and three separate things are why - none of
+       * them prerender defects, each named below with its reason. An empty
+       * assertion that can only ever fail teaches nobody anything, so the set
+       * is compared against those three instead: a NEW stranded string still
+       * fails, which is the property worth having.
+       */
+      const stranded = invisibleTexts.filter(
+        (t) => !ALLOWED_UNPAINTED.some((a) => a.pattern.test(t)),
+      )
+      expect(
+        stranded,
+        `${path} prerenders text that no reader without JavaScript can ever see:\n  ${stranded.join('\n  ')}`,
+      ).toEqual([])
+
+      // And the page is genuinely readable, not just free of hidden nodes.
+      const readable = await page.evaluate(() =>
+        (document.body.innerText || '').replace(/\s+/g, ' ').trim(),
+      )
+      expect(readable.length, `${path} has almost nothing to read`).toBeGreaterThan(800)
+      expect(await page.locator('h1').count(), `${path} has no h1`).toBeGreaterThan(0)
+
+      await page.close()
+    }
+  } finally {
+    await ctx.close()
+  }
+})
+
+test('the SPA fallback is noindex, and the marketing pages are not', async ({ request }) => {
+  /*
+   * One HTML file answers every unmatched URL, which is how a router-driven app
+   * serves /today and also /a-typo. It used to be index.html, so a nonexistent
+   * URL returned 200 wearing the homepage's title and canonical — a soft 404.
+   * The fallback now says noindex, and the check that matters is that this did
+   * not leak onto the real pages.
+   */
+  const missing = await request.get('/this-path-does-not-exist-9f2b')
+  expect(missing.ok(), 'the SPA fallback must still answer unmatched paths').toBeTruthy()
+  const shell = await missing.text()
+  expect(shell, 'the fallback must be noindex').toMatch(/<meta name="robots" content="noindex"/)
+  expect(shell, 'the fallback must not claim to be any canonical URL').not.toMatch(
+    /<link rel="canonical"/,
+  )
+
+  for (const path of MARKETING_ROUTES) {
+    const html = await (await request.get(path)).text()
+    expect(html, `${path} was served the noindex fallback instead of its own page`).not.toMatch(
+      /<meta name="robots" content="noindex"/,
+    )
+  }
+})
+
 test('the whole visited surface raised ZERO violations', async ({ page }) => {
   /*
    * The catch-all. Individual tests assert their own directive; this one fails
