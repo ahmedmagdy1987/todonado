@@ -64,6 +64,18 @@ export interface PrerenderRoute {
   mustContain?: string[]
 }
 
+/**
+ * The homepage title, written once because `/` and `/welcome` are one page.
+ *
+ * IT NAMES BOTH HALVES OF THE PRODUCT, which the title it replaces did not.
+ * "Plan a realistic day, not a wish-list" described a planner and stopped
+ * there; the landing that actually shipped plans the day AND then runs it in a
+ * focus timer, and section 01 says so in as many words ("the plan is the thing
+ * you work"). "Plan the day you actually have" still carries the words a person
+ * types into a search box, without reducing the product to minute-counting.
+ */
+const HOME_TITLE = 'Todonado: plan the day you actually have, then work it'
+
 export const PRERENDER_ROUTES: PrerenderRoute[] = [
   /*
    * `/` IS NOT THE MARKETING PAGE, AND THE OLD METADATA CLAIMED IT WAS.
@@ -80,53 +92,110 @@ export const PRERENDER_ROUTES: PrerenderRoute[] = [
    */
   {
     path: '/',
-    title: 'Todonado: your list is infinite, your day is not',
+    title: HOME_TITLE,
+    /*
+     * A DIFFERENT SENTENCE FROM /welcome, DELIBERATELY.
+     *
+     * The two share a title because they are the same page to a reader, but a
+     * description that merely paraphrases the canonical one is a wasted slot.
+     * This one says what you DO; /welcome says what the thing IS.
+     */
     description:
-      'A day holds only so many minutes. Todonado gives every task the time it really takes, shows you what fits before you commit, then helps you focus and pick up whatever slips.',
+      'Open Todonado and plan the part of your list that fits today. Pick a task, start the timer, and afterwards see where the hours really went. Anything unfinished rolls into tomorrow.',
     canonical: `${SITE_ORIGIN}/welcome`,
   },
   {
     path: '/welcome',
-    title: 'Todonado: your list is infinite, your day is not',
+    title: HOME_TITLE,
+    /*
+     * CATEGORY, DIFFERENTIATOR, BREADTH - in that order, and nothing else.
+     *
+     * "day planner" is the category a person searches for and there is no
+     * reason to hide from it. What the old description did wrong was stop
+     * there: it sold a capacity meter to people planning a work day, when the
+     * page it describes opens on Work, Health, Family, Errands, Money and
+     * Routines and then runs the day in a timer. So the category is stated
+     * once, the differentiator qualifies it, and the breadth is named with the
+     * hero's own domains rather than with a grand word standing in for them.
+     */
     description:
-      'A day holds only so many minutes. Todonado gives every task the time it really takes, shows you what fits before you commit, then helps you focus and pick up whatever slips.',
+      'Todonado is a day planner built around the time you really have. It covers work, health, family, errands and money, and runs the plan in a focus timer so you can see where the time went.',
     canonical: `${SITE_ORIGIN}/welcome`,
     softwareApplicationLd: true,
-    minText: 4000,
-    mustContain: ['Your list is infinite', 'Your day is not', 'Start free', 'One place for your day'],
+    /*
+     * The floors below are set from what each page ACTUALLY renders, with
+     * roughly a quarter of headroom, and they are the reason this file can be
+     * trusted. `/welcome` renders about 11,650 characters; the day it renders
+     * 8,000 something has silently stopped rendering, and the build should
+     * stop rather than ship it.
+     *
+     * `mustContain` is the same idea for specific copy. "Most planners track
+     * what you owe" sits in section 01, well below the fold, so it also proves
+     * the lazily-imported route chunk resolved rather than emitting its
+     * Suspense fallback.
+     */
+    minText: 8500,
+    mustContain: [
+      'Your list is infinite',
+      'Your day is not',
+      'Start free',
+      'Most planners track what you owe',
+      'Plan it, work it, learn from it',
+    ],
   },
   {
     path: '/pricing',
-    title: 'Pricing: free for every day, Pro for the whole week | Todonado',
-    description: `The capacity meter, planning, focus mode and roll-over are free forever. Pro adds week planning and insights for ${usd(
+    title: 'Todonado pricing: a complete free plan and what Pro adds',
+    description: `A complete day is free forever. No trial to expire, and no credit card. Pro adds week planning, insights on planned versus real time and live calendar sync, for ${usd(
       PRO_MONTHLY_USD,
     )} a month or ${usd(PRO_YEARLY_USD)} a year.`,
     canonical: `${SITE_ORIGIN}/pricing`,
-    minText: 3000,
-    mustContain: [usd(PRO_MONTHLY_USD), usd(PRO_YEARLY_USD)],
+    minText: 4800,
+    mustContain: [usd(PRO_MONTHLY_USD), usd(PRO_YEARLY_USD), 'Free forever'],
   },
   {
     path: '/about',
-    title: 'About Todonado',
+    title: 'About Todonado: an honest plan of what actually fits',
     description:
-      'Why Todonado exists, what it refuses to do, and who is building it. A daily planner that is honest about how much time a day actually has.',
+      'Why Todonado exists and who it is for. Most planners track what you owe; this one starts from the time you actually have, so you commit to a day you can finish.',
     canonical: `${SITE_ORIGIN}/about`,
-    minText: 600,
+    minText: 900,
   },
   {
     path: '/terms',
+    /*
+     * "Terms of Use", because that is the heading on the page. A title that
+     * says "Terms of Service" over a page headed "Terms of Use" is a small lie
+     * that costs nothing to avoid.
+     */
     title: 'Terms of Use | Todonado',
-    description: 'The terms that apply when you use Todonado.',
+    /*
+     * WRITTEN FROM THE PAGE, NOT FROM WHAT A TERMS PAGE USUALLY CONTAINS.
+     *
+     * A first draft of this line advertised "billing and cancellation". The
+     * document contains no such section: the words billing, subscription,
+     * payment, cancel and refund do not appear on it at all. Its actual
+     * headings are the account, acceptable use, the wellbeing tools not being
+     * medical advice, as-is service, liability, and changes. Those are what it
+     * now describes.
+     */
+    description:
+      'The terms for using Todonado: your account, acceptable use, why the wellbeing tools are not medical advice, and what we do and do not promise about the service.',
     canonical: `${SITE_ORIGIN}/terms`,
-    minText: 1200,
+    minText: 2000,
   },
   {
     path: '/privacy',
     title: 'Privacy Policy | Todonado',
+    /*
+     * The earlier version of this line promised a data export. The policy
+     * describes deletion, not export, and metadata is not the place to invent
+     * a capability the product may not have.
+     */
     description:
-      'What Todonado stores, what it never sells, and how to export or permanently delete your account and its data.',
+      'What Todonado collects, how it is used, and the choices you have. Covers your email, the tasks and notes you create, voice recordings, and the health-adjacent logs kept only for you.',
     canonical: `${SITE_ORIGIN}/privacy`,
-    minText: 1200,
+    minText: 3800,
   },
 ]
 
@@ -156,7 +225,17 @@ export function softwareApplicationJsonLd(): string {
     // build, which is why no `operatingSystem` list is claimed beyond this.
     operatingSystem: 'Web browser',
     description:
-      'A daily planner that counts the minutes. Give every task the time it really takes, see what fits before you commit, focus on it, and carry forward whatever slips.',
+      'A day planner built around the time you really have. Put minutes on the work, see what fits before you commit, run the plan in a focus timer, and carry forward whatever slips.',
+    /*
+     * THE OFFER DESCRIPTIONS ARE THE SHIPPING CONTRACT, NOT A PITCH.
+     *
+     * The Free line used to stop at the capacity meter and roll-over, which
+     * was the Free tier of an earlier release. Free has since become a great
+     * deal more generous (unlimited tasks, projects and subtasks, templates,
+     * a month of completed history), and a structured-data blurb that
+     * undersells the free plan is a worse error than one that oversells it:
+     * it is the version a search result may quote.
+     */
     offers: [
       {
         '@type': 'Offer',
@@ -164,7 +243,7 @@ export function softwareApplicationJsonLd(): string {
         price: '0',
         priceCurrency: 'USD',
         description:
-          'The capacity meter, the overbooking warning, Plan my day, focus mode with Pomodoro, roll-over and recurring tasks.',
+          'Unlimited tasks, projects and subtasks, the capacity meter and overbooking warning, Plan my day, focus mode with Pomodoro, roll-over, recurring tasks, templates, and 30 days of completed history.',
       },
       {
         '@type': 'Offer',
@@ -172,7 +251,8 @@ export function softwareApplicationJsonLd(): string {
         price: String(PRO_MONTHLY_USD),
         priceCurrency: 'USD',
         billingIncrement: 1,
-        description: 'Adds week planning, insights, unlimited history and live calendar sync.',
+        description:
+          'Adds week planning, insights on planned versus real time, unlimited history, live calendar sync and voice notes in the journal.',
       },
       {
         '@type': 'Offer',
@@ -184,6 +264,18 @@ export function softwareApplicationJsonLd(): string {
     ],
   })
 }
+
+/*
+ * THERE IS DELIBERATELY NO FAQPage BLOCK, AND THE LANDING DOES HAVE AN FAQ.
+ *
+ * Google restricted FAQ rich results in August 2023 to well-known authoritative
+ * government and health sites. For everybody else the markup is still valid and
+ * still parsed, and it produces no rich result whatsoever. Adding it here would
+ * be schema for the sake of having schema: more surface to keep in step with
+ * the visible questions, a second place for the answers to drift, and nothing
+ * gained. If that guidance changes, the visible FAQ already exists to describe
+ * and this is where the block would go.
+ */
 
 /** The publisher, kept minimal because very little about it is public fact. */
 export function organizationJsonLd(): string {

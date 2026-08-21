@@ -54,11 +54,17 @@ export type { PrerenderRoute } from './routes'
  * the marketing widgets set their timers in effects too. The tree therefore
  * renders its honest signed-out, pre-animation state.
  *
- * `renderToPipeableStream` rather than `renderToString`, because the landing
- * page code-splits nearly every section behind `React.lazy`. `renderToString`
- * would emit the Suspense fallbacks (nothing) and produce an empty page;
- * `onAllReady` waits for every lazy chunk to resolve first, which is exactly
- * what a crawler needs to see.
+ * `renderToPipeableStream` rather than `renderToString`, because EVERY PAGE IN
+ * `AppRoutes` IS A `React.lazy` IMPORT. `renderToString` does not wait for a
+ * lazy component to resolve: it emits the `Suspense` fallback, which here is
+ * `FullScreenLoader`, so every route would prerender to a spinner and the
+ * result would look like a build that worked. `onAllReady` waits for the whole
+ * tree to settle before a byte is written, which is what a crawler needs.
+ *
+ * (The landing itself imports its sections directly rather than lazily, so it
+ * is the ROUTE boundary that makes this necessary, not the sections. Worth
+ * stating precisely, because the section-level split is what an earlier draft
+ * of this file blamed and that is no longer how the page is built.)
  */
 export function renderRoute(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
