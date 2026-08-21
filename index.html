@@ -4,37 +4,49 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Primary meta -->
-    <title>Todonado: Plan a realistic day, not a wish-list</title>
+    <!--
+      THE DEFAULTS, AND THEY ARE ONLY EVER DEFAULTS.
+
+      scripts/prerender.mjs uses this file as its template and REPLACES the
+      title, description, canonical, og: and twitter: values per route from
+      src/prerender/routes.ts. What is written here therefore survives in
+      exactly two places: `vite dev`, and `app.html` - the noindex SPA shell
+      that answers /today, /focus and every typo. That shell is what a
+      signed-in user's browser tab reads, which is why these are kept current
+      rather than left at whatever the homepage said two releases ago.
+
+      `src/prerender/routes.test.ts` fails if they drift from the root route.
+    -->
+    <title>Todonado: plan the day you actually have, then work it</title>
     <meta
       name="description"
-      content="Todonado shows you what actually fits in your day. Give each task the minutes it really takes, and a live capacity meter warns you before you overcommit."
+      content="Todonado is a day planner built around the time you really have. It covers work, health, family, errands and money, and runs the plan in a focus timer so you can see where the time went."
     />
-    <link rel="canonical" href="https://www.todonado.com/" />
+    <link rel="canonical" href="https://www.todonado.com/welcome" />
 
     <!-- Open Graph (Facebook, LinkedIn, WhatsApp, Slack, Discord…) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Todonado" />
-    <meta property="og:title" content="Todonado: Plan a realistic day, not a wish-list" />
+    <meta property="og:title" content="Todonado: plan the day you actually have, then work it" />
     <meta
       property="og:description"
-      content="A day holds only so many minutes. Give each task the time it really takes, and see what fits before you commit."
+      content="Todonado is a day planner built around the time you really have. It covers work, health, family, errands and money, and runs the plan in a focus timer so you can see where the time went."
     />
-    <meta property="og:url" content="https://www.todonado.com/" />
+    <meta property="og:url" content="https://www.todonado.com/welcome" />
     <meta property="og:image" content="https://www.todonado.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Todonado: Plan a realistic day, not a wish-list" />
+    <meta property="og:image:alt" content="Todonado: plan the day you actually have, then work it" />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Todonado: Plan a realistic day, not a wish-list" />
+    <meta name="twitter:title" content="Todonado: plan the day you actually have, then work it" />
     <meta
       name="twitter:description"
-      content="A day holds only so many minutes. Give each task the time it really takes, and see what fits before you commit."
+      content="Todonado is a day planner built around the time you really have. It covers work, health, family, errands and money, and runs the plan in a focus timer so you can see where the time went."
     />
     <meta name="twitter:image" content="https://www.todonado.com/og-image.png" />
-    <meta name="twitter:image:alt" content="Todonado: Plan a realistic day, not a wish-list" />
+    <meta name="twitter:image:alt" content="Todonado: plan the day you actually have, then work it" />
 
     <!-- Theme / PWA -->
     <meta name="theme-color" content="#0A0D16" />

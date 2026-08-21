@@ -78,6 +78,54 @@ describe('the public route table', () => {
   })
 })
 
+describe('index.html, the template and the SPA shell', () => {
+  /*
+   * THE FALLBACK'S METADATA IS NOT COVERED BY ANYTHING ELSE.
+   *
+   * The prerender rewrites the head per route, so a stale string in
+   * index.html is invisible on all six marketing pages - and then survives
+   * verbatim in `app.html`, the noindex shell that answers /today, /focus and
+   * every typo, which is the title a signed-in user's browser tab shows.
+   *
+   * That is exactly what happened: production shipped the prerender-era title
+   * on the marketing pages and the pre-prerender one everywhere else. Pinning
+   * the defaults to the root route means the two cannot drift apart again.
+   */
+  const INDEX = read('../../index.html')
+  const root = PRERENDER_ROUTES.find((r) => r.path === '/')
+
+  // The head is prettier-wrapped, so `content` can sit on the next line.
+  const attr = (name: string) => {
+    const m = INDEX.match(new RegExp(`${name}\\s*\\n?\\s*content="([^"]*)"`))
+    return m?.[1] ?? null
+  }
+
+  it('carries the homepage title as its default', () => {
+    expect(INDEX).toContain(`<title>${root?.title}</title>`)
+    expect(attr('property="og:title"')).toBe(root?.title)
+    expect(attr('name="twitter:title"')).toBe(root?.title)
+  })
+
+  it('does not still describe the product the way two releases ago did', () => {
+    // The exact strings that were live on every public URL before this change.
+    for (const stale of [
+      'Plan a realistic day, not a wish-list',
+      'a live capacity meter warns you before you overcommit',
+    ]) {
+      expect(INDEX, `index.html still carries the retired string ${JSON.stringify(stale)}`).not.toContain(
+        stale,
+      )
+    }
+  })
+
+  it('points its own canonical and og:url at the page that exists', () => {
+    // `/` is a gated redirect, so the shell should name /welcome rather than
+    // claim to be a URL that shows marketing copy to nobody.
+    expect(INDEX).toContain(`<link rel="canonical" href="${root?.canonical}" />`)
+    expect(attr('property="og:url"')).toBe(root?.canonical)
+  })
+})
+
 describe('sitemap.xml', () => {
   const listed = [...SITEMAP.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
 
